@@ -1,0 +1,144 @@
+jobs:
+ - job: style
+   displayName: Style linting
+   strategy:
+     matrix:
+       stable:
+         rust: stable
+       beta:
+         rust: beta
+   pool:
+     vmImage: ubuntu-latest
+   continueOnError: $[eq(variables.rust, 'beta')]
+   steps:
+     - template: install-rust.yml@templates
+       parameters:
+         rust: $(rust)
+         components:
+           - rustfmt
+           - clippy
+     - script: cargo fmt -- --check
+       displayName: cargo fmt --check
+     - script: cargo clippy -- -D warnings
+       displayName: cargo clippy -- -D warnings
+ - job: main
+   displayName: Compile and test
+   dependsOn: []
+   strategy:
+     matrix:
+       Linux:
+         vmImage: ubuntu-latest
+         rust: stable
+       "Linux (beta)":
+         vmImage: ubuntu-latest
+         rust: beta
+       "Linux (nightly)":
+         vmImage: ubuntu-latest
+         rust: nightly
+       MacOS:
+         vmImage: macOS-10.15
+         rust: stable
+       # Windows:
+       #   vmImage: windows-2019
+       #   rust: stable
+   pool:
+     vmImage: $(vmImage)
+   continueOnError: $[eq(variables.rust, 'nightly')]
+   steps:
+     - template: install-rust.yml@templates
+       parameters:
+         rust: $(rust)
+     - script: cargo check
+       displayName: cargo check
+     - script: cargo check --no-default-features
+       displayName: cargo check --no-default-features
+     - script: cargo check --all-features
+       displayName: cargo check --all-features
+     - script: cargo test --all-features
+       displayName: cargo test
+     - script: cargo doc --no-deps
+       displayName: cargo doc
+ # This represents the minimum Rust version supported.
+ # Tests are not run as tests may require newer versions of rust.
+ - job: msrv
+   displayName: "Minimum supported Rust version: 1.36.0"
+   dependsOn: []
+   pool:
+     vmImage: ubuntu-latest
+   steps:
+     - template: install-rust.yml@templates
+       parameters:
+         rust: 1.36.0
+     - script: cargo check
+       displayName: cargo check
+     - script: cargo check --no-default-features
+       displayName: cargo check --no-default-features
+     - script: cargo check --all-features
+       displayName: cargo check --all-features
+ - job: integration
+   displayName: Run integration tests
+   pool:
+     vmImage: ubuntu-latest
+   services:
+     opensshtest: openssh
+   steps:
+     - bash: |
+         chmod 600 .test-key
+         ssh -i .test-key -v -p 2222 -l test-user 127.0.0.1 -o StrictHostKeyChecking=accept-new whoami
+       displayName: Test ssh connectivity
+       continueOnError: true
+     - bash: |
+         eval $(ssh-agent)
+         echo '##vso[task.setvariable variable=SSH_AUTH_SOCK]'$SSH_AUTH_SOCK
+         echo '##vso[task.setvariable variable=SSH_AGENT_PID]'$SSH_AGENT_PID
+         cat .test-key | ssh-add -
+       displayName: Set up ssh-agent
+     - template: install-rust.yml@templates
+     - script: cargo test --tests -- --ignored --nocapture
+       displayName: cargo test --ignored
+     - bash: docker logs $(docker ps | grep openssh-server | awk '{print $1}')
+       displayName: ssh container log
+       condition: failed()
+     - bash: docker exec $(docker ps | grep openssh-server | awk '{print $1}') cat /config/logs/openssh/openssh.log
+       displayName: ssh server log
+       condition: failed()
+ - template: coverage.yml@templates
+   parameters:
+     token: $(CODECOV_TOKEN_SECRET)
+     services:
+       opensshtest: openssh
+     setup:
+       - bash: |
+           chmod 600 .test-key
+           ssh -i .test-key -v -p 2222 -l test-user opensshtest -o StrictHostKeyChecking=accept-new whoami
+         displayName: Test ssh connectivity
+         continueOnError: true
+       - bash: |
+           eval $(ssh-agent)
+           echo '##vso[task.setvariable variable=SSH_AUTH_SOCK]'$SSH_AUTH_SOCK
+           echo '##vso[task.setvariable variable=SSH_AGENT_PID]'$SSH_AGENT_PID
+           cat .test-key | ssh-add -
+         displayName: Set up ssh-agent
+     env:
+       # makes all the ignored tests not ignored
+       RUSTFLAGS: --cfg=ci
+       # we cannot use 127.0.0.1 (the default here)
+       # since we are running from a different container
+       TEST_HOST: ssh://test-user@opensshtest:2222
+
+resources:
+  repositories:
+    - repository: templates
+      type: github
+      name: crate-ci/azure-pipelines
+      ref: refs/heads/v0.4
+      endpoint: jonhoo
+  containers:
+   - container: openssh
+     image: linuxserver/openssh-server
+     ports:
+       - 2222:2222
+     env:
+      USER_NAME: test-user
+      PUBLIC_KEY: |-
+        ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGzHvK2pKtSlZXP9tPYOOBb/xn0IiC9iLMS355AYUPC7

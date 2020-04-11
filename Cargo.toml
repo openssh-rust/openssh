@@ -1,0 +1,21 @@
+[package]
+name = "openssh"
+version = "0.1.0"
+authors = ["Jon Gjengset <jon@thesquareplanet.com>"]
+edition = "2018"
+license = "MIT OR Apache-2.0"
+
+readme = "README.md"
+description = "SSH through OpenSSH"
+repository = "https://github.com/jonhoo/openssh-rs.git"
+
+keywords = ["ssh","remote","openssh","orchestration"]
+categories = ["network-programming", "api-bindings"]
+
+[badges]
+azure-devops = { project = "jonhoo/jonhoo", pipeline = "openssh", build = "23" }
+codecov = { repository = "jonhoo/openssh-rs", branch = "master", service = "github" }
+maintenance = { status = "experimental" }
+
+[dependencies]
+tempfile = "3.1.0"

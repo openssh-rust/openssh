@@ -1,0 +1,326 @@
+//! Scriptable SSH through OpenSSH.
+//!
+//! This crate wraps the OpenSSH remote login client (`ssh` on most machines), and provides
+//! a convenient mechanism for running commands on remote hosts. Since all commands are executed
+//! through the `ssh` command, all your existing configuration (e.g., in `.ssh/config`) should
+//! continue to work as expected.
+//!
+//! The library's API is modeled closely after that of [`std::process::Command`], since `ssh` also
+//! attempts to make the remote process seem as much as possible like a local command. However,
+//! there are some differences.
+//!
+//! First of all, all remote commands are executed in the context of a single ssh
+//! [session](Session). Authentication happens once when the session is
+//! [established](Session::connect), and subsequent command invocations re-use the same connection.
+//! Behind the scenes, the crate uses ssh's [`ControlMaster`] feature to multiplex the channels for
+//! the different remote commands. Because of this, each remote command is tied to the lifetime of
+//! the [`Session`] that spawned them. When the session is [closed](Session::close), the connection
+//! is severed, and there can be no outstanding remote clients.
+//!
+//! Much like with [`std::process::Command`], you have multiple options when it comes to launching
+//! a remote command. You can [spawn](Command::spawn) the remote command, which just gives you a
+//! handle to the running process, you can run the command and wait for its
+//! [output](Command::output), or you can run it and just extract its [exit
+//! status](Command::status). Unlike its `std` counterpart though, these methods on [`Command`] can
+//! fail even if the remote command executed successfully, since there is a fallible network
+//! separating you from it.
+//!
+//! Also unlike its `std` counterpart, [`spawn`](Command::spawn) gives you a [`RemoteChild`] rather
+//! than a [`std::process::Child`]. Behind the scenes, a remote child is really just a process
+//! handle to the _local_ `ssh` instance corresponding to the spawned remote command. The behavior
+//! of the methods of [`RemoteChild`] therefore match the behavior of `ssh`, rather than that of
+//! the remote command directly. Usually, these are the same, though not always, as highlighted in
+//! the documetantation the individual methods.
+//!
+//! # Authentication
+//!
+//! This library supports only password-less authentication schemes. If running `ssh` to a target
+//! host requires you to provide input on standard input (`STDIN`), then this crate will not work
+//! for you. You should set up keypair-based authentication instead.
+//!
+//! # Errors
+//!
+//! Since we are wrapping the `ssh`, which in turn runs a remote command that we do not control, we
+//! do not have a reliable way to tell the difference between what is a failure of the SSH
+//! connection itself, and what is a program error from the remote host. We do our best with some
+//! heuristics (like `ssh` exiting with status code 255 if a connection error occurs), but the
+//! errors from this crate will almost necessarily be worse than those of a native SSH
+//! implementation. Sorry in advance :)
+//!
+//! If you suspect that the connection has failed, [`Session::check`] _may_ provide you with more
+//! information than you got from the failing command, since it does not execute a remote command
+//! that might interfere with extracting error messages.
+//!
+//! # Examples
+//!
+//! ```rust,no_run
+//! # fn main() -> Result<(), openssh::Error> {
+//! use openssh::{Session, KnownHosts};
+//!
+//! let session = Session::connect("me@ssh.example.com", KnownHosts::Strict)?;
+//! let ls = session.command("ls").output()?;
+//! eprintln!("{}", String::from_utf8(ls.stdout).expect("server output was not valid UTF-8"));
+//!
+//! let whoami = session.command("whoami").output()?;
+//! assert_eq!(whoami.stdout, b"me\n");
+//!
+//! session.close()?;
+//! # Ok(()) }
+//! ```
+//!
+//!   [`ControlMaster`]: https://en.wikibooks.org/wiki/OpenSSH/Cookbook/Multiplexing
+
+#![warn(missing_docs, missing_debug_implementations, rust_2018_idioms)]
+
+use std::ffi::OsStr;
+use std::io;
+use std::process::{self, Stdio};
+use tempfile::Builder;
+
+mod command;
+pub use command::Command;
+
+mod child;
+pub use child::RemoteChild;
+
+/// A single SSH session to a remote host.
+///
+/// You can use [`command`] to start a new command on the connected machine.
+///
+/// When the `Session` is dropped, the connection to the remote host is severed, and any errors
+/// silently ignored. To disconnect and be alerted to errors, use [`close`].
+#[derive(Debug)]
+pub struct Session {
+    ctl: tempfile::TempDir,
+    addr: String,
+    terminated: bool,
+}
+
+/// Errors that occur when interacting with a remote process.
+#[derive(Debug)]
+pub enum Error {
+    /// Failed to set up a directory to hold control information about the connection.
+    ControlDirFailed(io::Error),
+    /// Failed to establish initial connection to the remote host.
+    Connect(io::Error),
+    /// Executing a remote command failed
+    Ssh(io::Error),
+    /// The connection to the remote host was severed.
+    ///
+    /// Note that this is a best-effort error, and it _may_ instead signify that the remote process
+    /// exited with an error code of 255. You should call [`Session::check`] to verify if you get
+    /// this error back.
+    Disconnected,
+}
+
+// TODO: UserKnownHostsFile for custom known host fingerprint.
+// TODO: Extract process output in Session::check(), Session::connect(), and Session::terminate().
+
+/// Specifies how the host's key fingerprint should be handled.
+#[derive(Debug)]
+pub enum KnownHosts {
+    /// The host's fingerprint must match what is in the known hosts file.
+    ///
+    /// If the host is not in the known hosts file, the connection is rejected.
+    ///
+    /// This corresponds to `ssh -o StrictHostKeyChecking=yes`.
+    Strict,
+    /// Strict, but if the host is not already in the known hosts file, it will be added.
+    ///
+    /// This corresponds to `ssh -o StrictHostKeyChecking=accept-new`.
+    Add,
+    /// Accept whatever key the server provides and add it to the known hosts file.
+    ///
+    /// This corresponds to `ssh -o StrictHostKeyChecking=no`.
+    Accept,
+}
+
+impl KnownHosts {
+    fn as_option(&self) -> &'static str {
+        match *self {
+            KnownHosts::Strict => "StrictHostKeyChecking=yes",
+            KnownHosts::Add => "StrictHostKeyChecking=accept-new",
+            KnownHosts::Accept => "StrictHostKeyChecking=no",
+        }
+    }
+}
+
+impl Session {
+    fn ctl_path(&self) -> std::path::PathBuf {
+        self.ctl.path().join("master")
+    }
+
+    /// Connect to the host at the given `addr` over SSH.
+    ///
+    /// The format of `destination` is the same as the `destination` argument to `ssh`. It may be
+    /// specified as either `[user@]hostname` or a URI of the form `ssh://[user@]hostname[:port]`.
+    ///
+    /// If connecting requires interactive authentication based on `STDIN` (such as reading a
+    /// password), the connection will fail. Consider setting up keypair-based authentication
+    /// instead.
+    pub fn connect(mut destination: &str, check: KnownHosts) -> Result<Self, Error> {
+        let dir = Builder::new()
+            .prefix(".ssh-connection")
+            .tempdir_in("./")
+            .map_err(Error::ControlDirFailed)?;
+
+        // the "new" ssh://user@host:port form is not supported by all versions of ssh, so we
+        // always translate it into the option form.
+        let mut user = None;
+        let mut port = None;
+        if destination.starts_with("ssh://") {
+            destination = &destination[6..];
+            if let Some(at) = destination.find('@') {
+                // specified a username -- extract it:
+                user = Some(&destination[..at]);
+                destination = &destination[(at + 1)..];
+            }
+            if let Some(colon) = destination.rfind(':') {
+                let p = &destination[(colon + 1)..];
+                if p.chars().all(|c| c.is_ascii_digit()) {
+                    // user specified a port -- extract it:
+                    port = Some(p);
+                    destination = &destination[..colon];
+                }
+            }
+        }
+
+        let mut init = process::Command::new("ssh");
+
+        init.stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .arg("-S")
+            .arg(dir.path().join("master"))
+            .arg("-M")
+            .arg("-f")
+            .arg("-N")
+            .arg("-o")
+            .arg("ControlPersist=yes")
+            .arg("-o")
+            .arg("BatchMode=yes")
+            .arg("-o")
+            .arg(check.as_option());
+
+        if let Some(port) = port {
+            init.arg("-p").arg(port);
+        }
+
+        if let Some(user) = user {
+            init.arg("-l").arg(user);
+        }
+
+        init.arg(destination);
+
+        eprintln!("{:?}", init);
+
+        let status = init.status().map_err(Error::Connect)?;
+
+        if let Some(255) = status.code() {
+            // this is the ssh command's way of telling us that the connection failed
+            return Err(Error::Connect(io::Error::new(
+                io::ErrorKind::ConnectionAborted,
+                "remote connection failed",
+            )));
+        }
+
+        Ok(Self {
+            ctl: dir,
+            addr: String::from(destination),
+            terminated: false,
+        })
+    }
+
+    /// Check the status of the underlying SSH connection.
+    ///
+    /// Since this does not run a remote command, it has a better chance of extracting useful error
+    /// messages than other commands.
+    pub fn check(&self) -> Result<(), Error> {
+        if self.terminated {
+            return Err(Error::Disconnected);
+        }
+
+        let status = process::Command::new("ssh")
+            .arg("-S")
+            .arg(self.ctl_path())
+            .arg("-o")
+            .arg("BatchMode=yes")
+            .arg("-O")
+            .arg("check")
+            .arg(&self.addr)
+            .status()
+            .map_err(Error::Ssh)?;
+
+        if let Some(255) = status.code() {
+            Err(Error::Disconnected)
+        } else {
+            Ok(())
+        }
+    }
+
+    /// Constructs a new [`Command`] for launching the program at path `program` on the remote
+    /// host.
+    ///
+    /// The returned `Command` is a builder, with the following default configuration:
+    ///
+    /// * No arguments to the program
+    /// * Inherit the current process's environment
+    /// * Inherit the current process's working directory
+    /// * Inherit stdin/stdout/stderr for `spawn` or `status`, but create pipes for `output`
+    ///
+    /// Builder methods are provided to change these defaults and otherwise configure the process.
+    ///
+    /// If `program` is not an absolute path, the `PATH` will be searched in an OS-defined way on
+    /// the host.
+    pub fn command<S: AsRef<OsStr>>(&self, program: S) -> Command<'_> {
+        // XXX: Should we do a self.check() here first?
+
+        let mut cmd = process::Command::new("ssh");
+        cmd.arg("-S")
+            .arg(self.ctl_path())
+            .arg("-T")
+            .arg("-o")
+            .arg("BatchMode=yes")
+            .arg(&self.addr)
+            .arg(program);
+
+        Command {
+            session: self,
+            builder: cmd,
+        }
+    }
+
+    /// Terminate the remote connection.
+    pub fn close(mut self) -> Result<(), Error> {
+        self.terminate()
+    }
+
+    fn terminate(&mut self) -> Result<(), Error> {
+        // NOTE: this function should only ever be called once
+        let status = process::Command::new("ssh")
+            .arg("-S")
+            .arg(self.ctl_path())
+            .arg("-o")
+            .arg("BatchMode=yes")
+            .arg("-O")
+            .arg("exit")
+            .arg(&self.addr)
+            .status()
+            .map_err(Error::Ssh)?;
+
+        if let Some(255) = status.code() {
+            // probably already disconnected -- that's fine
+        }
+        self.terminated = true;
+
+        Ok(())
+    }
+}
+
+impl Drop for Session {
+    fn drop(&mut self) {
+        if !self.terminated {
+            let _ = self.terminate();
+        }
+    }
+}
