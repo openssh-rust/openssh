@@ -10,6 +10,7 @@ fn addr() -> String {
 #[cfg_attr(not(ci), ignore)]
 fn it_connects() {
     let session = Session::connect(&addr(), KnownHosts::Accept).unwrap();
+    session.check().unwrap();
     session.close().unwrap();
 }
 
