@@ -1,4 +1,5 @@
 use openssh::*;
+use std::io;
 
 fn addr() -> String {
     std::env::var("TEST_HOST").unwrap_or("ssh://test-user@127.0.0.1:2222".to_string())
@@ -18,4 +19,53 @@ fn it_works() {
     assert_eq!(stderr.stderr, b"foo\n");
 
     session.close().unwrap();
+}
+
+#[test]
+fn cannot_resolve() {
+    match Session::connect("bad-host", KnownHosts::Accept).unwrap_err() {
+        Error::Connect(e) => {
+            eprintln!("{:?}", e);
+            assert_eq!(e.kind(), io::ErrorKind::Other);
+        }
+        e => unreachable!("{:?}", e),
+    }
+}
+
+#[test]
+fn no_route() {
+    match Session::connect("255.255.255.255", KnownHosts::Accept).unwrap_err() {
+        Error::Connect(e) => {
+            eprintln!("{:?}", e);
+            assert_eq!(e.kind(), io::ErrorKind::Other);
+        }
+        e => unreachable!("{:?}", e),
+    }
+}
+
+#[test]
+fn connection_refused() {
+    match Session::connect("ssh://127.0.0.1:9", KnownHosts::Accept).unwrap_err() {
+        Error::Connect(e) => {
+            eprintln!("{:?}", e);
+            assert_eq!(e.kind(), io::ErrorKind::ConnectionRefused);
+        }
+        e => unreachable!("{:?}", e),
+    }
+}
+
+#[test]
+fn auth_failed() {
+    match Session::connect(
+        "ssh://openssh-tester@login.csail.mit.edu",
+        KnownHosts::Accept,
+    )
+    .unwrap_err()
+    {
+        Error::Connect(e) => {
+            eprintln!("{:?}", e);
+            assert_eq!(e.kind(), io::ErrorKind::PermissionDenied);
+        }
+        e => unreachable!("{:?}", e),
+    }
 }
