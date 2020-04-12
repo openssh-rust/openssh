@@ -22,6 +22,8 @@ jobs:
      - script: cargo clippy -- -D warnings
        displayName: cargo clippy -- -D warnings
  - job: main
+   # here, we do not run the tests that require an SSH server, since that
+   # requires docker, which is only available with Linux.
    displayName: Compile and test
    dependsOn: []
    strategy:
@@ -76,7 +78,9 @@ jobs:
      - script: cargo check --all-features
        displayName: cargo check --all-features
  - job: integration
+   # now run the tests that require access to an SSH server.
    displayName: Run integration tests
+   dependsOn: main
    pool:
      vmImage: ubuntu-latest
    services:
