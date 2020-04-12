@@ -337,7 +337,6 @@ fn interpret_ssh_error(stderr: &str) -> Error {
     // format is:
     //
     //     ssh: ssh error: io error
-    eprintln!("GOT {:?}", stderr);
     let mut stderr = stderr.trim();
     if stderr.starts_with("ssh: ") {
         stderr = &stderr["ssh: ".len()..];
