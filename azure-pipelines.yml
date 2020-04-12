@@ -94,8 +94,11 @@ jobs:
          cat .test-key | ssh-add -
        displayName: Set up ssh-agent
      - template: install-rust.yml@templates
-     - script: cargo test --tests -- --ignored --nocapture
-       displayName: cargo test --ignored
+     - script: cargo test --test openssh
+       displayName: cargo test --cfg=ci
+       env:
+         # makes all the ignored tests not ignored
+         RUSTFLAGS: --cfg=ci
      - bash: docker logs $(docker ps | grep openssh-server | awk '{print $1}')
        displayName: ssh container log
        condition: failed()

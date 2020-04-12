@@ -56,12 +56,14 @@ fn connection_refused() {
 
 #[test]
 fn auth_failed() {
-    match Session::connect(
-        "ssh://openssh-tester@login.csail.mit.edu",
-        KnownHosts::Accept,
-    )
-    .unwrap_err()
-    {
+    let addr = if cfg!(ci) {
+        // prefer the known-accessible test server when available
+        addr().replace("test-user", "bad-user")
+    } else {
+        String::from("ssh://openssh-tester@login.csail.mit.edu")
+    };
+
+    match Session::connect(&addr, KnownHosts::Accept).unwrap_err() {
         Error::Connect(e) => {
             eprintln!("{:?}", e);
             assert_eq!(e.kind(), io::ErrorKind::PermissionDenied);
