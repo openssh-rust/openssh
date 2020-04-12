@@ -275,14 +275,14 @@ impl Session {
     /// The returned `Command` is a builder, with the following default configuration:
     ///
     /// * No arguments to the program
-    /// * Inherit the current process's environment
-    /// * Inherit the current process's working directory
     /// * Inherit stdin/stdout/stderr for `spawn` or `status`, but create pipes for `output`
     ///
     /// Builder methods are provided to change these defaults and otherwise configure the process.
     ///
     /// If `program` is not an absolute path, the `PATH` will be searched in an OS-defined way on
     /// the host.
+    // TODO: we may want to re-visit the defaults for wait/output/spawn, as it's not clear Inherit
+    // as the default makes as much sense in the context of a remote host library?
     pub fn command<S: AsRef<OsStr>>(&self, program: S) -> Command<'_> {
         // XXX: Should we do a self.check() here first?
 
