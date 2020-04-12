@@ -192,7 +192,6 @@ impl Session {
             .stderr(Stdio::piped())
             .arg("-S")
             .arg(dir.path().join("master"))
-            .arg("-q")
             .arg("-M")
             .arg("-f")
             .arg("-N")
@@ -232,48 +231,7 @@ impl Session {
                 .read_to_string(&mut stderr)
                 .unwrap();
 
-            // we want to turn the string-only ssh error into something a little more "handleable".
-            // we do this by trying to interpret the output from `ssh`. this is error-prone, but
-            // the best we can do. if you find ways to impove this, even just through heuristics,
-            // please file an issue or PR :)
-            //
-            // format is:
-            //
-            //     ssh: ssh error: io error
-            let stderr = stderr.trim();
-            let stderr = if stderr.starts_with("ssh: ") {
-                &stderr["ssh: ".len()..]
-            } else {
-                &stderr
-            };
-            let mut kind = io::ErrorKind::ConnectionAborted;
-            let mut err = stderr.splitn(2, ": ");
-            if let Some(ssh_error) = err.next() {
-                if ssh_error.starts_with("Could not resolve") {
-                    // match what `std` gives: https://github.com/rust-lang/rust/blob/a5de254862477924bcd8b9e1bff7eadd6ffb5e2a/src/libstd/sys/unix/net.rs#L40
-                    // we _could_ match on "Name or service not known" from io_error,
-                    // but my guess is that the ssh error is more stable.
-                    kind = io::ErrorKind::Other;
-                }
-
-                if let Some(io_error) = err.next() {
-                    match io_error {
-                        "Network is unreachable" => {
-                            kind = io::ErrorKind::Other;
-                        }
-                        "Connection refused" => {
-                            kind = io::ErrorKind::ConnectionRefused;
-                        }
-                        e if e.starts_with("Permission denied") => {
-                            kind = io::ErrorKind::PermissionDenied;
-                        }
-                        _ => {}
-                    }
-                }
-            }
-
-            // NOTE: we may want to provide more structured connection errors than just io::Error?
-            return Err(Error::Connect(io::Error::new(kind, stderr)));
+            return Err(interpret_ssh_error(&stderr));
         }
 
         Ok(Self {
@@ -295,7 +253,6 @@ impl Session {
         let status = process::Command::new("ssh")
             .arg("-S")
             .arg(self.ctl_path())
-            .arg("-q")
             .arg("-o")
             .arg("BatchMode=yes")
             .arg("-O")
@@ -331,7 +288,6 @@ impl Session {
         let mut cmd = process::Command::new("ssh");
         cmd.arg("-S")
             .arg(self.ctl_path())
-            .arg("-q")
             .arg("-T")
             .arg("-o")
             .arg("BatchMode=yes")
@@ -354,7 +310,6 @@ impl Session {
         let status = process::Command::new("ssh")
             .arg("-S")
             .arg(self.ctl_path())
-            .arg("-q")
             .arg("-o")
             .arg("BatchMode=yes")
             .arg("-O")
@@ -372,10 +327,72 @@ impl Session {
     }
 }
 
+fn interpret_ssh_error(stderr: &str) -> Error {
+    // we want to turn the string-only ssh error into something a little more "handleable".
+    // we do this by trying to interpret the output from `ssh`. this is error-prone, but
+    // the best we can do. if you find ways to impove this, even just through heuristics,
+    // please file an issue or PR :)
+    //
+    // format is:
+    //
+    //     ssh: ssh error: io error
+    eprintln!("GOT {:?}", stderr);
+    let mut stderr = stderr.trim();
+    if stderr.starts_with("ssh: ") {
+        stderr = &stderr["ssh: ".len()..];
+    }
+    if stderr.starts_with("Warning: Permanently added ") {
+        // added to hosts file -- let's ignore that message
+        stderr = stderr.splitn(2, "\r\n").skip(1).next().unwrap_or("");
+    }
+    let mut kind = io::ErrorKind::ConnectionAborted;
+    let mut err = stderr.splitn(2, ": ");
+    if let Some(ssh_error) = err.next() {
+        if ssh_error.starts_with("Could not resolve") {
+            // match what `std` gives: https://github.com/rust-lang/rust/blob/a5de254862477924bcd8b9e1bff7eadd6ffb5e2a/src/libstd/sys/unix/net.rs#L40
+            // we _could_ match on "Name or service not known" from io_error,
+            // but my guess is that the ssh error is more stable.
+            kind = io::ErrorKind::Other;
+        }
+
+        if let Some(io_error) = err.next() {
+            match io_error {
+                "Network is unreachable" => {
+                    kind = io::ErrorKind::Other;
+                }
+                "Connection refused" => {
+                    kind = io::ErrorKind::ConnectionRefused;
+                }
+                e if e.starts_with("Permission denied") => {
+                    kind = io::ErrorKind::PermissionDenied;
+                }
+                _ => {}
+            }
+        }
+    }
+
+    // NOTE: we may want to provide more structured connection errors than just io::Error?
+    // NOTE: can we re-use this method for non-connect cases?
+    Error::Connect(io::Error::new(kind, stderr))
+}
+
 impl Drop for Session {
     fn drop(&mut self) {
         if !self.terminated {
             let _ = self.terminate();
         }
+    }
+}
+
+#[test]
+fn parse_error() {
+    let err = "ssh: Warning: Permanently added \'login.csail.mit.edu,128.52.131.0\' (ECDSA) to the list of known hosts.\r\nopenssh-tester@login.csail.mit.edu: Permission denied (publickey,gssapi-keyex,gssapi-with-mic,password,keyboard-interactive).";
+    let err = interpret_ssh_error(err);
+    let target = io::Error::new(io::ErrorKind::PermissionDenied, "openssh-tester@login.csail.mit.edu: Permission denied (publickey,gssapi-keyex,gssapi-with-mic,password,keyboard-interactive).");
+    if let Error::Connect(e) = err {
+        assert_eq!(e.kind(), target.kind());
+        assert_eq!(format!("{}", e), format!("{}", target));
+    } else {
+        unreachable!("{:?}", err);
     }
 }
