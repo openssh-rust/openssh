@@ -343,7 +343,7 @@ fn interpret_ssh_error(stderr: &str) -> Error {
     }
     if stderr.starts_with("Warning: Permanently added ") {
         // added to hosts file -- let's ignore that message
-        stderr = stderr.splitn(2, "\r\n").skip(1).next().unwrap_or("");
+        stderr = stderr.splitn(2, "\r\n").nth(1).unwrap_or("");
     }
     let mut kind = io::ErrorKind::ConnectionAborted;
     let mut err = stderr.splitn(2, ": ");
