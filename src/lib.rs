@@ -158,11 +158,12 @@ impl Session {
     /// If connecting requires interactive authentication based on `STDIN` (such as reading a
     /// password), the connection will fail. Consider setting up keypair-based authentication
     /// instead.
-    pub fn connect(mut destination: &str, check: KnownHosts) -> Result<Self, Error> {
+    pub fn connect<S: AsRef<str>>(destination: S, check: KnownHosts) -> Result<Self, Error> {
         let dir = Builder::new()
             .prefix(".ssh-connection")
             .tempdir_in("./")
             .map_err(Error::ControlDirFailed)?;
+        let mut destination = destination.as_ref();
 
         // the "new" ssh://user@host:port form is not supported by all versions of ssh, so we
         // always translate it into the option form.
