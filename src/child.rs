@@ -70,19 +70,19 @@ impl<'s> RemoteChild<'s> {
     }
 
     /// Access the handle for reading from the remote child's standard input (stdin), if requested.
-    pub fn stdin(&mut self) -> Option<&mut process::ChildStdin> {
-        self.channel.as_mut().unwrap().stdin.as_mut()
+    pub fn stdin(&mut self) -> &mut Option<process::ChildStdin> {
+        &mut self.channel.as_mut().unwrap().stdin
     }
 
     /// Access the handle for reading from the remote child's standard output (stdout), if
     /// requested.
-    pub fn stdout(&mut self) -> Option<&mut process::ChildStdout> {
-        self.channel.as_mut().unwrap().stdout.as_mut()
+    pub fn stdout(&mut self) -> &mut Option<process::ChildStdout> {
+        &mut self.channel.as_mut().unwrap().stdout
     }
 
     /// Access the handle for reading from the remote child's standard error (stderr), if requested.
-    pub fn stderr(&mut self) -> Option<&mut process::ChildStderr> {
-        self.channel.as_mut().unwrap().stderr.as_mut()
+    pub fn stderr(&mut self) -> &mut Option<process::ChildStderr> {
+        &mut self.channel.as_mut().unwrap().stderr
     }
 }
 

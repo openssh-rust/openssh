@@ -1,5 +1,6 @@
 use openssh::*;
-use std::io;
+use std::io::{self, prelude::*};
+use std::process::Stdio;
 
 fn addr() -> String {
     std::env::var("TEST_HOST").unwrap_or("ssh://test-user@127.0.0.1:2222".to_string())
@@ -7,19 +8,74 @@ fn addr() -> String {
 
 #[test]
 #[cfg_attr(not(ci), ignore)]
-fn it_works() {
+fn it_connects() {
+    let session = Session::connect(&addr(), KnownHosts::Accept).unwrap();
+    session.close().unwrap();
+}
+
+#[test]
+#[cfg_attr(not(ci), ignore)]
+fn stdout() {
     let session = Session::connect(&addr(), KnownHosts::Accept).unwrap();
 
-    let stdout = session.command("echo foo").output().unwrap();
-    assert_eq!(stdout.stdout, b"foo\n");
-    assert!(stdout.stderr.is_empty());
+    let child = session.command("echo foo").output().unwrap();
+    assert_eq!(child.stdout, b"foo\n");
 
-    let stderr = session.command("echo foo > /dev/stderr").output().unwrap();
-    assert!(stderr.stdout.is_empty());
-    assert_eq!(stderr.stderr, b"foo\n");
+    let child = session.command("echo foo > /dev/stderr").output().unwrap();
+    assert!(child.stdout.is_empty());
 
     session.close().unwrap();
 }
+
+#[test]
+#[cfg_attr(not(ci), ignore)]
+fn stderr() {
+    let session = Session::connect(&addr(), KnownHosts::Accept).unwrap();
+
+    let child = session.command("echo foo").output().unwrap();
+    assert!(child.stderr.is_empty());
+
+    let child = session.command("echo foo > /dev/stderr").output().unwrap();
+    assert_eq!(child.stderr, b"foo\n");
+
+    session.close().unwrap();
+}
+
+#[test]
+#[cfg_attr(not(ci), ignore)]
+fn stdin() {
+    let session = Session::connect(&addr(), KnownHosts::Accept).unwrap();
+
+    let mut child = session
+        .command("cat")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()
+        .unwrap();
+
+    // write something to standard in and send EOF
+    let mut stdin = child.stdin().take().unwrap();
+    write!(stdin, "hello world").unwrap();
+    drop(stdin);
+
+    // cat should print it back on stdout
+    let mut stdout = child.stdout().take().unwrap();
+    let mut out = String::new();
+    stdout.read_to_string(&mut out).unwrap();
+    assert_eq!(out, "hello world");
+    drop(stdout);
+
+    // cat should now have terminated
+    let status = child.wait().unwrap();
+    drop(child);
+
+    // ... successfully
+    assert!(status.success());
+
+    session.close().unwrap();
+}
+
+// TODO: test connection termination _during_ session
 
 #[test]
 fn cannot_resolve() {
