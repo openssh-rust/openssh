@@ -145,6 +145,61 @@ impl KnownHosts {
     }
 }
 
+/// Build a [`Session`] with options.
+#[derive(Debug)]
+pub struct SessionBuilder {
+    user: Option<String>,
+    port: Option<String>,
+    known_hosts_check: KnownHosts,
+}
+
+impl Default for SessionBuilder {
+    fn default() -> Self {
+        Self {
+            user: None,
+            port: None,
+            known_hosts_check: KnownHosts::Add,
+        }
+    }
+}
+
+impl SessionBuilder {
+    /// Set the ssh user.
+    ///
+    /// Default `None`, which will follow your ssh config.
+    pub fn user(&mut self, user: String) -> &mut Self {
+        self.user = Some(user);
+        self
+    }
+
+    /// Set the port to connect on.
+    ///
+    /// Default `None`, which will follow your ssh config.
+    pub fn port(&mut self, port: u16) -> &mut Self {
+        self.port = Some(format!("{}", port));
+        self
+    }
+
+    /// See [`KnownHosts`].
+    ///
+    /// Default `KnownHosts::Add`.
+    pub fn known_hosts_check(&mut self, k: KnownHosts) -> &mut Self {
+        self.known_hosts_check = k;
+        self
+    }
+
+    /// Establish the connection.
+    pub fn connect<S: AsRef<str>>(self, host: S) -> Result<Session, Error> {
+        let d = host.as_ref();
+        Session::do_connect(
+            d,
+            self.user.as_ref().map(|s| s.as_str()),
+            self.port.as_ref().map(|s| s.as_str()),
+            self.known_hosts_check,
+        )
+    }
+}
+
 impl Session {
     fn ctl_path(&self) -> std::path::PathBuf {
         self.ctl.path().join("master")
@@ -158,11 +213,9 @@ impl Session {
     /// If connecting requires interactive authentication based on `STDIN` (such as reading a
     /// password), the connection will fail. Consider setting up keypair-based authentication
     /// instead.
+    ///
+    /// For more options, see [`SessionBuilder`].
     pub fn connect<S: AsRef<str>>(destination: S, check: KnownHosts) -> Result<Self, Error> {
-        let dir = Builder::new()
-            .prefix(".ssh-connection")
-            .tempdir_in("./")
-            .map_err(Error::ControlDirFailed)?;
         let mut destination = destination.as_ref();
 
         // the "new" ssh://user@host:port form is not supported by all versions of ssh, so we
@@ -186,6 +239,19 @@ impl Session {
             }
         }
 
+        Self::do_connect(destination, user, port, check)
+    }
+
+    fn do_connect(
+        destination: &str,
+        user: Option<&str>,
+        port: Option<&str>,
+        check: KnownHosts,
+    ) -> Result<Self, Error> {
+        let dir = Builder::new()
+            .prefix(".ssh-connection")
+            .tempdir_in("./")
+            .map_err(Error::ControlDirFailed)?;
         let mut init = process::Command::new("ssh");
 
         init.stdin(Stdio::null())
