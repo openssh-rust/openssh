@@ -19,10 +19,16 @@ fn it_connects() {
 fn stdout() {
     let session = Session::connect(&addr(), KnownHosts::Accept).unwrap();
 
-    let child = session.command("echo foo").output().unwrap();
+    let child = session.command("echo").arg("foo").output().unwrap();
     assert_eq!(child.stdout, b"foo\n");
 
-    let child = session.command("echo foo > /dev/stderr").output().unwrap();
+    let child = session
+        .command("echo")
+        .arg("foo")
+        .arg(">")
+        .arg("/dev/stderr")
+        .output()
+        .unwrap();
     assert!(child.stdout.is_empty());
 
     session.close().unwrap();
@@ -33,10 +39,16 @@ fn stdout() {
 fn stderr() {
     let session = Session::connect(&addr(), KnownHosts::Accept).unwrap();
 
-    let child = session.command("echo foo").output().unwrap();
+    let child = session.command("echo").arg("foo").output().unwrap();
     assert!(child.stderr.is_empty());
 
-    let child = session.command("echo foo > /dev/stderr").output().unwrap();
+    let child = session
+        .command("echo")
+        .arg("foo")
+        .arg(">")
+        .arg("/dev/stderr")
+        .output()
+        .unwrap();
     assert_eq!(child.stderr, b"foo\n");
 
     session.close().unwrap();
@@ -76,7 +88,69 @@ fn stdin() {
     session.close().unwrap();
 }
 
-// TODO: test connection termination _during_ session
+#[test]
+#[cfg_attr(not(ci), ignore)]
+fn bad_remote_command() {
+    let session = Session::connect(&addr(), KnownHosts::Accept).unwrap();
+
+    // a bad remote command should result in a _local_ error.
+    let failed = session.command("no such program").output().unwrap_err();
+    assert!(matches!(failed, Error::Remote(ref e) if e.kind() == io::ErrorKind::NotFound));
+    eprintln!("{:?}", failed);
+
+    // no matter how you run it
+    let failed = session.command("no such program").status().unwrap_err();
+    assert!(matches!(failed, Error::Remote(ref e) if e.kind() == io::ErrorKind::NotFound));
+    eprintln!("{:?}", failed);
+
+    session.close().unwrap();
+}
+
+#[test]
+#[cfg_attr(not(ci), ignore)]
+fn broken_connection() {
+    let session = Session::connect(&addr(), KnownHosts::Accept).unwrap();
+
+    let sleeping = session.command("sleep").arg("1000").spawn().unwrap();
+
+    // get ID of remote ssh process
+    let ppid = session.command("echo").arg("$PPID").output().unwrap();
+    eprintln!("ppid: {:?}", ppid);
+    let ppid: u32 = String::from_utf8(ppid.stdout)
+        .unwrap()
+        .trim()
+        .parse()
+        .unwrap();
+
+    // and kill it -- this kills the master connection
+    let killed = session
+        .command("kill")
+        .arg("-9")
+        .arg(&format!("{}", ppid))
+        .output()
+        .unwrap_err();
+    assert!(matches!(killed, Error::Disconnected));
+
+    // this fails because the master connection is gone
+    let failed = session.command("echo").arg("foo").output().unwrap_err();
+    assert!(matches!(failed, Error::Disconnected));
+
+    // so does this
+    let failed = session.command("echo").arg("foo").status().unwrap_err();
+    assert!(matches!(failed, Error::Disconnected));
+
+    // the spawned child we're waiting for must also have failed
+    let failed = sleeping.wait_with_output().unwrap_err();
+    assert!(matches!(failed, Error::Disconnected));
+
+    // check should obviously fail
+    let failed = session.check().unwrap_err();
+    assert!(matches!(failed, Error::Disconnected));
+
+    // what should close do in this instance?
+    // probably not return an error, since the connection _is_ closed.
+    session.close().unwrap();
+}
 
 #[test]
 fn cannot_resolve() {
