@@ -1,3 +1,4 @@
+use super::Error;
 use super::Session;
 use std::io;
 use std::process;
@@ -27,6 +28,18 @@ impl<'s> RemoteChild<'s> {
         self.session
     }
 
+    /// Disconnect from this given remote child process.
+    ///
+    /// Note that disconnecting does _not_ kill the remote process, it merely kills the local
+    /// handle to that remote process.
+    pub fn disconnect(mut self) -> io::Result<()> {
+        if let Some(mut channel) = self.channel.take() {
+            // this disconnects, but does not kill the remote process
+            channel.kill()?;
+        }
+        Ok(())
+    }
+
     /// Waits for the remote child to exit completely, returning the status that it exited with.
     ///
     /// This function will continue to have the same return value after it has been called at least
@@ -35,8 +48,18 @@ impl<'s> RemoteChild<'s> {
     /// The stdin handle to the child process, if any, will be closed before waiting. This helps
     /// avoid deadlock: it ensures that the child does not block waiting for input from the parent,
     /// while the parent waits for the child to exit.
-    pub fn wait(&mut self) -> io::Result<process::ExitStatus> {
-        self.channel.as_mut().unwrap().wait()
+    pub fn wait(&mut self) -> Result<process::ExitStatus, Error> {
+        match self.channel.as_mut().unwrap().wait() {
+            Err(e) => Err(Error::Remote(e)),
+            Ok(w) => match w.code() {
+                Some(255) => Err(Error::Disconnected),
+                Some(127) => Err(Error::Remote(io::Error::new(
+                    io::ErrorKind::NotFound,
+                    "remote command not found",
+                ))),
+                _ => Ok(w),
+            },
+        }
     }
 
     /// Attempts to collect the exit status of the remote child if it has already exited.
@@ -51,8 +74,19 @@ impl<'s> RemoteChild<'s> {
     /// returned.
     ///
     /// Note that unlike `wait`, this function will not attempt to drop stdin.
-    pub fn try_wait(&mut self) -> io::Result<Option<process::ExitStatus>> {
-        self.channel.as_mut().unwrap().try_wait()
+    pub fn try_wait(&mut self) -> Result<Option<process::ExitStatus>, Error> {
+        match self.channel.as_mut().unwrap().try_wait() {
+            Err(e) => Err(Error::Remote(e)),
+            Ok(None) => Ok(None),
+            Ok(Some(w)) => match w.code() {
+                Some(255) => Err(Error::Disconnected),
+                Some(127) => Err(Error::Remote(io::Error::new(
+                    io::ErrorKind::NotFound,
+                    "remote command not found",
+                ))),
+                _ => Ok(Some(w)),
+            },
+        }
     }
 
     /// Simultaneously waits for the remote child to exit and collect all remaining output on the
@@ -65,8 +99,18 @@ impl<'s> RemoteChild<'s> {
     /// By default, stdin, stdout and stderr are inherited from the parent. In order to capture the
     /// output into this `Result<Output>` it is necessary to create new pipes between parent and
     /// child. Use `stdout(Stdio::piped())` or `stderr(Stdio::piped())`, respectively.
-    pub fn wait_with_output(mut self) -> io::Result<process::Output> {
-        self.channel.take().unwrap().wait_with_output()
+    pub fn wait_with_output(mut self) -> Result<process::Output, Error> {
+        match self.channel.take().unwrap().wait_with_output() {
+            Err(e) => Err(Error::Remote(e)),
+            Ok(w) => match w.status.code() {
+                Some(255) => Err(Error::Disconnected),
+                Some(127) => Err(Error::Remote(io::Error::new(
+                    io::ErrorKind::NotFound,
+                    &*String::from_utf8_lossy(&w.stderr),
+                ))),
+                _ => Ok(w),
+            },
+        }
     }
 
     /// Access the handle for reading from the remote child's standard input (stdin), if requested.

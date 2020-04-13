@@ -1,6 +1,7 @@
 use super::RemoteChild;
 use super::{Error, Session};
 use std::ffi::OsStr;
+use std::io;
 use std::process::{self, Stdio};
 
 /// A remote process builder, providing fine-grained control over how a new remote process should
@@ -149,12 +150,13 @@ impl<'s> Command<'s> {
     /// the stdin stream will result in the stream immediately closing.
     pub fn output(&mut self) -> Result<process::Output, Error> {
         let output = self.builder.output().map_err(Error::Ssh)?;
-        if let Some(255) = output.status.code() {
-            // this is the ssh command's way of telling us that the connection failed
-            // TODO: also include output?
-            Err(Error::Disconnected)
-        } else {
-            Ok(output)
+        match output.status.code() {
+            Some(255) => Err(Error::Disconnected),
+            Some(127) => Err(Error::Remote(io::Error::new(
+                io::ErrorKind::NotFound,
+                &*String::from_utf8_lossy(&output.stderr),
+            ))),
+            _ => Ok(output),
         }
     }
 
@@ -163,11 +165,13 @@ impl<'s> Command<'s> {
     /// By default, stdin, stdout and stderr are inherited from the parent.
     pub fn status(&mut self) -> Result<process::ExitStatus, Error> {
         let status = self.builder.status().map_err(Error::Ssh)?;
-        if let Some(255) = status.code() {
-            // this is the ssh command's way of telling us that the connection failed
-            Err(Error::Disconnected)
-        } else {
-            Ok(status)
+        match status.code() {
+            Some(255) => Err(Error::Disconnected),
+            Some(127) => Err(Error::Remote(io::Error::new(
+                io::ErrorKind::NotFound,
+                "remote command not found",
+            ))),
+            _ => Ok(status),
         }
     }
 }
