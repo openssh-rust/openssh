@@ -296,12 +296,17 @@ impl Session {
     pub fn command<S: AsRef<OsStr>>(&self, program: S) -> Command<'_> {
         // XXX: Should we do a self.check() here first?
 
+        // NOTE: we pass -p 9 nine here (the "discard" port) to ensure that ssh does not
+        // succeed in establishing a _new_ connection if the master connection has failed.
+
         let mut cmd = process::Command::new("ssh");
         cmd.arg("-S")
             .arg(self.ctl_path())
             .arg("-T")
             .arg("-o")
             .arg("BatchMode=yes")
+            .arg("-p")
+            .arg("9")
             .arg(&self.addr)
             .arg(program);
 
