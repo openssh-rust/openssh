@@ -308,6 +308,7 @@ impl Session {
             .arg("-p")
             .arg("9")
             .arg(&self.addr)
+            .arg("--")
             .arg(program);
 
         Command::new(self, cmd)
