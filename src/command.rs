@@ -37,8 +37,23 @@ use std::process::{self, Stdio};
 ///   [`env(1)`]: https://linux.die.net/man/1/env
 #[derive(Debug)]
 pub struct Command<'s> {
-    pub(crate) session: &'s Session,
-    pub(crate) builder: process::Command,
+    session: &'s Session,
+    builder: process::Command,
+    stdin_set: bool,
+    stdout_set: bool,
+    stderr_set: bool,
+}
+
+impl<'s> Command<'s> {
+    pub(crate) fn new(session: &'s Session, prefix: process::Command) -> Self {
+        Self {
+            session,
+            builder: prefix,
+            stdin_set: false,
+            stdout_set: false,
+            stderr_set: false,
+        }
+    }
 }
 
 impl<'s> Command<'s> {
@@ -97,44 +112,58 @@ impl<'s> Command<'s> {
 
     /// Configuration for the remote process's standard input (stdin) handle.
     ///
-    /// Defaults to [`inherit`] when used with `spawn` or `status`, and
+    /// Defaults to [`null`] when used with `spawn` or `status`, and
     /// defaults to [`piped`] when used with `output`.
     ///
-    /// [`inherit`]: struct.Stdio.html#method.inherit
+    /// [`null`]: struct.Stdio.html#method.null
     /// [`piped`]: struct.Stdio.html#method.piped
     pub fn stdin<T: Into<Stdio>>(&mut self, cfg: T) -> &mut Self {
         self.builder.stdin(cfg);
+        self.stdin_set = true;
         self
     }
 
     /// Configuration for the remote process's standard output (stdout) handle.
     ///
-    /// Defaults to [`inherit`] when used with `spawn` or `status`, and
+    /// Defaults to [`null`] when used with `spawn` or `status`, and
     /// defaults to [`piped`] when used with `output`.
     ///
-    /// [`inherit`]: struct.Stdio.html#method.inherit
+    /// [`null`]: struct.Stdio.html#method.null
     /// [`piped`]: struct.Stdio.html#method.piped
     pub fn stdout<T: Into<Stdio>>(&mut self, cfg: T) -> &mut Self {
         self.builder.stdout(cfg);
+        self.stdout_set = true;
         self
     }
 
     /// Configuration for the remote process's standard error (stderr) handle.
     ///
-    /// Defaults to [`inherit`] when used with `spawn` or `status`, and
+    /// Defaults to [`null`] when used with `spawn` or `status`, and
     /// defaults to [`piped`] when used with `output`.
     ///
-    /// [`inherit`]: struct.Stdio.html#method.inherit
+    /// [`null`]: struct.Stdio.html#method.null
     /// [`piped`]: struct.Stdio.html#method.piped
     pub fn stderr<T: Into<Stdio>>(&mut self, cfg: T) -> &mut Self {
         self.builder.stderr(cfg);
+        self.stderr_set = true;
         self
     }
 
     /// Executes the remote command without waiting for it, returning a handle to it instead.
     ///
-    /// By default, stdin, stdout and stderr are inherited from the parent.
+    /// By default, stdin is empty, and stdout and stderr are discarded.
     pub fn spawn(&mut self) -> Result<RemoteChild<'s>, Error> {
+        // Make defaults match our defaults.
+        if !self.stdin_set {
+            self.builder.stdin(Stdio::null());
+        }
+        if !self.stdout_set {
+            self.builder.stdout(Stdio::null());
+        }
+        if !self.stderr_set {
+            self.builder.stderr(Stdio::null());
+        }
+        // Then launch!
         let child = self.builder.spawn().map_err(Error::Ssh)?;
 
         Ok(RemoteChild {
@@ -146,9 +175,20 @@ impl<'s> Command<'s> {
     /// Executes the remote command, waiting for it to finish and collecting all of its output.
     ///
     /// By default, stdout and stderr are captured (and used to provide the resulting output).
-    /// Stdin is not inherited from the parent and any attempt by the child process to read from
+    /// Stdin is set to `Stdio::null`, and any attempt by the child process to read from
     /// the stdin stream will result in the stream immediately closing.
     pub fn output(&mut self) -> Result<process::Output, Error> {
+        // Make defaults match our defaults.
+        if !self.stdin_set {
+            self.builder.stdin(Stdio::null());
+        }
+        if !self.stdout_set {
+            self.builder.stdout(Stdio::piped());
+        }
+        if !self.stderr_set {
+            self.builder.stderr(Stdio::piped());
+        }
+        // Then launch!
         let output = self.builder.output().map_err(Error::Ssh)?;
         match output.status.code() {
             Some(255) => Err(Error::Disconnected),
@@ -162,8 +202,19 @@ impl<'s> Command<'s> {
 
     /// Executes the remote command, waiting for it to finish and collecting its exit status.
     ///
-    /// By default, stdin, stdout and stderr are inherited from the parent.
+    /// By default, stdin is empty, and stdout and stderr are discarded.
     pub fn status(&mut self) -> Result<process::ExitStatus, Error> {
+        // Make defaults match our defaults.
+        if !self.stdin_set {
+            self.builder.stdin(Stdio::null());
+        }
+        if !self.stdout_set {
+            self.builder.stdout(Stdio::null());
+        }
+        if !self.stderr_set {
+            self.builder.stderr(Stdio::null());
+        }
+        // Then launch!
         let status = self.builder.status().map_err(Error::Ssh)?;
         match status.code() {
             Some(255) => Err(Error::Disconnected),

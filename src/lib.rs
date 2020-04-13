@@ -32,6 +32,10 @@
 //! the remote command directly. Usually, these are the same, though not always, as highlighted in
 //! the documetantation the individual methods.
 //!
+//! And finally, our commands never default to inheriting stdin/stdout/stderr, since we expect you
+//! are using this to automate things. Instead, unless otherwise noted, all I/O ports default to
+//! [`Stdio::null`].
+//!
 //! # Authentication
 //!
 //! This library supports only password-less authentication schemes. If running `ssh` to a target
@@ -283,14 +287,12 @@ impl Session {
     /// The returned `Command` is a builder, with the following default configuration:
     ///
     /// * No arguments to the program
-    /// * Inherit stdin/stdout/stderr for `spawn` or `status`, but create pipes for `output`
+    /// * Empty stdin and dsicard stdout/stderr for `spawn` or `status`, but create output pipes for `output`
     ///
     /// Builder methods are provided to change these defaults and otherwise configure the process.
     ///
     /// If `program` is not an absolute path, the `PATH` will be searched in an OS-defined way on
     /// the host.
-    // TODO: we may want to re-visit the defaults for wait/output/spawn, as it's not clear Inherit
-    // as the default makes as much sense in the context of a remote host library?
     pub fn command<S: AsRef<OsStr>>(&self, program: S) -> Command<'_> {
         // XXX: Should we do a self.check() here first?
 
@@ -303,10 +305,7 @@ impl Session {
             .arg(&self.addr)
             .arg(program);
 
-        Command {
-            session: self,
-            builder: cmd,
-        }
+        Command::new(self, cmd)
     }
 
     /// Terminate the remote connection.
