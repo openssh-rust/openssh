@@ -150,6 +150,7 @@ impl KnownHosts {
 pub struct SessionBuilder {
     user: Option<String>,
     port: Option<String>,
+    keyfile: Option<std::path::PathBuf>,
     known_hosts_check: KnownHosts,
 }
 
@@ -158,6 +159,7 @@ impl Default for SessionBuilder {
         Self {
             user: None,
             port: None,
+            keyfile: None,
             known_hosts_check: KnownHosts::Add,
         }
     }
@@ -172,11 +174,19 @@ impl SessionBuilder {
         self
     }
 
-    /// Set the port to connect on.
+    /// Set the port to connect on (`ssh -p`).
     ///
     /// Default `None`, which will follow your ssh config.
     pub fn port(&mut self, port: u16) -> &mut Self {
         self.port = Some(format!("{}", port));
+        self
+    }
+
+    /// Set the keyfile to use (`ssh -i`).
+    ///
+    /// Default `None`, which will follow your ssh config.
+    pub fn keyfile(&mut self, p: impl AsRef<std::path::Path>) -> &mut Self {
+        self.keyfile = Some(p.as_ref().to_path_buf());
         self
     }
 
@@ -190,13 +200,69 @@ impl SessionBuilder {
 
     /// Establish the connection.
     pub fn connect<S: AsRef<str>>(self, host: S) -> Result<Session, Error> {
-        let d = host.as_ref();
-        Session::do_connect(
-            d,
-            self.user.as_ref().map(|s| s.as_str()),
-            self.port.as_ref().map(|s| s.as_str()),
-            self.known_hosts_check,
-        )
+        let destination = host.as_ref();
+        let dir = Builder::new()
+            .prefix(".ssh-connection")
+            .tempdir_in("./")
+            .map_err(Error::ControlDirFailed)?;
+        let mut init = process::Command::new("ssh");
+
+        init.stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .arg("-S")
+            .arg(dir.path().join("master"))
+            .arg("-M")
+            .arg("-f")
+            .arg("-N")
+            .arg("-o")
+            .arg("ControlPersist=yes")
+            .arg("-o")
+            .arg("BatchMode=yes")
+            .arg("-o")
+            .arg(self.known_hosts_check.as_option());
+
+        if let Some(port) = self.port {
+            init.arg("-p").arg(port);
+        }
+
+        if let Some(user) = self.user {
+            init.arg("-l").arg(user);
+        }
+
+        if let Some(k) = self.keyfile {
+            init.arg("-i").arg(k);
+        }
+
+        init.arg(destination);
+
+        // eprintln!("{:?}", init);
+
+        // we spawn and immediately wait, because the process is supposed to fork.
+        // note that we cannot use .output, since it _also_ tries to read all of stdout/stderr.
+        // if the call _didn't_ error, then the backgrounded ssh client will still hold onto those
+        // handles, and it's still running, so those reads will hang indefinitely.
+        let mut child = init.spawn().map_err(Error::Connect)?;
+        let status = child.wait().map_err(Error::Connect)?;
+
+        if let Some(255) = status.code() {
+            // this is the ssh command's way of telling us that the connection failed
+            let mut stderr = String::new();
+            child
+                .stderr
+                .as_mut()
+                .unwrap()
+                .read_to_string(&mut stderr)
+                .unwrap();
+
+            return Err(interpret_ssh_error(&stderr));
+        }
+
+        Ok(Session {
+            ctl: dir,
+            addr: String::from(destination),
+            terminated: false,
+        })
     }
 }
 
@@ -231,7 +297,7 @@ impl Session {
             }
             if let Some(colon) = destination.rfind(':') {
                 let p = &destination[(colon + 1)..];
-                if p.chars().all(|c| c.is_ascii_digit()) {
+                if let Ok(p) = p.parse() {
                     // user specified a port -- extract it:
                     port = Some(p);
                     destination = &destination[..colon];
@@ -239,73 +305,17 @@ impl Session {
             }
         }
 
-        Self::do_connect(destination, user, port, check)
-    }
-
-    fn do_connect(
-        destination: &str,
-        user: Option<&str>,
-        port: Option<&str>,
-        check: KnownHosts,
-    ) -> Result<Self, Error> {
-        let dir = Builder::new()
-            .prefix(".ssh-connection")
-            .tempdir_in("./")
-            .map_err(Error::ControlDirFailed)?;
-        let mut init = process::Command::new("ssh");
-
-        init.stdin(Stdio::null())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .arg("-S")
-            .arg(dir.path().join("master"))
-            .arg("-M")
-            .arg("-f")
-            .arg("-N")
-            .arg("-o")
-            .arg("ControlPersist=yes")
-            .arg("-o")
-            .arg("BatchMode=yes")
-            .arg("-o")
-            .arg(check.as_option());
+        let mut s = SessionBuilder::default();
+        s.known_hosts_check(check);
+        if let Some(user) = user {
+            s.user(user.to_owned());
+        }
 
         if let Some(port) = port {
-            init.arg("-p").arg(port);
+            s.port(port);
         }
 
-        if let Some(user) = user {
-            init.arg("-l").arg(user);
-        }
-
-        init.arg(destination);
-
-        // eprintln!("{:?}", init);
-
-        // we spawn and immediately wait, because the process is supposed to fork.
-        // note that we cannot use .output, since it _also_ tries to read all of stdout/stderr.
-        // if the call _didn't_ error, then the backgrounded ssh client will still hold onto those
-        // handles, and it's still running, so those reads will hang indefinitely.
-        let mut child = init.spawn().map_err(Error::Connect)?;
-        let status = child.wait().map_err(Error::Connect)?;
-
-        if let Some(255) = status.code() {
-            // this is the ssh command's way of telling us that the connection failed
-            let mut stderr = String::new();
-            child
-                .stderr
-                .as_mut()
-                .unwrap()
-                .read_to_string(&mut stderr)
-                .unwrap();
-
-            return Err(interpret_ssh_error(&stderr));
-        }
-
-        Ok(Self {
-            ctl: dir,
-            addr: String::from(destination),
-            terminated: false,
-        })
+        s.connect(destination)
     }
 
     /// Check the status of the underlying SSH connection.
