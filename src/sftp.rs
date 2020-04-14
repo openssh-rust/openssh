@@ -44,8 +44,10 @@ impl Mode {
 /// trying to access can indeed be accessed in that way, but some errors may not become visible
 /// until you call [`close`]. In particular, the connection between you and the remote host may
 /// buffer bytes, so your write may report that some number of bytes have been successfully
-/// written, even though the remote disk is full. For that reason, you should **make sure to call
-/// [`close`]** to observe any errors that may have occurred when operating on the remote file.
+/// written, even though the remote disk is full. Or the file you are reading from may have been
+/// removed between when [`read_from`] checks that it exists and when it actually tries to read the
+/// first byte. For that reason, you should **make sure to call [`close`]** to observe any errors
+/// that may have occurred when operating on the remote file.
 #[derive(Debug)]
 pub struct RemoteFile<'s> {
     cat: super::RemoteChild<'s>,
