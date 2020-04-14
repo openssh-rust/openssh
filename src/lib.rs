@@ -101,6 +101,9 @@ pub use child::RemoteChild;
 mod error;
 pub use error::Error;
 
+mod sftp;
+pub use sftp::{Mode, RemoteFile, Sftp};
+
 /// A single SSH session to a remote host.
 ///
 /// You can use [`command`] to start a new command on the connected machine.
@@ -232,6 +235,13 @@ impl Session {
             .arg(program);
 
         Command::new(self, cmd)
+    }
+
+    /// Prepare to perform file operations on the remote host.
+    ///
+    /// See [`Sftp`] for details on how to interact with the remote files.
+    pub fn sftp(&self) -> Sftp<'_> {
+        Sftp::new(self)
     }
 
     /// Terminate the remote connection.

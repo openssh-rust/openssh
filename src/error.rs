@@ -94,7 +94,7 @@ impl Error {
 
         // NOTE: we may want to provide more structured connection errors than just io::Error?
         // NOTE: can we re-use this method for non-connect cases?
-        Self::Connect(io::Error::new(kind, stderr))
+        Error::Connect(io::Error::new(kind, stderr))
     }
 }
 
