@@ -2,6 +2,8 @@ use openssh::*;
 use std::io::{self, prelude::*};
 use std::process::Stdio;
 
+// TODO: how do we test the connection actually _failing_ so that the master reports an error?
+
 fn addr() -> String {
     std::env::var("TEST_HOST").unwrap_or("ssh://test-user@127.0.0.1:2222".to_string())
 }
@@ -12,6 +14,13 @@ fn it_connects() {
     let session = Session::connect(&addr(), KnownHosts::Accept).unwrap();
     session.check().unwrap();
     session.close().unwrap();
+}
+
+#[test]
+#[cfg_attr(not(ci), ignore)]
+fn terminate_on_drop() {
+    drop(Session::connect(&addr(), KnownHosts::Add).unwrap());
+    // NOTE: how do we test that it actually killed the master here?
 }
 
 #[test]
@@ -101,7 +110,7 @@ macro_rules! assert_kind {
 
 #[test]
 #[cfg_attr(not(ci), ignore)]
-fn sftp() {
+fn sftp_can() {
     let session = Session::connect(&addr(), KnownHosts::Accept).unwrap();
 
     let mut sftp = session.sftp();
@@ -109,6 +118,8 @@ fn sftp() {
     // first, do some access checks
     // some things we can do
     sftp.can(Mode::Write, "test_file").unwrap();
+    sftp.can(Mode::Write, ".ssh/test_file").unwrap();
+    sftp.can(Mode::Read, ".ssh/authorized_keys").unwrap();
     sftp.can(Mode::Read, "/etc/hostname").unwrap();
     // some things we cannot
     assert_kind!(
@@ -121,6 +132,18 @@ fn sftp() {
     );
     assert_kind!(
         sftp.can(Mode::Read, "/etc/shadow").unwrap_err(),
+        io::ErrorKind::PermissionDenied
+    );
+    assert_kind!(
+        sftp.can(Mode::Read, "/etc/no-such-file").unwrap_err(),
+        io::ErrorKind::NotFound
+    );
+    assert_kind!(
+        sftp.can(Mode::Write, "/etc/no-such-file").unwrap_err(),
+        io::ErrorKind::PermissionDenied
+    );
+    assert_kind!(
+        sftp.can(Mode::Write, "/no-such-file").unwrap_err(),
         io::ErrorKind::PermissionDenied
     );
     assert_kind!(
@@ -144,6 +167,16 @@ fn sftp() {
         sftp.can(Mode::Read, "/etc").unwrap_err(),
         io::ErrorKind::Other
     );
+
+    session.close().unwrap();
+}
+
+#[test]
+#[cfg_attr(not(ci), ignore)]
+fn sftp() {
+    let session = Session::connect(&addr(), KnownHosts::Accept).unwrap();
+
+    let mut sftp = session.sftp();
 
     // first, open a file for writing
     let mut w = sftp.write_to("test_file").unwrap();
@@ -215,15 +248,73 @@ fn bad_remote_command() {
 
     // a bad remote command should result in a _local_ error.
     let failed = session.command("no such program").output().unwrap_err();
-    assert!(matches!(failed, Error::Remote(ref e) if e.kind() == io::ErrorKind::NotFound));
     eprintln!("{:?}", failed);
+    assert!(matches!(failed, Error::Remote(ref e) if e.kind() == io::ErrorKind::NotFound));
 
     // no matter how you run it
     let failed = session.command("no such program").status().unwrap_err();
-    assert!(matches!(failed, Error::Remote(ref e) if e.kind() == io::ErrorKind::NotFound));
     eprintln!("{:?}", failed);
+    assert!(matches!(failed, Error::Remote(ref e) if e.kind() == io::ErrorKind::NotFound));
+
+    // even if you spawn first
+    let mut child = session.command("no such program").spawn().unwrap();
+    let failed = child.wait().unwrap_err();
+    eprintln!("{:?}", failed);
+    assert!(matches!(failed, Error::Remote(ref e) if e.kind() == io::ErrorKind::NotFound));
+    child.disconnect().unwrap_err();
+
+    // of if you want output
+    let child = session.command("no such program").spawn().unwrap();
+    let failed = child.wait_with_output().unwrap_err();
+    eprintln!("{:?}", failed);
+    assert!(matches!(failed, Error::Remote(ref e) if e.kind() == io::ErrorKind::NotFound));
+
+    // no matter how hard you _try_
+    let mut child = session.command("no such program").spawn().unwrap();
+    std::thread::sleep(std::time::Duration::from_millis(500));
+    let failed = child.try_wait().unwrap_err();
+    eprintln!("{:?}", failed);
+    assert!(matches!(failed, Error::Remote(ref e) if e.kind() == io::ErrorKind::NotFound));
+    child.disconnect().unwrap_err();
 
     session.close().unwrap();
+}
+
+#[test]
+fn connect_timeout() {
+    use std::time::{Duration, Instant};
+
+    let t = Instant::now();
+    let mut sb = SessionBuilder::default();
+    let failed = sb
+        .connect_timeout(Duration::from_secs(1))
+        .connect("192.0.0.8")
+        .unwrap_err();
+    assert!(t.elapsed() > Duration::from_secs(1));
+    assert!(t.elapsed() < Duration::from_secs(2));
+    eprintln!("{:?}", failed);
+    assert!(matches!(failed, Error::Connect(ref e) if e.kind() == io::ErrorKind::TimedOut));
+}
+
+#[test]
+#[cfg_attr(not(ci), ignore)]
+fn spawn_and_wait() {
+    use std::time::{Duration, Instant};
+
+    let session = Session::connect(&addr(), KnownHosts::Accept).unwrap();
+
+    let t = Instant::now();
+    let sleeping1 = session.command("sleep").arg("1").spawn().unwrap();
+    let sleeping2 = sleeping1
+        .session()
+        .command("sleep")
+        .arg("2")
+        .spawn()
+        .unwrap();
+    sleeping1.wait_with_output().unwrap();
+    assert!(t.elapsed() > Duration::from_secs(1));
+    sleeping2.wait_with_output().unwrap();
+    assert!(t.elapsed() > Duration::from_secs(2));
 }
 
 #[test]
