@@ -16,6 +16,13 @@ fn it_connects() {
 
 #[test]
 #[cfg_attr(not(ci), ignore)]
+fn terminate_on_drop() {
+    drop(Session::connect(&addr(), KnownHosts::Add).unwrap());
+    // NOTE: how do we test that it actually killed the master here?
+}
+
+#[test]
+#[cfg_attr(not(ci), ignore)]
 fn stdout() {
     let session = Session::connect(&addr(), KnownHosts::Accept).unwrap();
 
