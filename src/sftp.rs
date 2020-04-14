@@ -40,9 +40,12 @@ impl Mode {
 /// with [`std::io::Write`].
 ///
 /// Note that because we are operating against a remote host, errors may take a while to propagate.
-/// For that reason, you may find that writes to, and reads from, files that do not exist, may
-/// still succeed without error. You should **make sure to call [`close`]** to observe any errors
-/// that may have occurred when operating on the remote file.
+/// The various methods on `RemoteFile` will generally attempt to first check that the file you are
+/// trying to access can indeed be accessed in that way, but some errors may not become visible
+/// until you call [`close`]. In particular, the connection between you and the remote host may
+/// buffer bytes, so your write may report that some number of bytes have been successfully
+/// written, even though the remote disk is full. For that reason, you should **make sure to call
+/// [`close`]** to observe any errors that may have occurred when operating on the remote file.
 #[derive(Debug)]
 pub struct RemoteFile<'s> {
     cat: super::RemoteChild<'s>,
@@ -61,10 +64,19 @@ impl<'s> Sftp<'s> {
 
     /// Check that the given file can be opened in the given mode.
     ///
+    /// This method does not change the remote file system, except where opening a file for
+    /// read/write alone causes changes (like the "last accessed" timestamp).
+    ///
     /// Note that this function is potentially racy. The permissions on the server could change
     /// between when you check and when you start a subsequent operation, causing it to fail. It
     /// can also produce false positives, such as if you are checking whether you can write to a
     /// file on a read-only file system that you still have write permissions on.
+    ///
+    /// Operations like [`read_from`] and [`write_to`] internally perform similar checking to this
+    /// method, so you do not need to call `can` before calling those methods. The checking
+    /// performed by `write_to` can also test its permissions by actually attemping to create the
+    /// remote file (since it is about to create one anyway), so its checking is more reliable than
+    /// what `can` can provide.
     pub fn can(&mut self, mode: Mode, path: impl AsRef<std::path::Path>) -> Result<(), Error> {
         let path = path.as_ref();
 
@@ -232,8 +244,9 @@ impl<'s> Sftp<'s> {
     ///
     /// If the remote file exists, it will be truncated. If it does not, it will be created.
     ///
-    /// Note that errors may not propagate until you call [`close`], including if the remote file
-    /// does not exist.
+    /// Note that some errors may not propagate until you call [`close`]. This method internally
+    /// performs similar checks to [`can`] though, so you should not need to call `can` before
+    /// calling this method.
     ///
     /// # Examples
     ///
@@ -279,8 +292,9 @@ impl<'s> Sftp<'s> {
     ///
     /// If the remote file exists, it will be appended to. If it does not, it will be created.
     ///
-    /// Note that errors may not propagate until you call [`close`], including if the remote file
-    /// does not exist. You may wish to first call [`can(Mode::Append)`](can).
+    /// Note that some errors may not propagate until you call [`close`]. This method internally
+    /// performs similar checks to [`can`] though, so you should not need to call `can` before
+    /// calling this method.
     ///
     /// # Examples
     ///
@@ -328,8 +342,9 @@ impl<'s> Sftp<'s> {
 
     /// Open the remote file at `path` for reading.
     ///
-    /// Note that errors may not propagate until you call [`close`], including if the remote file
-    /// does not exist. You may wish to first call [`can(Mode::Read)`](can).
+    /// Note that some errors may not propagate until you call [`close`]. This method internally
+    /// performs similar checks to [`can`] though, so you should not need to call `can` before
+    /// calling this method.
     ///
     /// # Examples
     ///
