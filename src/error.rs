@@ -85,6 +85,10 @@ impl Error {
                     {
                         kind = io::ErrorKind::TimedOut;
                     }
+                    e if ssh_error.starts_with("connect to host") && e == "Operation timed out" => {
+                        // this is the macOS version of "connection timed out"
+                        kind = io::ErrorKind::TimedOut;
+                    }
                     e if ssh_error.starts_with("connect to host") && e == "Permission denied" => {
                         // this is the macOS version of "network is unreachable".
                         kind = io::ErrorKind::Other;
