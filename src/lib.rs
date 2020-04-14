@@ -424,7 +424,7 @@ fn interpret_ssh_error(stderr: &str) -> Error {
                 "Connection refused" => {
                     kind = io::ErrorKind::ConnectionRefused;
                 }
-                e if e.starts_with("Permission denied") => {
+                e if e.contains("Permission denied (") => {
                     if ssh_error.starts_with("connect to host") {
                         // this is the macOS version of "network is unreachable".
                         kind = io::ErrorKind::Other;
