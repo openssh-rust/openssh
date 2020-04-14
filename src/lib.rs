@@ -519,13 +519,12 @@ fn interpret_ssh_error(stderr: &str) -> Error {
                 "Connection refused" => {
                     kind = io::ErrorKind::ConnectionRefused;
                 }
+                e if ssh_error.starts_with("connect to host") && e == "Permission denied" => {
+                    // this is the macOS version of "network is unreachable".
+                    kind = io::ErrorKind::Other;
+                }
                 e if e.contains("Permission denied (") => {
-                    if ssh_error.starts_with("connect to host") {
-                        // this is the macOS version of "network is unreachable".
-                        kind = io::ErrorKind::Other;
-                    } else {
-                        kind = io::ErrorKind::PermissionDenied;
-                    }
+                    kind = io::ErrorKind::PermissionDenied;
                 }
                 _ => {}
             }
