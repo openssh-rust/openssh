@@ -152,47 +152,81 @@ impl KnownHosts {
     }
 }
 
-impl Session {
-    fn ctl_path(&self) -> std::path::PathBuf {
-        self.ctl.path().join("master")
+/// Build a [`Session`] with options.
+#[derive(Debug)]
+pub struct SessionBuilder {
+    user: Option<String>,
+    port: Option<String>,
+    keyfile: Option<std::path::PathBuf>,
+    connect_timeout: Option<String>,
+    known_hosts_check: KnownHosts,
+}
+
+impl Default for SessionBuilder {
+    fn default() -> Self {
+        Self {
+            user: None,
+            port: None,
+            keyfile: None,
+            connect_timeout: None,
+            known_hosts_check: KnownHosts::Add,
+        }
+    }
+}
+
+impl SessionBuilder {
+    /// Set the ssh user (`ssh -l`).
+    ///
+    /// Defaults to `None`.
+    pub fn user(&mut self, user: String) -> &mut Self {
+        self.user = Some(user);
+        self
     }
 
-    /// Connect to the host at the given `addr` over SSH.
+    /// Set the port to connect on (`ssh -p`).
     ///
-    /// The format of `destination` is the same as the `destination` argument to `ssh`. It may be
-    /// specified as either `[user@]hostname` or a URI of the form `ssh://[user@]hostname[:port]`.
+    /// Defaults to `None`.
+    pub fn port(&mut self, port: u16) -> &mut Self {
+        self.port = Some(format!("{}", port));
+        self
+    }
+
+    /// Set the keyfile to use (`ssh -i`).
+    ///
+    /// Defaults to `None`.
+    pub fn keyfile(&mut self, p: impl AsRef<std::path::Path>) -> &mut Self {
+        self.keyfile = Some(p.as_ref().to_path_buf());
+        self
+    }
+
+    /// See [`KnownHosts`].
+    ///
+    /// Default `KnownHosts::Add`.
+    pub fn known_hosts_check(&mut self, k: KnownHosts) -> &mut Self {
+        self.known_hosts_check = k;
+        self
+    }
+
+    /// Set the connection timeout (`ssh -o ConnectTimeout`).
+    ///
+    /// This value is specified in seconds. Any sub-second duration remainder will be ignored.
+    /// Defaults to `None`.
+    pub fn connect_timeout(&mut self, d: std::time::Duration) -> &mut Self {
+        self.connect_timeout = Some(d.as_secs().to_string());
+        self
+    }
+
+    /// Connect to the host at the given `host` over SSH.
     ///
     /// If connecting requires interactive authentication based on `STDIN` (such as reading a
     /// password), the connection will fail. Consider setting up keypair-based authentication
     /// instead.
-    pub fn connect<S: AsRef<str>>(destination: S, check: KnownHosts) -> Result<Self, Error> {
+    pub fn connect<S: AsRef<str>>(self, host: S) -> Result<Session, Error> {
+        let destination = host.as_ref();
         let dir = Builder::new()
             .prefix(".ssh-connection")
             .tempdir_in("./")
             .map_err(Error::Master)?;
-        let mut destination = destination.as_ref();
-
-        // the "new" ssh://user@host:port form is not supported by all versions of ssh, so we
-        // always translate it into the option form.
-        let mut user = None;
-        let mut port = None;
-        if destination.starts_with("ssh://") {
-            destination = &destination[6..];
-            if let Some(at) = destination.find('@') {
-                // specified a username -- extract it:
-                user = Some(&destination[..at]);
-                destination = &destination[(at + 1)..];
-            }
-            if let Some(colon) = destination.rfind(':') {
-                let p = &destination[(colon + 1)..];
-                if p.chars().all(|c| c.is_ascii_digit()) {
-                    // user specified a port -- extract it:
-                    port = Some(p);
-                    destination = &destination[..colon];
-                }
-            }
-        }
-
         let mut init = process::Command::new("ssh");
 
         init.stdin(Stdio::null())
@@ -208,14 +242,22 @@ impl Session {
             .arg("-o")
             .arg("BatchMode=yes")
             .arg("-o")
-            .arg(check.as_option());
+            .arg(self.known_hosts_check.as_option());
 
-        if let Some(port) = port {
+        if let Some(timeout) = self.connect_timeout {
+            init.arg("-o").arg(format!("ConnectTimeout={}", timeout));
+        }
+
+        if let Some(port) = self.port {
             init.arg("-p").arg(port);
         }
 
-        if let Some(user) = user {
+        if let Some(user) = self.user {
             init.arg("-l").arg(user);
+        }
+
+        if let Some(k) = self.keyfile {
+            init.arg("-i").arg(k);
         }
 
         init.arg(destination);
@@ -242,12 +284,65 @@ impl Session {
             return Err(interpret_ssh_error(&stderr));
         }
 
-        Ok(Self {
+        Ok(Session {
             ctl: dir,
             addr: String::from(destination),
             terminated: false,
             master: std::sync::Mutex::new(Some(child)),
         })
+    }
+}
+
+impl Session {
+    fn ctl_path(&self) -> std::path::PathBuf {
+        self.ctl.path().join("master")
+    }
+
+    /// Connect to the host at the given `addr` over SSH.
+    ///
+    /// The format of `destination` is the same as the `destination` argument to `ssh`. It may be
+    /// specified as either `[user@]hostname` or a URI of the form `ssh://[user@]hostname[:port]`.
+    ///
+    /// If connecting requires interactive authentication based on `STDIN` (such as reading a
+    /// password), the connection will fail. Consider setting up keypair-based authentication
+    /// instead.
+    ///
+    /// For more options, see [`SessionBuilder`].
+    pub fn connect<S: AsRef<str>>(destination: S, check: KnownHosts) -> Result<Self, Error> {
+        let mut destination = destination.as_ref();
+
+        // the "new" ssh://user@host:port form is not supported by all versions of ssh, so we
+        // always translate it into the option form.
+        let mut user = None;
+        let mut port = None;
+        if destination.starts_with("ssh://") {
+            destination = &destination[6..];
+            if let Some(at) = destination.find('@') {
+                // specified a username -- extract it:
+                user = Some(&destination[..at]);
+                destination = &destination[(at + 1)..];
+            }
+            if let Some(colon) = destination.rfind(':') {
+                let p = &destination[(colon + 1)..];
+                if let Ok(p) = p.parse() {
+                    // user specified a port -- extract it:
+                    port = Some(p);
+                    destination = &destination[..colon];
+                }
+            }
+        }
+
+        let mut s = SessionBuilder::default();
+        s.known_hosts_check(check);
+        if let Some(user) = user {
+            s.user(user.to_owned());
+        }
+
+        if let Some(port) = port {
+            s.port(port);
+        }
+
+        s.connect(destination)
     }
 
     /// Check the status of the underlying SSH connection.
