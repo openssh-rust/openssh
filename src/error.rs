@@ -110,3 +110,55 @@ fn parse_error() {
         unreachable!("{:?}", err);
     }
 }
+
+#[test]
+fn error_sanity() {
+    use std::error::Error as _;
+
+    let ioe = || io::Error::new(io::ErrorKind::Other, "test");
+    let expect = ioe();
+
+    let e = Error::Master(ioe());
+    assert!(!format!("{}", e).is_empty());
+    let e = e
+        .source()
+        .expect("source failed")
+        .downcast_ref::<io::Error>()
+        .expect("source not io");
+    assert_eq!(e.kind(), expect.kind());
+    assert_eq!(format!("{}", e), format!("{}", expect));
+
+    let e = Error::Connect(ioe());
+    assert!(!format!("{}", e).is_empty());
+    let e = e
+        .source()
+        .expect("source failed")
+        .downcast_ref::<io::Error>()
+        .expect("source not io");
+    assert_eq!(e.kind(), expect.kind());
+    assert_eq!(format!("{}", e), format!("{}", expect));
+
+    let e = Error::Ssh(ioe());
+    assert!(!format!("{}", e).is_empty());
+    let e = e
+        .source()
+        .expect("source failed")
+        .downcast_ref::<io::Error>()
+        .expect("source not io");
+    assert_eq!(e.kind(), expect.kind());
+    assert_eq!(format!("{}", e), format!("{}", expect));
+
+    let e = Error::Remote(ioe());
+    assert!(!format!("{}", e).is_empty());
+    let e = e
+        .source()
+        .expect("source failed")
+        .downcast_ref::<io::Error>()
+        .expect("source not io");
+    assert_eq!(e.kind(), expect.kind());
+    assert_eq!(format!("{}", e), format!("{}", expect));
+
+    let e = Error::Disconnected;
+    assert!(!format!("{}", e).is_empty());
+    assert!(e.source().is_none());
+}
