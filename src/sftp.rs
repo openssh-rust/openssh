@@ -157,18 +157,18 @@ impl<'s> Sftp<'s> {
         let test = self
             .session
             .command("test")
-            .arg("(")
+            .arg("'('")
             .arg("-d")
             .arg(dir)
-            .arg(")")
+            .arg("')'")
             .arg("-a")
-            .arg("(")
+            .arg("'('")
             .arg("-w")
             .arg(dir)
-            .arg(")")
-            .status()?;
+            .arg("')'")
+            .output()?;
 
-        if test.success() {
+        if test.status.success() {
             Ok(())
         } else if self
             .session
