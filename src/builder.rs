@@ -4,7 +4,7 @@ use std::process::{self, Stdio};
 use tempfile::Builder;
 
 /// Build a [`Session`] with options.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SessionBuilder {
     user: Option<String>,
     port: Option<String>,
@@ -71,13 +71,13 @@ impl SessionBuilder {
     ///
     /// The format of `destination` is the same as the `destination` argument to `ssh`. It may be
     /// specified as either `[user@]hostname` or a URI of the form `ssh://[user@]hostname[:port]`.
-    /// A username or port that is specified in the connection string overrides one set in the
-    /// builder.
+    /// A username or port that is specified in the connection string overrides the one set in the
+    /// builder (but does not change the builder).
     ///
     /// If connecting requires interactive authentication based on `STDIN` (such as reading a
     /// password), the connection will fail. Consider setting up keypair-based authentication
     /// instead.
-    pub fn connect<S: AsRef<str>>(&mut self, destination: S) -> Result<Session, Error> {
+    pub fn connect<S: AsRef<str>>(&self, destination: S) -> Result<Session, Error> {
         let mut destination = destination.as_ref();
 
         // the "new" ssh://user@host:port form is not supported by all versions of ssh, so we
@@ -101,15 +101,20 @@ impl SessionBuilder {
             }
         }
 
+        if user.is_none() && port.is_none() {
+            return self.just_connect(destination);
+        }
+
+        let mut with_overrides = self.clone();
         if let Some(user) = user {
-            self.user(user.to_owned());
+            with_overrides.user(user.to_owned());
         }
 
         if let Some(port) = port {
-            self.port(port);
+            with_overrides.port(port);
         }
 
-        self.just_connect(destination)
+        with_overrides.just_connect(destination)
     }
 
     pub(crate) fn just_connect<S: AsRef<str>>(&self, host: S) -> Result<Session, Error> {
@@ -185,7 +190,7 @@ impl SessionBuilder {
 }
 
 /// Specifies how the host's key fingerprint should be handled.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum KnownHosts {
     /// The host's fingerprint must match what is in the known hosts file.
     ///
