@@ -93,7 +93,7 @@ mod error;
 pub use error::Error;
 
 mod sftp;
-pub use sftp::Sftp;
+pub use sftp::{Mode, RemoteFile, Sftp};
 
 /// A single SSH session to a remote host.
 ///

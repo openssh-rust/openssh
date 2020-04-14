@@ -88,12 +88,62 @@ fn stdin() {
     session.close().unwrap();
 }
 
+macro_rules! assert_kind {
+    ($e:expr, $kind:expr) => {
+        let e = $e;
+        assert!(
+            matches!(e, Error::Remote(ref e) if e.kind() == $kind),
+            "{:?}",
+            e
+        );
+    }
+}
+
 #[test]
 #[cfg_attr(not(ci), ignore)]
 fn sftp() {
     let session = Session::connect(&addr(), KnownHosts::Accept).unwrap();
 
     let mut sftp = session.sftp();
+
+    // first, do some access checks
+    // some things we can do
+    sftp.can(Mode::Write, "test_file").unwrap();
+    sftp.can(Mode::Read, "/etc/hostname").unwrap();
+    // some things we cannot
+    assert_kind!(
+        sftp.can(Mode::Write, "/etc/passwd").unwrap_err(),
+        io::ErrorKind::PermissionDenied
+    );
+    assert_kind!(
+        sftp.can(Mode::Write, "no/such/file").unwrap_err(),
+        io::ErrorKind::NotFound
+    );
+    assert_kind!(
+        sftp.can(Mode::Read, "/etc/shadow").unwrap_err(),
+        io::ErrorKind::PermissionDenied
+    );
+    assert_kind!(
+        sftp.can(Mode::Read, "no/such/file").unwrap_err(),
+        io::ErrorKind::NotFound
+    );
+    // and something are just weird
+    assert_kind!(
+        sftp.can(Mode::Write, ".ssh").unwrap_err(),
+        io::ErrorKind::AlreadyExists
+    );
+    assert_kind!(
+        sftp.can(Mode::Write, "/etc").unwrap_err(),
+        io::ErrorKind::AlreadyExists
+    );
+    assert_kind!(
+        sftp.can(Mode::Write, "/").unwrap_err(),
+        io::ErrorKind::AlreadyExists
+    );
+    assert_kind!(
+        sftp.can(Mode::Read, "/etc").unwrap_err(),
+        io::ErrorKind::Other
+    );
 
     // first, open a file for writing
     let mut w = sftp.write_to("test_file").unwrap();
@@ -105,6 +155,11 @@ fn sftp() {
     // write something to the file
     write!(w, "hello world").unwrap();
     w.close().unwrap();
+
+    // we should still be able to write it
+    sftp.can(Mode::Write, "test_file").unwrap();
+    // and now also read it
+    sftp.can(Mode::Read, "test_file").unwrap();
 
     // then, open the same file for reading
     let mut r = sftp.read_from("test_file").unwrap();
@@ -119,23 +174,21 @@ fn sftp() {
     assert_eq!(contents, "hello world");
     r.close().unwrap();
 
-    // reading a file that does not exist should error on close
-    // TODO: is there a way we can make it error on open/read?
-    let mut r = sftp.read_from("no/such/file").unwrap();
-    let read = r.read_to_string(&mut contents).unwrap();
-    assert_eq!(read, 0);
-    let failed = r.close().unwrap_err();
+    // reading a file that does not exist should error on open
+    let failed = sftp.read_from("no/such/file").unwrap_err();
     assert!(matches!(failed, Error::Remote(ref e) if e.kind() == io::ErrorKind::NotFound));
+    // so should file we're not allowed to read
+    let failed = sftp.read_from("/etc/shadow").unwrap_err();
+    assert!(matches!(failed, Error::Remote(ref e) if e.kind() == io::ErrorKind::PermissionDenied));
 
-    // writing a file that does not exist should also error on close and write
-    // TODO: is there a way we can make it error on open/write?
-    let mut w = sftp.write_to("no/such/file").unwrap();
-    w.write_all(b"hello world").unwrap();
-    let failed = w.close().unwrap_err();
+    // writing a file that does not exist should also error on open
+    let failed = sftp.write_to("no/such/file").unwrap_err();
     assert!(matches!(failed, Error::Remote(ref e) if e.kind() == io::ErrorKind::NotFound));
+    // so should file we're not allowed to write
+    let failed = sftp.write_to("/rootfile").unwrap_err();
+    assert!(matches!(failed, Error::Remote(ref e) if e.kind() == io::ErrorKind::PermissionDenied));
 
     // writing to a full disk (or the like) should also error
-    // TODO: is there a way we can make it error on open/write?
     let mut w = sftp.write_to("/dev/full").unwrap();
     w.write_all(b"hello world").unwrap();
     let failed = w.close().unwrap_err();

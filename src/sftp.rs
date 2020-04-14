@@ -13,10 +13,14 @@ pub struct Sftp<'s> {
     session: &'s Session,
 }
 
+/// A file access mode.
 #[derive(Debug, Clone, Copy)]
-enum Mode {
+pub enum Mode {
+    /// Read-only access.
     Read,
+    /// Write-only access.
     Write,
+    /// Write-only access in append mode.
     Append,
 }
 
@@ -54,7 +58,155 @@ impl<'s> Sftp<'s> {
 
     // TODO: remove
     // TODO: exists
-    // TODO: check_access (?)
+
+    /// Check that the given file can be opened in the given mode.
+    ///
+    /// Note that this function is potentially racy. The permissions on the server could change
+    /// between when you check and when you start a subsequent operation, causing it to fail. It
+    /// can also produce false positives, such as if you are checking whether you can write to a
+    /// file on a read-only file system that you still have write permissions on.
+    pub fn can(&mut self, mode: Mode, path: impl AsRef<std::path::Path>) -> Result<(), Error> {
+        let path = path.as_ref();
+
+        let mut cmd = self.session.command("dd");
+        if mode.is_write() {
+            cmd.arg("if=/dev/null")
+                .arg(&format!("of={}", path.display()))
+                .arg("bs=1")
+                .arg("count=0")
+                .arg("conv=nocreat,notrunc");
+        } else {
+            cmd.arg(&format!("if={}", path.display()))
+                .arg("of=/dev/null")
+                .arg("bs=1")
+                .arg("count=1");
+        }
+
+        let test = cmd.output()?;
+        if test.status.success() {
+            return Ok(());
+        }
+
+        // we _could_ fail here because the file does not exist.
+        // if this is a write, we still need to check that the parent dir is writeable.
+
+        // let's find out _why_ it failed
+        let stderr = String::from_utf8_lossy(&test.stderr);
+        let stderr = stderr.trim().trim_start_matches("dd: ");
+        if stderr.contains("No such file or directory") {
+            if !mode.is_write() {
+                // a file that does not exist cannot be read
+                return Err(Error::Remote(io::Error::new(
+                    io::ErrorKind::NotFound,
+                    &*stderr,
+                )));
+            } else {
+                // fall-through
+            }
+        } else if stderr.contains("Is a directory") {
+            if mode.is_write() {
+                return Err(Error::Remote(io::Error::new(
+                    io::ErrorKind::AlreadyExists,
+                    &*stderr,
+                )));
+            } else {
+                return Err(Error::Remote(io::Error::new(
+                    io::ErrorKind::Other,
+                    &*stderr,
+                )));
+            }
+        } else {
+            return Err(Error::Remote(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                &*stderr,
+            )));
+        }
+
+        // file does not exist, but a write may be able to create it
+        // we need to check if the target parent is a writeable dir
+        let dir = if let Some(dir) = path.parent() {
+            dir
+        } else {
+            // they're trying to write to / itself?
+            return Err(Error::Remote(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                "trying to write to root as a file",
+            )));
+        };
+
+        let test = self
+            .session
+            .command("test")
+            .arg("(")
+            .arg("-d")
+            .arg(dir)
+            .arg(")")
+            .arg("-a")
+            .arg("(")
+            .arg("-w")
+            .arg(dir)
+            .arg(")")
+            .status()?;
+
+        if test.success() {
+            Ok(())
+        } else if self
+            .session
+            .command("test")
+            .arg("-e")
+            .arg(path)
+            .status()?
+            .success()
+        {
+            Err(Error::Remote(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                "parent directory not writeable",
+            )))
+        } else {
+            Err(Error::Remote(io::Error::new(
+                io::ErrorKind::NotFound,
+                "parent directory does not exist",
+            )))
+        }
+    }
+
+    /// Initialize the given operation on the target file.
+    ///
+    /// Note that this function is not guaranteed to be side-effect free for writes. Specifically,
+    /// it will create the target file in order to test whether it is writeable.
+    fn init_op(&mut self, mode: Mode, path: impl AsRef<std::path::Path>) -> Result<(), Error> {
+        if mode.is_write() {
+            // for writes, we want a stronger (and cheaper) test than can()
+            // we can't actually use `touch`, since it also works for dirs
+            // note that this works b/c stdin is Stdio::null()
+            let touch = self
+                .session
+                .command("cat")
+                .arg(">>")
+                .arg(path.as_ref())
+                .stdin(Stdio::null())
+                .output()?;
+            if touch.status.success() {
+                return Ok(());
+            }
+
+            // let's find out _why_ it failed
+            let stderr = String::from_utf8_lossy(&touch.stderr);
+            if stderr.contains("No such file or directory") {
+                Err(Error::Remote(io::Error::new(
+                    io::ErrorKind::NotFound,
+                    &*stderr,
+                )))
+            } else {
+                Err(Error::Remote(io::Error::new(
+                    io::ErrorKind::PermissionDenied,
+                    &*stderr,
+                )))
+            }
+        } else {
+            self.can(Mode::Read, path)
+        }
+    }
 
     /// Open the remote file at `path` for writing.
     ///
@@ -63,10 +215,14 @@ impl<'s> Sftp<'s> {
     /// Note that errors may not propagate until you call [`close`], including if the remote file
     /// does not exist.
     pub fn write_to(&mut self, path: impl AsRef<std::path::Path>) -> Result<RemoteFile<'s>, Error> {
+        let path = path.as_ref();
+
+        self.init_op(Mode::Write, path)?;
+
         let cat = self
             .session
             .command("tee")
-            .arg(path.as_ref())
+            .arg(path)
             .stdin(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()?;
@@ -82,16 +238,20 @@ impl<'s> Sftp<'s> {
     /// If the remote file exists, it will be appended to. If it does not, it will be created.
     ///
     /// Note that errors may not propagate until you call [`close`], including if the remote file
-    /// does not exist.
+    /// does not exist. You may wish to first call [`can(Mode::Append)`](can).
     pub fn append_to(
         &mut self,
         path: impl AsRef<std::path::Path>,
     ) -> Result<RemoteFile<'s>, Error> {
+        let path = path.as_ref();
+
+        self.init_op(Mode::Append, path)?;
+
         let cat = self
             .session
             .command("tee")
             .arg("-a")
-            .arg(path.as_ref())
+            .arg(path)
             .stdin(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()?;
@@ -105,15 +265,19 @@ impl<'s> Sftp<'s> {
     /// Open the remote file at `path` for reading.
     ///
     /// Note that errors may not propagate until you call [`close`], including if the remote file
-    /// does not exist.
+    /// does not exist. You may wish to first call [`can(Mode::Read)`](can).
     pub fn read_from(
         &mut self,
         path: impl AsRef<std::path::Path>,
     ) -> Result<RemoteFile<'s>, Error> {
+        let path = path.as_ref();
+
+        self.init_op(Mode::Read, path)?;
+
         let cat = self
             .session
             .command("cat")
-            .arg(path.as_ref())
+            .arg(path)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()?;
