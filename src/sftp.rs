@@ -174,7 +174,7 @@ impl<'s> Sftp<'s> {
             .session
             .command("test")
             .arg("-e")
-            .arg(path)
+            .arg(dir)
             .status()?
             .success()
         {
