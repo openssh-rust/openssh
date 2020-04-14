@@ -32,6 +32,10 @@
 //! the remote command directly. Usually, these are the same, though not always, as highlighted in
 //! the documetantation the individual methods.
 //!
+//! And finally, our commands never default to inheriting stdin/stdout/stderr, since we expect you
+//! are using this to automate things. Instead, unless otherwise noted, all I/O ports default to
+//! [`Stdio::null`].
+//!
 //! # Authentication
 //!
 //! This library supports only password-less authentication schemes. If running `ssh` to a target
@@ -94,17 +98,20 @@ pub struct Session {
     ctl: tempfile::TempDir,
     addr: String,
     terminated: bool,
+    master: std::sync::Mutex<Option<std::process::Child>>,
 }
 
 /// Errors that occur when interacting with a remote process.
 #[derive(Debug)]
 pub enum Error {
-    /// Failed to set up a directory to hold control information about the connection.
-    ControlDirFailed(io::Error),
+    /// The master connection failed.
+    Master(io::Error),
     /// Failed to establish initial connection to the remote host.
     Connect(io::Error),
-    /// Executing a remote command failed
+    /// Failed to run the `ssh` command locally.
     Ssh(io::Error),
+    /// The remote process failed.
+    Remote(io::Error),
     /// The connection to the remote host was severed.
     ///
     /// Note that this is a best-effort error, and it _may_ instead signify that the remote process
@@ -162,7 +169,7 @@ impl Session {
         let dir = Builder::new()
             .prefix(".ssh-connection")
             .tempdir_in("./")
-            .map_err(Error::ControlDirFailed)?;
+            .map_err(Error::Master)?;
         let mut destination = destination.as_ref();
 
         // the "new" ssh://user@host:port form is not supported by all versions of ssh, so we
@@ -239,6 +246,7 @@ impl Session {
             ctl: dir,
             addr: String::from(destination),
             terminated: false,
+            master: std::sync::Mutex::new(Some(child)),
         })
     }
 
@@ -251,7 +259,7 @@ impl Session {
             return Err(Error::Disconnected);
         }
 
-        let status = process::Command::new("ssh")
+        let check = process::Command::new("ssh")
             .arg("-S")
             .arg(self.ctl_path())
             .arg("-o")
@@ -259,11 +267,15 @@ impl Session {
             .arg("-O")
             .arg("check")
             .arg(&self.addr)
-            .status()
+            .output()
             .map_err(Error::Ssh)?;
 
-        if let Some(255) = status.code() {
-            Err(Error::Disconnected)
+        if let Some(255) = check.status.code() {
+            if let Some(master_error) = self.take_master_error() {
+                Err(master_error)
+            } else {
+                Err(Error::Disconnected)
+            }
         } else {
             Ok(())
         }
@@ -275,16 +287,17 @@ impl Session {
     /// The returned `Command` is a builder, with the following default configuration:
     ///
     /// * No arguments to the program
-    /// * Inherit stdin/stdout/stderr for `spawn` or `status`, but create pipes for `output`
+    /// * Empty stdin and dsicard stdout/stderr for `spawn` or `status`, but create output pipes for `output`
     ///
     /// Builder methods are provided to change these defaults and otherwise configure the process.
     ///
     /// If `program` is not an absolute path, the `PATH` will be searched in an OS-defined way on
     /// the host.
-    // TODO: we may want to re-visit the defaults for wait/output/spawn, as it's not clear Inherit
-    // as the default makes as much sense in the context of a remote host library?
     pub fn command<S: AsRef<OsStr>>(&self, program: S) -> Command<'_> {
         // XXX: Should we do a self.check() here first?
+
+        // NOTE: we pass -p 9 nine here (the "discard" port) to ensure that ssh does not
+        // succeed in establishing a _new_ connection if the master connection has failed.
 
         let mut cmd = process::Command::new("ssh");
         cmd.arg("-S")
@@ -292,13 +305,13 @@ impl Session {
             .arg("-T")
             .arg("-o")
             .arg("BatchMode=yes")
+            .arg("-p")
+            .arg("9")
             .arg(&self.addr)
+            .arg("--")
             .arg(program);
 
-        Command {
-            session: self,
-            builder: cmd,
-        }
+        Command::new(self, cmd)
     }
 
     /// Terminate the remote connection.
@@ -306,23 +319,71 @@ impl Session {
         self.terminate()
     }
 
-    fn terminate(&mut self) -> Result<(), Error> {
-        // NOTE: this function should only ever be called once
-        let status = process::Command::new("ssh")
-            .arg("-S")
-            .arg(self.ctl_path())
-            .arg("-o")
-            .arg("BatchMode=yes")
-            .arg("-O")
-            .arg("exit")
-            .arg(&self.addr)
-            .status()
-            .map_err(Error::Ssh)?;
+    fn take_master_error(&self) -> Option<Error> {
+        let mut master = self.master.lock().unwrap().take()?;
 
-        if let Some(255) = status.code() {
-            // probably already disconnected -- that's fine
+        let status = master
+            .wait()
+            .expect("failed to await master that _we_ spawned");
+
+        if status.success() {
+            // master exited cleanly, so we assume that the
+            // connection was simply closed by the remote end.
+            return None;
         }
-        self.terminated = true;
+
+        let mut stderr = String::new();
+        if let Err(e) = master
+            .stderr
+            .expect("master was spawned with piped stderr")
+            .read_to_string(&mut stderr)
+        {
+            return Some(Error::Master(e));
+        }
+        let stderr = stderr.trim();
+
+        Some(Error::Master(io::Error::new(io::ErrorKind::Other, stderr)))
+    }
+
+    fn terminate(&mut self) -> Result<(), Error> {
+        if !self.terminated {
+            let exit = process::Command::new("ssh")
+                .arg("-S")
+                .arg(self.ctl_path())
+                .arg("-o")
+                .arg("BatchMode=yes")
+                .arg("-O")
+                .arg("exit")
+                .arg(&self.addr)
+                .output()
+                .map_err(Error::Ssh)?;
+
+            self.terminated = true;
+            if !exit.status.success() {
+                if let Some(master_error) = self.take_master_error() {
+                    return Err(master_error);
+                }
+
+                // let's get this case straight:
+                // we tried to tell the master to exit.
+                // the command execution did not fail.
+                // the command returned a failure exist code.
+                // the master did not produce an error.
+                // what could cause that?
+                //
+                // the only thing I can think of at the moment is that the remote end cleanly
+                // closed the connection, probably by virtue of being killed (but without the
+                // network dropping out). since we were told to _close_ the connection, well, we
+                // have succeeded, so this should not produce an error.
+                //
+                // we will still _collect_ the error that -O exit produced though,
+                // just for ease of debugging.
+
+                let _exit_err = String::from_utf8_lossy(&exit.stderr);
+                let _err = _exit_err.trim();
+                // eprintln!("{}", _err);
+            }
+        }
 
         Ok(())
     }

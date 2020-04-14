@@ -142,7 +142,7 @@ resources:
       endpoint: jonhoo
   containers:
    - container: openssh
-     image: linuxserver/openssh-server
+     image: linuxserver/openssh-server:amd64-latest
      ports:
        - 2222:2222
      env:
