@@ -215,33 +215,33 @@ fn bad_remote_command() {
 
     // a bad remote command should result in a _local_ error.
     let failed = session.command("no such program").output().unwrap_err();
-    assert!(matches!(failed, Error::Remote(ref e) if e.kind() == io::ErrorKind::NotFound));
     eprintln!("{:?}", failed);
+    assert!(matches!(failed, Error::Remote(ref e) if e.kind() == io::ErrorKind::NotFound));
 
     // no matter how you run it
     let failed = session.command("no such program").status().unwrap_err();
-    assert!(matches!(failed, Error::Remote(ref e) if e.kind() == io::ErrorKind::NotFound));
     eprintln!("{:?}", failed);
+    assert!(matches!(failed, Error::Remote(ref e) if e.kind() == io::ErrorKind::NotFound));
 
     // even if you spawn first
     let mut child = session.command("no such program").spawn().unwrap();
     let failed = child.wait().unwrap_err();
-    assert!(matches!(failed, Error::Remote(ref e) if e.kind() == io::ErrorKind::NotFound));
     eprintln!("{:?}", failed);
+    assert!(matches!(failed, Error::Remote(ref e) if e.kind() == io::ErrorKind::NotFound));
     child.disconnect().unwrap_err();
 
     // of if you want output
     let child = session.command("no such program").spawn().unwrap();
     let failed = child.wait_with_output().unwrap_err();
-    assert!(matches!(failed, Error::Remote(ref e) if e.kind() == io::ErrorKind::NotFound));
     eprintln!("{:?}", failed);
+    assert!(matches!(failed, Error::Remote(ref e) if e.kind() == io::ErrorKind::NotFound));
 
     // no matter how hard you _try_
     let mut child = session.command("no such program").spawn().unwrap();
     std::thread::sleep(std::time::Duration::from_millis(500));
     let failed = child.try_wait().unwrap_err();
-    assert!(matches!(failed, Error::Remote(ref e) if e.kind() == io::ErrorKind::NotFound));
     eprintln!("{:?}", failed);
+    assert!(matches!(failed, Error::Remote(ref e) if e.kind() == io::ErrorKind::NotFound));
     child.disconnect().unwrap_err();
 
     session.close().unwrap();
