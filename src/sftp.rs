@@ -141,9 +141,11 @@ impl<'s> Sftp<'s> {
         // file does not exist, but a write may be able to create it
         // we need to check if the target parent is a writeable dir
         let dir = if let Some(dir) = path.parent() {
-            dir
-        } else if path.is_relative() {
-            std::path::Path::new(".")
+            if dir == std::path::Path::new("") {
+                std::path::Path::new(".")
+            } else {
+                dir
+            }
         } else {
             // they're trying to write to / itself?
             return Err(Error::Remote(io::Error::new(
