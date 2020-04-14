@@ -90,6 +90,62 @@ fn stdin() {
 
 #[test]
 #[cfg_attr(not(ci), ignore)]
+fn sftp() {
+    let session = Session::connect(&addr(), KnownHosts::Accept).unwrap();
+
+    let mut sftp = session.sftp();
+
+    // first, open a file for writing
+    let mut w = sftp.write_to("test_file").unwrap();
+
+    // reading from a write-only file should error
+    let failed = w.read(&mut [0]).unwrap_err();
+    assert_eq!(failed.kind(), io::ErrorKind::UnexpectedEof);
+
+    // write something to the file
+    write!(w, "hello world").unwrap();
+    w.close().unwrap();
+
+    // then, open the same file for reading
+    let mut r = sftp.read_from("test_file").unwrap();
+
+    // writing to a read-only file should error
+    let failed = r.write(&[0]).unwrap_err();
+    assert_eq!(failed.kind(), io::ErrorKind::WriteZero);
+
+    // read back the file
+    let mut contents = String::new();
+    r.read_to_string(&mut contents).unwrap();
+    assert_eq!(contents, "hello world");
+    r.close().unwrap();
+
+    // reading a file that does not exist should error on close
+    // TODO: is there a way we can make it error on open/read?
+    let mut r = sftp.read_from("no/such/file").unwrap();
+    let read = r.read_to_string(&mut contents).unwrap();
+    assert_eq!(read, 0);
+    let failed = r.close().unwrap_err();
+    assert!(matches!(failed, Error::Remote(ref e) if e.kind() == io::ErrorKind::NotFound));
+
+    // writing a file that does not exist should also error on close and write
+    // TODO: is there a way we can make it error on open/write?
+    let mut w = sftp.write_to("no/such/file").unwrap();
+    w.write_all(b"hello world").unwrap();
+    let failed = w.close().unwrap_err();
+    assert!(matches!(failed, Error::Remote(ref e) if e.kind() == io::ErrorKind::NotFound));
+
+    // writing to a full disk (or the like) should also error
+    // TODO: is there a way we can make it error on open/write?
+    let mut w = sftp.write_to("/dev/full").unwrap();
+    w.write_all(b"hello world").unwrap();
+    let failed = w.close().unwrap_err();
+    assert!(matches!(failed, Error::Remote(ref e) if e.kind() == io::ErrorKind::WriteZero));
+
+    session.close().unwrap();
+}
+
+#[test]
+#[cfg_attr(not(ci), ignore)]
 fn bad_remote_command() {
     let session = Session::connect(&addr(), KnownHosts::Accept).unwrap();
 
