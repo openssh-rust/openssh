@@ -137,40 +137,9 @@ impl Session {
     ///
     /// For more options, see [`SessionBuilder`].
     pub fn connect<S: AsRef<str>>(destination: S, check: KnownHosts) -> Result<Self, Error> {
-        let mut destination = destination.as_ref();
-
-        // the "new" ssh://user@host:port form is not supported by all versions of ssh, so we
-        // always translate it into the option form.
-        let mut user = None;
-        let mut port = None;
-        if destination.starts_with("ssh://") {
-            destination = &destination[6..];
-            if let Some(at) = destination.find('@') {
-                // specified a username -- extract it:
-                user = Some(&destination[..at]);
-                destination = &destination[(at + 1)..];
-            }
-            if let Some(colon) = destination.rfind(':') {
-                let p = &destination[(colon + 1)..];
-                if let Ok(p) = p.parse() {
-                    // user specified a port -- extract it:
-                    port = Some(p);
-                    destination = &destination[..colon];
-                }
-            }
-        }
-
         let mut s = SessionBuilder::default();
         s.known_hosts_check(check);
-        if let Some(user) = user {
-            s.user(user.to_owned());
-        }
-
-        if let Some(port) = port {
-            s.port(port);
-        }
-
-        s.connect(destination)
+        s.connect(destination.as_ref())
     }
 
     /// Check the status of the underlying SSH connection.

@@ -69,10 +69,50 @@ impl SessionBuilder {
 
     /// Connect to the host at the given `host` over SSH.
     ///
+    /// The format of `destination` is the same as the `destination` argument to `ssh`. It may be
+    /// specified as either `[user@]hostname` or a URI of the form `ssh://[user@]hostname[:port]`.
+    /// A username or port that is specified in the connection string overrides one set in the
+    /// builder.
+    ///
     /// If connecting requires interactive authentication based on `STDIN` (such as reading a
     /// password), the connection will fail. Consider setting up keypair-based authentication
     /// instead.
-    pub fn connect<S: AsRef<str>>(self, host: S) -> Result<Session, Error> {
+    pub fn connect<S: AsRef<str>>(&mut self, destination: S) -> Result<Session, Error> {
+        let mut destination = destination.as_ref();
+
+        // the "new" ssh://user@host:port form is not supported by all versions of ssh, so we
+        // always translate it into the option form.
+        let mut user = None;
+        let mut port = None;
+        if destination.starts_with("ssh://") {
+            destination = &destination[6..];
+            if let Some(at) = destination.find('@') {
+                // specified a username -- extract it:
+                user = Some(&destination[..at]);
+                destination = &destination[(at + 1)..];
+            }
+            if let Some(colon) = destination.rfind(':') {
+                let p = &destination[(colon + 1)..];
+                if let Ok(p) = p.parse() {
+                    // user specified a port -- extract it:
+                    port = Some(p);
+                    destination = &destination[..colon];
+                }
+            }
+        }
+
+        if let Some(user) = user {
+            self.user(user.to_owned());
+        }
+
+        if let Some(port) = port {
+            self.port(port);
+        }
+
+        self.just_connect(destination)
+    }
+
+    pub(crate) fn just_connect<S: AsRef<str>>(&self, host: S) -> Result<Session, Error> {
         let destination = host.as_ref();
         let dir = Builder::new()
             .prefix(".ssh-connection")
@@ -95,19 +135,19 @@ impl SessionBuilder {
             .arg("-o")
             .arg(self.known_hosts_check.as_option());
 
-        if let Some(timeout) = self.connect_timeout {
+        if let Some(ref timeout) = self.connect_timeout {
             init.arg("-o").arg(format!("ConnectTimeout={}", timeout));
         }
 
-        if let Some(port) = self.port {
+        if let Some(ref port) = self.port {
             init.arg("-p").arg(port);
         }
 
-        if let Some(user) = self.user {
+        if let Some(ref user) = self.user {
             init.arg("-l").arg(user);
         }
 
-        if let Some(k) = self.keyfile {
+        if let Some(ref k) = self.keyfile {
             init.arg("-i").arg(k);
         }
 
