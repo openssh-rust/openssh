@@ -68,6 +68,22 @@ impl<'s> Sftp<'s> {
     pub fn can(&mut self, mode: Mode, path: impl AsRef<std::path::Path>) -> Result<(), Error> {
         let path = path.as_ref();
 
+        // okay, so, I know it's weird to use dd for this, but hear me out here.
+        // we need a command that:
+        //
+        //  - will error if you try to read from or write to a directory
+        //  - will error if you try to read from or write to a file you do not have access to
+        //  - disinguishes between the two former cases
+        //  - does not create the file if it does not exist
+        //  - will succeed otherwise
+        //
+        // cat would work for read, but would read the entire file (no good)
+        // stat would not tell us if we can actually read or write the file
+        // touch won't work, as it also works on directories (no error)
+        // ls won't work unless we want to parse its output (which we don't)
+        // test won't work because it doesn't tell us _which_ test failed
+        //
+        // dd does everything we need!
         let mut cmd = self.session.command("dd");
         if mode.is_write() {
             cmd.arg("if=/dev/null")
