@@ -223,7 +223,65 @@ fn bad_remote_command() {
     assert!(matches!(failed, Error::Remote(ref e) if e.kind() == io::ErrorKind::NotFound));
     eprintln!("{:?}", failed);
 
+    // even if you spawn first
+    let mut child = session.command("no such program").spawn().unwrap();
+    let failed = child.wait().unwrap_err();
+    assert!(matches!(failed, Error::Remote(ref e) if e.kind() == io::ErrorKind::NotFound));
+    eprintln!("{:?}", failed);
+    child.disconnect().unwrap_err();
+
+    // of if you want output
+    let child = session.command("no such program").spawn().unwrap();
+    let failed = child.wait_with_output().unwrap_err();
+    assert!(matches!(failed, Error::Remote(ref e) if e.kind() == io::ErrorKind::NotFound));
+    eprintln!("{:?}", failed);
+
+    // no matter how hard you _try_
+    let mut child = session.command("no such program").spawn().unwrap();
+    std::thread::sleep(std::time::Duration::from_millis(500));
+    let failed = child.try_wait().unwrap_err();
+    assert!(matches!(failed, Error::Remote(ref e) if e.kind() == io::ErrorKind::NotFound));
+    eprintln!("{:?}", failed);
+    child.disconnect().unwrap_err();
+
     session.close().unwrap();
+}
+
+#[test]
+fn connect_timeout() {
+    use std::time::{Duration, Instant};
+
+    let t = Instant::now();
+    let mut sb = SessionBuilder::default();
+    let failed = sb
+        .connect_timeout(Duration::from_secs(1))
+        .connect("192.0.0.8")
+        .unwrap_err();
+    assert!(t.elapsed() > Duration::from_secs(1));
+    assert!(t.elapsed() < Duration::from_secs(2));
+    eprintln!("{:?}", failed);
+    assert!(matches!(failed, Error::Connect(ref e) if e.kind() == io::ErrorKind::TimedOut));
+}
+
+#[test]
+#[cfg_attr(not(ci), ignore)]
+fn spawn_and_wait() {
+    use std::time::{Duration, Instant};
+
+    let session = Session::connect(&addr(), KnownHosts::Accept).unwrap();
+
+    let t = Instant::now();
+    let sleeping1 = session.command("sleep").arg("1").spawn().unwrap();
+    let sleeping2 = sleeping1
+        .session()
+        .command("sleep")
+        .arg("2")
+        .spawn()
+        .unwrap();
+    sleeping1.wait_with_output().unwrap();
+    assert!(t.elapsed() > Duration::from_secs(1));
+    sleeping2.wait_with_output().unwrap();
+    assert!(t.elapsed() > Duration::from_secs(2));
 }
 
 #[test]
