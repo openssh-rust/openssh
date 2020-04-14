@@ -30,7 +30,10 @@
 //! handle to the _local_ `ssh` instance corresponding to the spawned remote command. The behavior
 //! of the methods of [`RemoteChild`] therefore match the behavior of `ssh`, rather than that of
 //! the remote command directly. Usually, these are the same, though not always, as highlighted in
-//! the documetantation the individual methods.
+//! the documetantation the individual methods. Of particular note is the fact that arguments are
+//! passed to the remote shell, which **may interpret them**. Strings with `$` in them are
+//! particularly subject to this behavior, and you may want to consider using a library like
+//! [`shellwords`] on arguments and paths.
 //!
 //! And finally, our commands never default to inheriting stdin/stdout/stderr, since we expect you
 //! are using this to automate things. Instead, unless otherwise noted, all I/O ports default to
@@ -73,8 +76,14 @@
 //! ```
 //!
 //!   [`ControlMaster`]: https://en.wikibooks.org/wiki/OpenSSH/Cookbook/Multiplexing
+//!   [`shellwords`]: https://crates.io/crates/shellwords
 
-#![warn(missing_docs, missing_debug_implementations, rust_2018_idioms)]
+#![warn(
+    missing_docs,
+    missing_debug_implementations,
+    rust_2018_idioms,
+    unreachable_pub
+)]
 
 use std::ffi::OsStr;
 use std::io::{self, prelude::*};
