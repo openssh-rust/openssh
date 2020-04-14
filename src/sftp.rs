@@ -21,8 +21,8 @@ enum Mode {
 }
 
 impl Mode {
-    fn is_write(&self) -> bool {
-        match *self {
+    fn is_write(self) -> bool {
+        match self {
             Mode::Append | Mode::Write => true,
             Mode::Read => false,
         }
@@ -166,6 +166,7 @@ impl RemoteFile<'_> {
 
         // search for "die" or EXIT_FAILURE in the cat source code:
         // https://github.com/coreutils/coreutils/blob/master/src/cat.c
+        #[allow(clippy::collapsible_if)]
         Err(Error::Remote(if self.mode.is_write() {
             if err.ends_with(": No such file or directory") {
                 io::Error::new(io::ErrorKind::NotFound, err)
