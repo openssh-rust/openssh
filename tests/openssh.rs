@@ -153,13 +153,24 @@ fn sftp() {
     assert_eq!(failed.kind(), io::ErrorKind::UnexpectedEof);
 
     // write something to the file
-    write!(w, "hello world").unwrap();
+    write!(w, "hello").unwrap();
     w.close().unwrap();
 
     // we should still be able to write it
     sftp.can(Mode::Write, "test_file").unwrap();
     // and now also read it
     sftp.can(Mode::Read, "test_file").unwrap();
+
+    // open the file again for appending
+    let mut w = sftp.append_to("test_file").unwrap();
+
+    // reading from an append-only file should also error
+    let failed = w.read(&mut [0]).unwrap_err();
+    assert_eq!(failed.kind(), io::ErrorKind::UnexpectedEof);
+
+    // append something to the file
+    write!(w, " world").unwrap();
+    w.close().unwrap();
 
     // then, open the same file for reading
     let mut r = sftp.read_from("test_file").unwrap();
