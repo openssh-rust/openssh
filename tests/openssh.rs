@@ -2,6 +2,8 @@ use openssh::*;
 use std::io::{self, prelude::*};
 use std::process::Stdio;
 
+// TODO: how do we test the connection actually _failing_ so that the master reports an error?
+
 fn addr() -> String {
     std::env::var("TEST_HOST").unwrap_or("ssh://test-user@127.0.0.1:2222".to_string())
 }
