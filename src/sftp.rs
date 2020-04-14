@@ -214,6 +214,28 @@ impl<'s> Sftp<'s> {
     ///
     /// Note that errors may not propagate until you call [`close`], including if the remote file
     /// does not exist.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use openssh::*;
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// use std::io::prelude::*;
+    ///
+    /// // connect to a remote host and get an sftp connection
+    /// let session = Session::connect("host", KnownHosts::Strict)?;
+    /// let mut sftp = session.sftp();
+    ///
+    /// // open a file for writing
+    /// let mut w = sftp.write_to("test_file")?;
+    ///
+    /// // write something to the file
+    /// write!(w, "hello world")?;
+    ///
+    /// // flush and close the remote file, absorbing any final errors
+    /// w.close()?;
+    /// # Ok(())
+    /// # }
     pub fn write_to(&mut self, path: impl AsRef<std::path::Path>) -> Result<RemoteFile<'s>, Error> {
         let path = path.as_ref();
 
@@ -239,6 +261,28 @@ impl<'s> Sftp<'s> {
     ///
     /// Note that errors may not propagate until you call [`close`], including if the remote file
     /// does not exist. You may wish to first call [`can(Mode::Append)`](can).
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use openssh::*;
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// use std::io::prelude::*;
+    ///
+    /// // connect to a remote host and get an sftp connection
+    /// let session = Session::connect("host", KnownHosts::Strict)?;
+    /// let mut sftp = session.sftp();
+    ///
+    /// // open a file for appending
+    /// let mut w = sftp.append_to("test_file")?;
+    ///
+    /// // write will append to the file
+    /// write!(w, "hello world")?;
+    ///
+    /// // flush and close the remote file, absorbing any final errors
+    /// w.close()?;
+    /// # Ok(())
+    /// # }
     pub fn append_to(
         &mut self,
         path: impl AsRef<std::path::Path>,
@@ -266,6 +310,29 @@ impl<'s> Sftp<'s> {
     ///
     /// Note that errors may not propagate until you call [`close`], including if the remote file
     /// does not exist. You may wish to first call [`can(Mode::Read)`](can).
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use openssh::*;
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// use std::io::prelude::*;
+    ///
+    /// // connect to a remote host and get an sftp connection
+    /// let session = Session::connect("host", KnownHosts::Strict)?;
+    /// let mut sftp = session.sftp();
+    ///
+    /// // open a file for reading
+    /// let mut r = sftp.read_from("/etc/hostname")?;
+    ///
+    /// // write something to the file
+    /// let mut contents = String::new();
+    /// r.read_to_string(&mut contents)?;
+    ///
+    /// // close the remote file, absorbing any final errors
+    /// r.close()?;
+    /// # Ok(())
+    /// # }
     pub fn read_from(
         &mut self,
         path: impl AsRef<std::path::Path>,
