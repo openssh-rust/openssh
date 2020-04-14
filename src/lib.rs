@@ -151,6 +151,7 @@ pub struct SessionBuilder {
     user: Option<String>,
     port: Option<String>,
     keyfile: Option<std::path::PathBuf>,
+    connect_timeout: Option<String>,
     known_hosts_check: KnownHosts,
 }
 
@@ -160,6 +161,7 @@ impl Default for SessionBuilder {
             user: None,
             port: None,
             keyfile: None,
+            connect_timeout: None,
             known_hosts_check: KnownHosts::Add,
         }
     }
@@ -198,6 +200,15 @@ impl SessionBuilder {
         self
     }
 
+    /// Set the connection timeout (`ssh -o ConnectTimeout`).
+    ///
+    /// This value is specified in seconds. Any sub-second duration remainder will be ignored.
+    /// Defaults to `None`.
+    pub fn connect_timeout(&mut self, d: std::time::Duration) -> &mut Self {
+        self.connect_timeout = Some(d.as_secs().to_string());
+        self
+    }
+
     /// Connect to the host at the given `host` over SSH.
     ///
     /// If connecting requires interactive authentication based on `STDIN` (such as reading a
@@ -225,6 +236,10 @@ impl SessionBuilder {
             .arg("BatchMode=yes")
             .arg("-o")
             .arg(self.known_hosts_check.as_option());
+
+        if let Some(timeout) = self.connect_timeout {
+            init.arg("-o").arg(format!("ConnectTimeout={}", timeout));
+        }
 
         if let Some(port) = self.port {
             init.arg("-p").arg(port);
