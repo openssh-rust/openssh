@@ -101,7 +101,7 @@ macro_rules! assert_kind {
 
 #[test]
 #[cfg_attr(not(ci), ignore)]
-fn sftp() {
+fn sftp_can() {
     let session = Session::connect(&addr(), KnownHosts::Accept).unwrap();
 
     let mut sftp = session.sftp();
@@ -109,6 +109,8 @@ fn sftp() {
     // first, do some access checks
     // some things we can do
     sftp.can(Mode::Write, "test_file").unwrap();
+    sftp.can(Mode::Write, ".ssh/test_file").unwrap();
+    sftp.can(Mode::Read, ".ssh/authorized_keys").unwrap();
     sftp.can(Mode::Read, "/etc/hostname").unwrap();
     // some things we cannot
     assert_kind!(
@@ -121,6 +123,18 @@ fn sftp() {
     );
     assert_kind!(
         sftp.can(Mode::Read, "/etc/shadow").unwrap_err(),
+        io::ErrorKind::PermissionDenied
+    );
+    assert_kind!(
+        sftp.can(Mode::Read, "/etc/no-such-file").unwrap_err(),
+        io::ErrorKind::NotFound
+    );
+    assert_kind!(
+        sftp.can(Mode::Write, "/etc/no-such-file").unwrap_err(),
+        io::ErrorKind::PermissionDenied
+    );
+    assert_kind!(
+        sftp.can(Mode::Write, "/no-such-file").unwrap_err(),
         io::ErrorKind::PermissionDenied
     );
     assert_kind!(
@@ -144,6 +158,16 @@ fn sftp() {
         sftp.can(Mode::Read, "/etc").unwrap_err(),
         io::ErrorKind::Other
     );
+
+    session.close().unwrap();
+}
+
+#[test]
+#[cfg_attr(not(ci), ignore)]
+fn sftp() {
+    let session = Session::connect(&addr(), KnownHosts::Accept).unwrap();
+
+    let mut sftp = session.sftp();
 
     // first, open a file for writing
     let mut w = sftp.write_to("test_file").unwrap();
