@@ -77,16 +77,20 @@
 #![warn(missing_docs, missing_debug_implementations, rust_2018_idioms)]
 
 use std::ffi::OsStr;
-use std::fmt;
 use std::io::{self, prelude::*};
-use std::process::{self, Stdio};
-use tempfile::Builder;
+use std::process;
+
+mod builder;
+pub use builder::{KnownHosts, SessionBuilder};
 
 mod command;
 pub use command::Command;
 
 mod child;
 pub use child::RemoteChild;
+
+mod error;
+pub use error::Error;
 
 /// A single SSH session to a remote host.
 ///
@@ -102,221 +106,8 @@ pub struct Session {
     master: std::sync::Mutex<Option<std::process::Child>>,
 }
 
-/// Errors that occur when interacting with a remote process.
-#[derive(Debug)]
-pub enum Error {
-    /// The master connection failed.
-    Master(io::Error),
-    /// Failed to establish initial connection to the remote host.
-    Connect(io::Error),
-    /// Failed to run the `ssh` command locally.
-    Ssh(io::Error),
-    /// The remote process failed.
-    Remote(io::Error),
-    /// The connection to the remote host was severed.
-    ///
-    /// Note that this is a best-effort error, and it _may_ instead signify that the remote process
-    /// exited with an error code of 255. You should call [`Session::check`] to verify if you get
-    /// this error back.
-    Disconnected,
-}
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match *self {
-            Error::Master(_) => write!(f, "the master connection failed"),
-            Error::Connect(_) => write!(f, "failed to connect to the remote host"),
-            Error::Ssh(_) => write!(f, "the local ssh command could not be executed"),
-            Error::Remote(_) => write!(f, "the remote command could not be executed"),
-            Error::Disconnected => write!(f, "the connection was terminated"),
-        }
-    }
-}
-
-impl std::error::Error for Error {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match *self {
-            Error::Master(ref e)
-            | Error::Connect(ref e)
-            | Error::Ssh(ref e)
-            | Error::Remote(ref e) => Some(e),
-            Error::Disconnected => None,
-        }
-    }
-}
-
 // TODO: UserKnownHostsFile for custom known host fingerprint.
 // TODO: Extract process output in Session::check(), Session::connect(), and Session::terminate().
-
-/// Specifies how the host's key fingerprint should be handled.
-#[derive(Debug)]
-pub enum KnownHosts {
-    /// The host's fingerprint must match what is in the known hosts file.
-    ///
-    /// If the host is not in the known hosts file, the connection is rejected.
-    ///
-    /// This corresponds to `ssh -o StrictHostKeyChecking=yes`.
-    Strict,
-    /// Strict, but if the host is not already in the known hosts file, it will be added.
-    ///
-    /// This corresponds to `ssh -o StrictHostKeyChecking=accept-new`.
-    Add,
-    /// Accept whatever key the server provides and add it to the known hosts file.
-    ///
-    /// This corresponds to `ssh -o StrictHostKeyChecking=no`.
-    Accept,
-}
-
-impl KnownHosts {
-    fn as_option(&self) -> &'static str {
-        match *self {
-            KnownHosts::Strict => "StrictHostKeyChecking=yes",
-            KnownHosts::Add => "StrictHostKeyChecking=accept-new",
-            KnownHosts::Accept => "StrictHostKeyChecking=no",
-        }
-    }
-}
-
-/// Build a [`Session`] with options.
-#[derive(Debug)]
-pub struct SessionBuilder {
-    user: Option<String>,
-    port: Option<String>,
-    keyfile: Option<std::path::PathBuf>,
-    connect_timeout: Option<String>,
-    known_hosts_check: KnownHosts,
-}
-
-impl Default for SessionBuilder {
-    fn default() -> Self {
-        Self {
-            user: None,
-            port: None,
-            keyfile: None,
-            connect_timeout: None,
-            known_hosts_check: KnownHosts::Add,
-        }
-    }
-}
-
-impl SessionBuilder {
-    /// Set the ssh user (`ssh -l`).
-    ///
-    /// Defaults to `None`.
-    pub fn user(&mut self, user: String) -> &mut Self {
-        self.user = Some(user);
-        self
-    }
-
-    /// Set the port to connect on (`ssh -p`).
-    ///
-    /// Defaults to `None`.
-    pub fn port(&mut self, port: u16) -> &mut Self {
-        self.port = Some(format!("{}", port));
-        self
-    }
-
-    /// Set the keyfile to use (`ssh -i`).
-    ///
-    /// Defaults to `None`.
-    pub fn keyfile(&mut self, p: impl AsRef<std::path::Path>) -> &mut Self {
-        self.keyfile = Some(p.as_ref().to_path_buf());
-        self
-    }
-
-    /// See [`KnownHosts`].
-    ///
-    /// Default `KnownHosts::Add`.
-    pub fn known_hosts_check(&mut self, k: KnownHosts) -> &mut Self {
-        self.known_hosts_check = k;
-        self
-    }
-
-    /// Set the connection timeout (`ssh -o ConnectTimeout`).
-    ///
-    /// This value is specified in seconds. Any sub-second duration remainder will be ignored.
-    /// Defaults to `None`.
-    pub fn connect_timeout(&mut self, d: std::time::Duration) -> &mut Self {
-        self.connect_timeout = Some(d.as_secs().to_string());
-        self
-    }
-
-    /// Connect to the host at the given `host` over SSH.
-    ///
-    /// If connecting requires interactive authentication based on `STDIN` (such as reading a
-    /// password), the connection will fail. Consider setting up keypair-based authentication
-    /// instead.
-    pub fn connect<S: AsRef<str>>(self, host: S) -> Result<Session, Error> {
-        let destination = host.as_ref();
-        let dir = Builder::new()
-            .prefix(".ssh-connection")
-            .tempdir_in("./")
-            .map_err(Error::Master)?;
-        let mut init = process::Command::new("ssh");
-
-        init.stdin(Stdio::null())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .arg("-S")
-            .arg(dir.path().join("master"))
-            .arg("-M")
-            .arg("-f")
-            .arg("-N")
-            .arg("-o")
-            .arg("ControlPersist=yes")
-            .arg("-o")
-            .arg("BatchMode=yes")
-            .arg("-o")
-            .arg(self.known_hosts_check.as_option());
-
-        if let Some(timeout) = self.connect_timeout {
-            init.arg("-o").arg(format!("ConnectTimeout={}", timeout));
-        }
-
-        if let Some(port) = self.port {
-            init.arg("-p").arg(port);
-        }
-
-        if let Some(user) = self.user {
-            init.arg("-l").arg(user);
-        }
-
-        if let Some(k) = self.keyfile {
-            init.arg("-i").arg(k);
-        }
-
-        init.arg(destination);
-
-        // eprintln!("{:?}", init);
-
-        // we spawn and immediately wait, because the process is supposed to fork.
-        // note that we cannot use .output, since it _also_ tries to read all of stdout/stderr.
-        // if the call _didn't_ error, then the backgrounded ssh client will still hold onto those
-        // handles, and it's still running, so those reads will hang indefinitely.
-        let mut child = init.spawn().map_err(Error::Connect)?;
-        let status = child.wait().map_err(Error::Connect)?;
-
-        if let Some(255) = status.code() {
-            // this is the ssh command's way of telling us that the connection failed
-            let mut stderr = String::new();
-            child
-                .stderr
-                .as_mut()
-                .unwrap()
-                .read_to_string(&mut stderr)
-                .unwrap();
-
-            return Err(interpret_ssh_error(&stderr));
-        }
-
-        Ok(Session {
-            ctl: dir,
-            addr: String::from(destination),
-            terminated: false,
-            master: std::sync::Mutex::new(Some(child)),
-        })
-    }
-}
 
 impl Session {
     fn ctl_path(&self) -> std::path::PathBuf {
@@ -509,75 +300,10 @@ impl Session {
     }
 }
 
-fn interpret_ssh_error(stderr: &str) -> Error {
-    // we want to turn the string-only ssh error into something a little more "handleable".
-    // we do this by trying to interpret the output from `ssh`. this is error-prone, but
-    // the best we can do. if you find ways to impove this, even just through heuristics,
-    // please file an issue or PR :)
-    //
-    // format is:
-    //
-    //     ssh: ssh error: io error
-    let mut stderr = stderr.trim();
-    if stderr.starts_with("ssh: ") {
-        stderr = &stderr["ssh: ".len()..];
-    }
-    if stderr.starts_with("Warning: Permanently added ") {
-        // added to hosts file -- let's ignore that message
-        stderr = stderr.splitn(2, "\r\n").nth(1).unwrap_or("");
-    }
-    let mut kind = io::ErrorKind::ConnectionAborted;
-    let mut err = stderr.splitn(2, ": ");
-    if let Some(ssh_error) = err.next() {
-        if ssh_error.starts_with("Could not resolve") {
-            // match what `std` gives: https://github.com/rust-lang/rust/blob/a5de254862477924bcd8b9e1bff7eadd6ffb5e2a/src/libstd/sys/unix/net.rs#L40
-            // we _could_ match on "Name or service not known" from io_error,
-            // but my guess is that the ssh error is more stable.
-            kind = io::ErrorKind::Other;
-        }
-
-        if let Some(io_error) = err.next() {
-            match io_error {
-                "Network is unreachable" => {
-                    kind = io::ErrorKind::Other;
-                }
-                "Connection refused" => {
-                    kind = io::ErrorKind::ConnectionRefused;
-                }
-                e if ssh_error.starts_with("connect to host") && e == "Permission denied" => {
-                    // this is the macOS version of "network is unreachable".
-                    kind = io::ErrorKind::Other;
-                }
-                e if e.contains("Permission denied (") => {
-                    kind = io::ErrorKind::PermissionDenied;
-                }
-                _ => {}
-            }
-        }
-    }
-
-    // NOTE: we may want to provide more structured connection errors than just io::Error?
-    // NOTE: can we re-use this method for non-connect cases?
-    Error::Connect(io::Error::new(kind, stderr))
-}
-
 impl Drop for Session {
     fn drop(&mut self) {
         if !self.terminated {
             let _ = self.terminate();
         }
-    }
-}
-
-#[test]
-fn parse_error() {
-    let err = "ssh: Warning: Permanently added \'login.csail.mit.edu,128.52.131.0\' (ECDSA) to the list of known hosts.\r\nopenssh-tester@login.csail.mit.edu: Permission denied (publickey,gssapi-keyex,gssapi-with-mic,password,keyboard-interactive).";
-    let err = interpret_ssh_error(err);
-    let target = io::Error::new(io::ErrorKind::PermissionDenied, "openssh-tester@login.csail.mit.edu: Permission denied (publickey,gssapi-keyex,gssapi-with-mic,password,keyboard-interactive).");
-    if let Error::Connect(e) = err {
-        assert_eq!(e.kind(), target.kind());
-        assert_eq!(format!("{}", e), format!("{}", target));
-    } else {
-        unreachable!("{:?}", err);
     }
 }
