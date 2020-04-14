@@ -77,6 +77,7 @@
 #![warn(missing_docs, missing_debug_implementations, rust_2018_idioms)]
 
 use std::ffi::OsStr;
+use std::fmt;
 use std::io::{self, prelude::*};
 use std::process::{self, Stdio};
 use tempfile::Builder;
@@ -118,6 +119,30 @@ pub enum Error {
     /// exited with an error code of 255. You should call [`Session::check`] to verify if you get
     /// this error back.
     Disconnected,
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match *self {
+            Error::Master(_) => write!(f, "the master connection failed"),
+            Error::Connect(_) => write!(f, "failed to connect to the remote host"),
+            Error::Ssh(_) => write!(f, "the local ssh command could not be executed"),
+            Error::Remote(_) => write!(f, "the remote command could not be executed"),
+            Error::Disconnected => write!(f, "the connection was terminated"),
+        }
+    }
+}
+
+impl std::error::Error for Error {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match *self {
+            Error::Master(ref e)
+            | Error::Connect(ref e)
+            | Error::Ssh(ref e)
+            | Error::Remote(ref e) => Some(e),
+            Error::Disconnected => None,
+        }
+    }
 }
 
 // TODO: UserKnownHostsFile for custom known host fingerprint.
