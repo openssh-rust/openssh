@@ -166,9 +166,9 @@ impl Default for SessionBuilder {
 }
 
 impl SessionBuilder {
-    /// Set the ssh user.
+    /// Set the ssh user (`ssh -l`).
     ///
-    /// Default `None`, which will follow your ssh config.
+    /// Defaults to `None`.
     pub fn user(&mut self, user: String) -> &mut Self {
         self.user = Some(user);
         self
@@ -176,7 +176,7 @@ impl SessionBuilder {
 
     /// Set the port to connect on (`ssh -p`).
     ///
-    /// Default `None`, which will follow your ssh config.
+    /// Defaults to `None`.
     pub fn port(&mut self, port: u16) -> &mut Self {
         self.port = Some(format!("{}", port));
         self
@@ -184,7 +184,7 @@ impl SessionBuilder {
 
     /// Set the keyfile to use (`ssh -i`).
     ///
-    /// Default `None`, which will follow your ssh config.
+    /// Defaults to `None`.
     pub fn keyfile(&mut self, p: impl AsRef<std::path::Path>) -> &mut Self {
         self.keyfile = Some(p.as_ref().to_path_buf());
         self
@@ -198,7 +198,11 @@ impl SessionBuilder {
         self
     }
 
-    /// Establish the connection.
+    /// Connect to the host at the given `host` over SSH.
+    ///
+    /// If connecting requires interactive authentication based on `STDIN` (such as reading a
+    /// password), the connection will fail. Consider setting up keypair-based authentication
+    /// instead.
     pub fn connect<S: AsRef<str>>(self, host: S) -> Result<Session, Error> {
         let destination = host.as_ref();
         let dir = Builder::new()
