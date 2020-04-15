@@ -258,30 +258,32 @@ impl Session {
                 .map_err(Error::Ssh)?;
 
             self.terminated = true;
-            if !exit.status.success() {
-                if let Some(master_error) = self.take_master_error() {
-                    return Err(master_error);
-                }
 
-                // let's get this case straight:
-                // we tried to tell the master to exit.
-                // the command execution did not fail.
-                // the command returned a failure exist code.
-                // the master did not produce an error.
-                // what could cause that?
-                //
-                // the only thing I can think of at the moment is that the remote end cleanly
-                // closed the connection, probably by virtue of being killed (but without the
-                // network dropping out). since we were told to _close_ the connection, well, we
-                // have succeeded, so this should not produce an error.
-                //
-                // we will still _collect_ the error that -O exit produced though,
-                // just for ease of debugging.
-
-                let _exit_err = String::from_utf8_lossy(&exit.stderr);
-                let _err = _exit_err.trim();
-                // eprintln!("{}", _err);
+            if let Some(master_error) = self.take_master_error() {
+                return Err(master_error);
             }
+
+            if exit.status.success() {
+                return Ok(());
+            }
+
+            // let's get this case straight:
+            // we tried to tell the master to exit.
+            // the -O exit command failed.
+            // the master exited, but did not produce an error.
+            // what could cause that?
+            //
+            // the only thing I can think of at the moment is that the remote end cleanly
+            // closed the connection, probably by virtue of being killed (but without the
+            // network dropping out). since we were told to _close_ the connection, well, we
+            // have succeeded, so this should not produce an error.
+            //
+            // we will still _collect_ the error that -O exit produced though,
+            // just for ease of debugging.
+
+            let _exit_err = String::from_utf8_lossy(&exit.stderr);
+            let _err = _exit_err.trim();
+            // eprintln!("{}", _err);
         }
 
         Ok(())
