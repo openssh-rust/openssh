@@ -206,6 +206,29 @@ impl Session {
         Command::new(self, cmd)
     }
 
+    /// Constructs a new [`Command`] that runs the provided shell command on the remote host.
+    ///
+    /// While the returned `Command` is a builder, like for [`command`], you should not add
+    /// additional arguments to it, since the arguments are already passed within the shell
+    /// command.
+    ///
+    /// This method assumes that the remote shell is [POSIX compliant], which is more or less
+    /// equivalent to "supports Bash syntax" if you don't look too closely. The provided command
+    /// is passed as a single, escaped argument to `sh -c`, and from that point forward the
+    /// behavior is up to `sh`.
+    ///
+    /// Since this executes a shell command, keep in mind that you are subject to the shell's rules
+    /// around argument parsing, such as whitespace splitting, variable expansion, and other
+    /// funkyness. I _highly_ recommend you read [this article] if you observe strange things.
+    ///
+    ///   [POSIX compliant]: https://pubs.opengroup.org/onlinepubs/9699919799/xrat/V4_xcu_chap02.html
+    ///   [this article]: https://mywiki.wooledge.org/Arguments
+    pub fn shell<S: AsRef<str>>(&self, command: S) -> Command<'_> {
+        let mut cmd = self.command("sh");
+        cmd.arg("-c").arg(shellwords::escape(command.as_ref()));
+        cmd
+    }
+
     /// Prepare to perform file operations on the remote host.
     ///
     /// See [`Sftp`] for details on how to interact with the remote files.

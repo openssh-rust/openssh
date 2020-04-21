@@ -19,3 +19,4 @@ maintenance = { status = "experimental" }
 
 [dependencies]
 tempfile = "3.1.0"
+shellwords = "1"
