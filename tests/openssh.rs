@@ -66,6 +66,12 @@ fn shell() {
     let child = session.shell("echo \\$SHELL").output().unwrap();
     assert_eq!(child.stdout, b"$SHELL\n");
 
+    let child = session
+        .shell(r#"echo $USER | grep -c test"#)
+        .status()
+        .unwrap();
+    assert!(child.success());
+
     session.close().unwrap();
 }
 
