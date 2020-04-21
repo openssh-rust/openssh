@@ -208,21 +208,43 @@ impl Session {
 
     /// Constructs a new [`Command`] that runs the provided shell command on the remote host.
     ///
+    /// The provided command is passed as a single, escaped argument to `sh -c`, and from that
+    /// point forward the behavior is up to `sh`. Since this executes a shell command, keep in mind
+    /// that you are subject to the shell's rules around argument parsing, such as whitespace
+    /// splitting, variable expansion, and other funkyness. I _highly_ recommend you read [this
+    /// article] if you observe strange things.
+    ///
     /// While the returned `Command` is a builder, like for [`command`], you should not add
     /// additional arguments to it, since the arguments are already passed within the shell
     /// command.
     ///
-    /// This method assumes that the remote shell is [POSIX compliant], which is more or less
-    /// equivalent to "supports Bash syntax" if you don't look too closely. The provided command
-    /// is passed as a single, escaped argument to `sh -c`, and from that point forward the
-    /// behavior is up to `sh`.
+    /// # Non-standard Remote Shells
     ///
-    /// Since this executes a shell command, keep in mind that you are subject to the shell's rules
-    /// around argument parsing, such as whitespace splitting, variable expansion, and other
-    /// funkyness. I _highly_ recommend you read [this article] if you observe strange things.
+    /// It is worth noting that there are really _two_ shells at work here: the one that sshd
+    /// launches for the session, and that launches are command; and the instance of `sh` that we
+    /// launch _in_ that session. This method tries hard to ensure that the provided `command` is
+    /// passed exactly as-is to `sh`, but this is complicated by the presence of the "outer" shell.
+    /// That outer shell may itself perform argument splitting, variable expansion, and the like,
+    /// which might produce unintuitive results. For example, the outer shell may try to expand a
+    /// variable that is only defined in the inner shell, and simply produce an empty string in the
+    /// variable's place by the time it gets to `sh`.
+    ///
+    /// To counter this, this method assumes that the remote shell (the one launched by `sshd`) is
+    /// [POSIX compliant]. This is more or less equivalent to "supports `bash` syntax" if you don't
+    /// look too closely. It uses [`shellwords`] to escape `command` before sending it to the
+    /// remote shell, with the expectation that the remote shell will only end up undoing that one
+    /// "level" of escaping, thus producing the original `command` as an argument to `sh`. This
+    /// works _most of the time_.
+    ///
+    /// With sufficiently complex or weird commands, the escaping of `shellwords` may not fully
+    /// match the "un-escaping" of the remote shell. This will manifest as escape characters
+    /// appearing in the `sh` command that you did not intend to be there. If this happens, try
+    /// changing the remote shell if you can, or fall back to [`command`] and do the escaping
+    /// manually instead.
     ///
     ///   [POSIX compliant]: https://pubs.opengroup.org/onlinepubs/9699919799/xrat/V4_xcu_chap02.html
     ///   [this article]: https://mywiki.wooledge.org/Arguments
+    ///   [`shellwords`]: https://crates.io/crates/shellwords
     pub fn shell<S: AsRef<str>>(&self, command: S) -> Command<'_> {
         let mut cmd = self.command("sh");
         cmd.arg("-c").arg(shellwords::escape(command.as_ref()));
