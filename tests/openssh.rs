@@ -45,6 +45,38 @@ fn stdout() {
 
 #[test]
 #[cfg_attr(not(ci), ignore)]
+fn shell() {
+    let session = Session::connect(&addr(), KnownHosts::Accept).unwrap();
+
+    let child = session.shell("echo $USER").output().unwrap();
+    assert_eq!(child.stdout, b"test-user\n");
+
+    let child = session
+        .shell(r#"touch "$USER Documents""#)
+        .status()
+        .unwrap();
+    assert!(child.success());
+
+    let child = session
+        .shell(r#"rm test-user\ Documents"#)
+        .status()
+        .unwrap();
+    assert!(child.success());
+
+    let child = session.shell("echo \\$SHELL").output().unwrap();
+    assert_eq!(child.stdout, b"$SHELL\n");
+
+    let child = session
+        .shell(r#"echo $USER | grep -c test"#)
+        .status()
+        .unwrap();
+    assert!(child.success());
+
+    session.close().unwrap();
+}
+
+#[test]
+#[cfg_attr(not(ci), ignore)]
 fn stderr() {
     let session = Session::connect(&addr(), KnownHosts::Accept).unwrap();
 
