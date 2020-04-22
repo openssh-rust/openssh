@@ -2,7 +2,8 @@ use super::RemoteChild;
 use super::{Error, Session};
 use std::ffi::OsStr;
 use std::io;
-use std::process::{self, Stdio};
+use std::process::Stdio;
+use tokio::process;
 
 /// A remote process builder, providing fine-grained control over how a new remote process should
 /// be spawned.
@@ -177,7 +178,7 @@ impl<'s> Command<'s> {
     /// By default, stdout and stderr are captured (and used to provide the resulting output).
     /// Stdin is set to `Stdio::null`, and any attempt by the child process to read from
     /// the stdin stream will result in the stream immediately closing.
-    pub fn output(&mut self) -> Result<process::Output, Error> {
+    pub async fn output(&mut self) -> Result<std::process::Output, Error> {
         // Make defaults match our defaults.
         if !self.stdin_set {
             self.builder.stdin(Stdio::null());
@@ -189,7 +190,7 @@ impl<'s> Command<'s> {
             self.builder.stderr(Stdio::piped());
         }
         // Then launch!
-        let output = self.builder.output().map_err(Error::Ssh)?;
+        let output = self.builder.output().await.map_err(Error::Ssh)?;
         match output.status.code() {
             Some(255) => Err(Error::Disconnected),
             Some(127) => Err(Error::Remote(io::Error::new(
@@ -203,7 +204,7 @@ impl<'s> Command<'s> {
     /// Executes the remote command, waiting for it to finish and collecting its exit status.
     ///
     /// By default, stdin is empty, and stdout and stderr are discarded.
-    pub fn status(&mut self) -> Result<process::ExitStatus, Error> {
+    pub async fn status(&mut self) -> Result<std::process::ExitStatus, Error> {
         // Make defaults match our defaults.
         if !self.stdin_set {
             self.builder.stdin(Stdio::null());
@@ -215,7 +216,7 @@ impl<'s> Command<'s> {
             self.builder.stderr(Stdio::null());
         }
         // Then launch!
-        let status = self.builder.status().map_err(Error::Ssh)?;
+        let status = self.builder.status().await.map_err(Error::Ssh)?;
         match status.code() {
             Some(255) => Err(Error::Disconnected),
             Some(127) => Err(Error::Remote(io::Error::new(

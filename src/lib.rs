@@ -61,17 +61,18 @@
 //! # Examples
 //!
 //! ```rust,no_run
-//! # fn main() -> Result<(), openssh::Error> {
+//! # #[tokio::main]
+//! # async fn main() -> Result<(), openssh::Error> {
 //! use openssh::{Session, KnownHosts};
 //!
-//! let session = Session::connect("me@ssh.example.com", KnownHosts::Strict)?;
-//! let ls = session.command("ls").output()?;
+//! let session = Session::connect("me@ssh.example.com", KnownHosts::Strict).await?;
+//! let ls = session.command("ls").output().await?;
 //! eprintln!("{}", String::from_utf8(ls.stdout).expect("server output was not valid UTF-8"));
 //!
-//! let whoami = session.command("whoami").output()?;
+//! let whoami = session.command("whoami").output().await?;
 //! assert_eq!(whoami.stdout, b"me\n");
 //!
-//! session.close()?;
+//! session.close().await?;
 //! # Ok(()) }
 //! ```
 //!
@@ -86,8 +87,9 @@
 )]
 
 use std::ffi::OsStr;
-use std::io::{self, prelude::*};
-use std::process;
+use std::io;
+use tokio::io::AsyncReadExt;
+use tokio::process;
 
 mod builder;
 pub use builder::{KnownHosts, SessionBuilder};
@@ -115,7 +117,7 @@ pub struct Session {
     ctl: tempfile::TempDir,
     addr: String,
     terminated: bool,
-    master: std::sync::Mutex<Option<std::process::Child>>,
+    master: std::sync::Mutex<Option<(tokio::process::ChildStdout, tokio::process::ChildStderr)>>,
 }
 
 // TODO: UserKnownHostsFile for custom known host fingerprint.
@@ -136,17 +138,17 @@ impl Session {
     /// instead.
     ///
     /// For more options, see [`SessionBuilder`].
-    pub fn connect<S: AsRef<str>>(destination: S, check: KnownHosts) -> Result<Self, Error> {
+    pub async fn connect<S: AsRef<str>>(destination: S, check: KnownHosts) -> Result<Self, Error> {
         let mut s = SessionBuilder::default();
         s.known_hosts_check(check);
-        s.connect(destination.as_ref())
+        s.connect(destination.as_ref()).await
     }
 
     /// Check the status of the underlying SSH connection.
     ///
     /// Since this does not run a remote command, it has a better chance of extracting useful error
     /// messages than other commands.
-    pub fn check(&self) -> Result<(), Error> {
+    pub async fn check(&self) -> Result<(), Error> {
         if self.terminated {
             return Err(Error::Disconnected);
         }
@@ -160,10 +162,11 @@ impl Session {
             .arg("check")
             .arg(&self.addr)
             .output()
+            .await
             .map_err(Error::Ssh)?;
 
         if let Some(255) = check.status.code() {
-            if let Some(master_error) = self.take_master_error() {
+            if let Some(master_error) = self.take_master_error().await {
                 Err(master_error)
             } else {
                 Err(Error::Disconnected)
@@ -259,37 +262,33 @@ impl Session {
     }
 
     /// Terminate the remote connection.
-    pub fn close(mut self) -> Result<(), Error> {
-        self.terminate()
+    pub async fn close(mut self) -> Result<(), Error> {
+        self.terminate().await
     }
 
-    fn take_master_error(&self) -> Option<Error> {
-        let mut master = self.master.lock().unwrap().take()?;
+    async fn take_master_error(&self) -> Option<Error> {
+        let (_stdout, mut stderr) = self.master.lock().unwrap().take()?;
 
-        let status = master
-            .wait()
-            .expect("failed to await master that _we_ spawned");
+        let mut err = String::new();
+        if let Err(e) = stderr.read_to_string(&mut err).await {
+            return Some(Error::Master(e));
+        }
+        let stderr = err.trim();
 
-        if status.success() {
-            // master exited cleanly, so we assume that the
-            // connection was simply closed by the remote end.
+        if stderr.is_empty() {
             return None;
         }
 
-        let mut stderr = String::new();
-        if let Err(e) = master
-            .stderr
-            .expect("master was spawned with piped stderr")
-            .read_to_string(&mut stderr)
-        {
-            return Some(Error::Master(e));
-        }
-        let stderr = stderr.trim();
+        let kind = if stderr.contains("Connection to") && stderr.contains("closed by remote host") {
+            io::ErrorKind::ConnectionAborted
+        } else {
+            io::ErrorKind::Other
+        };
 
-        Some(Error::Master(io::Error::new(io::ErrorKind::Other, stderr)))
+        Some(Error::Master(io::Error::new(kind, stderr)))
     }
 
-    fn terminate(&mut self) -> Result<(), Error> {
+    async fn terminate(&mut self) -> Result<(), Error> {
         if !self.terminated {
             let exit = process::Command::new("ssh")
                 .arg("-S")
@@ -300,11 +299,12 @@ impl Session {
                 .arg("exit")
                 .arg(&self.addr)
                 .output()
+                .await
                 .map_err(Error::Ssh)?;
 
             self.terminated = true;
 
-            if let Some(master_error) = self.take_master_error() {
+            if let Some(master_error) = self.take_master_error().await {
                 return Err(master_error);
             }
 
@@ -338,7 +338,15 @@ impl Session {
 impl Drop for Session {
     fn drop(&mut self) {
         if !self.terminated {
-            let _ = self.terminate();
+            let _ = std::process::Command::new("ssh")
+                .arg("-S")
+                .arg(self.ctl_path())
+                .arg("-o")
+                .arg("BatchMode=yes")
+                .arg("-O")
+                .arg("exit")
+                .arg(&self.addr)
+                .status();
         }
     }
 }

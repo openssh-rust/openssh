@@ -1,7 +1,8 @@
 use super::{Error, Session};
-use std::io::prelude::*;
-use std::process::{self, Stdio};
+use std::process::Stdio;
 use tempfile::Builder;
+use tokio::io::AsyncReadExt;
+use tokio::process;
 
 /// Build a [`Session`] with options.
 #[derive(Debug, Clone)]
@@ -77,7 +78,7 @@ impl SessionBuilder {
     /// If connecting requires interactive authentication based on `STDIN` (such as reading a
     /// password), the connection will fail. Consider setting up keypair-based authentication
     /// instead.
-    pub fn connect<S: AsRef<str>>(&self, destination: S) -> Result<Session, Error> {
+    pub async fn connect<S: AsRef<str>>(&self, destination: S) -> Result<Session, Error> {
         let mut destination = destination.as_ref();
 
         // the "new" ssh://user@host:port form is not supported by all versions of ssh, so we
@@ -102,7 +103,7 @@ impl SessionBuilder {
         }
 
         if user.is_none() && port.is_none() {
-            return self.just_connect(destination);
+            return self.just_connect(destination).await;
         }
 
         let mut with_overrides = self.clone();
@@ -114,10 +115,10 @@ impl SessionBuilder {
             with_overrides.port(port);
         }
 
-        with_overrides.just_connect(destination)
+        with_overrides.just_connect(destination).await
     }
 
-    pub(crate) fn just_connect<S: AsRef<str>>(&self, host: S) -> Result<Session, Error> {
+    pub(crate) async fn just_connect<S: AsRef<str>>(&self, host: S) -> Result<Session, Error> {
         let destination = host.as_ref();
         let dir = Builder::new()
             .prefix(".ssh-connection")
@@ -165,26 +166,21 @@ impl SessionBuilder {
         // if the call _didn't_ error, then the backgrounded ssh client will still hold onto those
         // handles, and it's still running, so those reads will hang indefinitely.
         let mut child = init.spawn().map_err(Error::Connect)?;
-        let status = child.wait().map_err(Error::Connect)?;
+        let stdout = child.stdout.take().unwrap();
+        let mut stderr = child.stderr.take().unwrap();
+        let status = child.await.map_err(Error::Connect)?;
 
-        if let Some(255) = status.code() {
-            // this is the ssh command's way of telling us that the connection failed
-            let mut stderr = String::new();
-            child
-                .stderr
-                .as_mut()
-                .unwrap()
-                .read_to_string(&mut stderr)
-                .unwrap();
-
-            return Err(Error::interpret_ssh_error(&stderr));
+        if !status.success() {
+            let mut err = String::new();
+            stderr.read_to_string(&mut err).await.unwrap();
+            return Err(Error::interpret_ssh_error(&err));
         }
 
         Ok(Session {
             ctl: dir,
             addr: String::from(destination),
             terminated: false,
-            master: std::sync::Mutex::new(Some(child)),
+            master: std::sync::Mutex::new(Some((stdout, stderr))),
         })
     }
 }

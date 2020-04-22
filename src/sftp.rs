@@ -1,6 +1,11 @@
 use super::{Error, Session};
-use std::io::{self, prelude::*};
+use std::io;
 use std::process::Stdio;
+use std::{
+    pin::Pin,
+    task::{Context, Poll},
+};
+use tokio::io::AsyncWriteExt;
 
 // TODO: it would _probably_ be better to actually use sftp here, since I'm pretty sure it has some
 // kind of protocol optimized for binary data. but for now, this is fine.
@@ -79,7 +84,11 @@ impl<'s> Sftp<'s> {
     /// performed by `write_to` can also test its permissions by actually attemping to create the
     /// remote file (since it is about to create one anyway), so its checking is more reliable than
     /// what `can` can provide.
-    pub fn can(&mut self, mode: Mode, path: impl AsRef<std::path::Path>) -> Result<(), Error> {
+    pub async fn can(
+        &mut self,
+        mode: Mode,
+        path: impl AsRef<std::path::Path>,
+    ) -> Result<(), Error> {
         let path = path.as_ref();
 
         // okay, so, I know it's weird to use dd for this, but hear me out here.
@@ -112,7 +121,7 @@ impl<'s> Sftp<'s> {
                 .arg("count=1");
         }
 
-        let test = cmd.output()?;
+        let test = cmd.output().await?;
         if test.status.success() {
             return Ok(());
         }
@@ -180,7 +189,8 @@ impl<'s> Sftp<'s> {
             .arg("-w")
             .arg(dir)
             .arg("')'")
-            .output()?;
+            .output()
+            .await?;
 
         if test.status.success() {
             Ok(())
@@ -189,7 +199,8 @@ impl<'s> Sftp<'s> {
             .command("test")
             .arg("-e")
             .arg(dir)
-            .status()?
+            .status()
+            .await?
             .success()
         {
             Err(Error::Remote(io::Error::new(
@@ -208,7 +219,11 @@ impl<'s> Sftp<'s> {
     ///
     /// Note that this function is not guaranteed to be side-effect free for writes. Specifically,
     /// it will create the target file in order to test whether it is writeable.
-    fn init_op(&mut self, mode: Mode, path: impl AsRef<std::path::Path>) -> Result<(), Error> {
+    async fn init_op(
+        &mut self,
+        mode: Mode,
+        path: impl AsRef<std::path::Path>,
+    ) -> Result<(), Error> {
         if mode.is_write() {
             // for writes, we want a stronger (and cheaper) test than can()
             // we can't actually use `touch`, since it also works for dirs
@@ -219,7 +234,8 @@ impl<'s> Sftp<'s> {
                 .arg(">>")
                 .arg(path.as_ref())
                 .stdin(Stdio::null())
-                .output()?;
+                .output()
+                .await?;
             if touch.status.success() {
                 return Ok(());
             }
@@ -238,7 +254,7 @@ impl<'s> Sftp<'s> {
                 )))
             }
         } else {
-            self.can(Mode::Read, path)
+            self.can(Mode::Read, path).await
         }
     }
 
@@ -254,27 +270,32 @@ impl<'s> Sftp<'s> {
     ///
     /// ```no_run
     /// # use openssh::*;
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// use std::io::prelude::*;
     ///
     /// // connect to a remote host and get an sftp connection
-    /// let session = Session::connect("host", KnownHosts::Strict)?;
+    /// let session = Session::connect("host", KnownHosts::Strict).await?;
     /// let mut sftp = session.sftp();
     ///
     /// // open a file for writing
-    /// let mut w = sftp.write_to("test_file")?;
+    /// let mut w = sftp.write_to("test_file").await?;
     ///
     /// // write something to the file
-    /// write!(w, "hello world")?;
+    /// use tokio::io::AsyncWriteExt;
+    /// w.write_all(b"hello world").await?;
     ///
     /// // flush and close the remote file, absorbing any final errors
-    /// w.close()?;
+    /// w.close().await?;
     /// # Ok(())
     /// # }
-    pub fn write_to(&mut self, path: impl AsRef<std::path::Path>) -> Result<RemoteFile<'s>, Error> {
+    pub async fn write_to(
+        &mut self,
+        path: impl AsRef<std::path::Path>,
+    ) -> Result<RemoteFile<'s>, Error> {
         let path = path.as_ref();
 
-        self.init_op(Mode::Write, path)?;
+        self.init_op(Mode::Write, path).await?;
 
         let cat = self
             .session
@@ -302,30 +323,32 @@ impl<'s> Sftp<'s> {
     ///
     /// ```no_run
     /// # use openssh::*;
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// use std::io::prelude::*;
     ///
     /// // connect to a remote host and get an sftp connection
-    /// let session = Session::connect("host", KnownHosts::Strict)?;
+    /// let session = Session::connect("host", KnownHosts::Strict).await?;
     /// let mut sftp = session.sftp();
     ///
     /// // open a file for appending
-    /// let mut w = sftp.append_to("test_file")?;
+    /// let mut w = sftp.append_to("test_file").await?;
     ///
     /// // write will append to the file
-    /// write!(w, "hello world")?;
+    /// use tokio::io::AsyncWriteExt;
+    /// w.write_all(b"hello world").await?;
     ///
     /// // flush and close the remote file, absorbing any final errors
-    /// w.close()?;
+    /// w.close().await?;
     /// # Ok(())
     /// # }
-    pub fn append_to(
+    pub async fn append_to(
         &mut self,
         path: impl AsRef<std::path::Path>,
     ) -> Result<RemoteFile<'s>, Error> {
         let path = path.as_ref();
 
-        self.init_op(Mode::Append, path)?;
+        self.init_op(Mode::Append, path).await?;
 
         let cat = self
             .session
@@ -352,31 +375,33 @@ impl<'s> Sftp<'s> {
     ///
     /// ```no_run
     /// # use openssh::*;
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// use std::io::prelude::*;
     ///
     /// // connect to a remote host and get an sftp connection
-    /// let session = Session::connect("host", KnownHosts::Strict)?;
+    /// let session = Session::connect("host", KnownHosts::Strict).await?;
     /// let mut sftp = session.sftp();
     ///
     /// // open a file for reading
-    /// let mut r = sftp.read_from("/etc/hostname")?;
+    /// let mut r = sftp.read_from("/etc/hostname").await?;
     ///
     /// // write something to the file
+    /// use tokio::io::AsyncReadExt;
     /// let mut contents = String::new();
-    /// r.read_to_string(&mut contents)?;
+    /// r.read_to_string(&mut contents).await?;
     ///
     /// // close the remote file, absorbing any final errors
-    /// r.close()?;
+    /// r.close().await?;
     /// # Ok(())
     /// # }
-    pub fn read_from(
+    pub async fn read_from(
         &mut self,
         path: impl AsRef<std::path::Path>,
     ) -> Result<RemoteFile<'s>, Error> {
         let path = path.as_ref();
 
-        self.init_op(Mode::Read, path)?;
+        self.init_op(Mode::Read, path).await?;
 
         let cat = self
             .session
@@ -401,29 +426,26 @@ impl RemoteFile<'_> {
     /// When you close the remote file, any errors on the remote end will also be propagated. This
     /// means that you could see errors about remote files not existing, or disks being full, only
     /// at the time when you call `close`.
-    pub fn close(mut self) -> Result<(), Error> {
+    pub async fn close(mut self) -> Result<(), Error> {
         if self.mode.is_write() {
-            self.flush().map_err(Error::Remote)?;
+            self.flush().await.map_err(Error::Remote)?;
         }
 
-        let status = self.cat.wait()?;
-        if status.success() {
+        let mut result = self.cat.wait_with_output().await?;
+        if result.status.success() {
             return Ok(());
         }
 
         // let us try to cobble together a good error for the user
-        let mut stderr = self
-            .cat
-            .stderr()
-            .take()
-            .expect("stderr should always be opened for remote files");
-        let mut err = String::new();
-        if let Err(e) = stderr.read_to_string(&mut err) {
-            return Err(Error::Remote(io::Error::new(io::ErrorKind::Other, e)));
-        }
+        let err = match String::from_utf8(std::mem::take(&mut result.stderr)) {
+            Err(e) => {
+                return Err(Error::Remote(io::Error::new(io::ErrorKind::Other, e)));
+            }
+            Ok(s) => s,
+        };
         let err = err.trim();
 
-        if let Some(1) = status.code() {
+        if let Some(1) = result.status.code() {
             // looking at cat's source at the time of writing:
             // https://github.com/coreutils/coreutils/blob/730876d067f24380ccec1bdd1f179a664f11aa2f/src/cat.c
             // cat always returns with EXIT_FAILURE, which is 1 on all POSIX platforms.
@@ -451,54 +473,45 @@ impl RemoteFile<'_> {
     }
 }
 
-impl io::Read for RemoteFile<'_> {
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+impl tokio::io::AsyncRead for RemoteFile<'_> {
+    fn poll_read(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &mut [u8],
+    ) -> Poll<io::Result<usize>> {
         if self.mode.is_write() {
-            return Err(io::Error::new(
+            return Poll::Ready(Err(io::Error::new(
                 io::ErrorKind::UnexpectedEof,
                 "attempted to read from remote file opened for writing",
-            ));
+            )));
         }
 
-        self.cat.stdout().as_mut().unwrap().read(buf)
-    }
-
-    fn read_vectored(&mut self, bufs: &mut [io::IoSliceMut<'_>]) -> io::Result<usize> {
-        if self.mode.is_write() {
-            return Err(io::Error::new(
-                io::ErrorKind::UnexpectedEof,
-                "attempted to read from remote file opened for writing",
-            ));
-        }
-
-        self.cat.stdout().as_mut().unwrap().read_vectored(bufs)
+        Pin::new(self.cat.stdout().as_mut().unwrap()).poll_read(cx, buf)
     }
 }
 
-impl io::Write for RemoteFile<'_> {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+impl tokio::io::AsyncWrite for RemoteFile<'_> {
+    fn poll_write(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &[u8],
+    ) -> Poll<Result<usize, io::Error>> {
         if !self.mode.is_write() {
-            return Err(io::Error::new(
+            return Poll::Ready(Err(io::Error::new(
                 io::ErrorKind::WriteZero,
                 "attempted to write to remote file opened for reading",
-            ));
+            )));
         }
 
-        self.cat.stdin().as_mut().unwrap().write(buf)
+        Pin::new(self.cat.stdin().as_mut().unwrap()).poll_write(cx, buf)
     }
-
-    fn flush(&mut self) -> io::Result<()> {
-        self.cat.stdin().as_mut().unwrap().flush()
+    fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
+        Pin::new(self.cat.stdin().as_mut().unwrap()).poll_flush(cx)
     }
-
-    fn write_vectored(&mut self, bufs: &[io::IoSlice<'_>]) -> io::Result<usize> {
-        if !self.mode.is_write() {
-            return Err(io::Error::new(
-                io::ErrorKind::WriteZero,
-                "attempted to write to remote file opened for reading",
-            ));
-        }
-
-        self.cat.stdin().as_mut().unwrap().write_vectored(bufs)
+    fn poll_shutdown(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<Result<(), io::Error>> {
+        Pin::new(self.cat.stdin().as_mut().unwrap()).poll_shutdown(cx)
     }
 }
