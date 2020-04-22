@@ -112,6 +112,7 @@ jobs:
  - template: coverage.yml@templates
    parameters:
      token: $(CODECOV_TOKEN_SECRET)
+     args: "--forward"
      services:
        opensshtest: openssh
      setup:
