@@ -392,6 +392,7 @@ async fn broken_connection() {
         .output()
         .await
         .unwrap_err();
+    eprintln!("{:?}", killed);
     assert!(matches!(killed, Error::Disconnected));
 
     // this fails because the master connection is gone
@@ -401,6 +402,7 @@ async fn broken_connection() {
         .output()
         .await
         .unwrap_err();
+    eprintln!("{:?}", failed);
     assert!(matches!(failed, Error::Disconnected));
 
     // so does this
