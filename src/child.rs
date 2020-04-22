@@ -1,7 +1,7 @@
 use super::Error;
 use super::Session;
 use std::io;
-use std::process;
+use tokio::process;
 
 /// Representation of a running or exited remote child process.
 ///
@@ -42,14 +42,14 @@ impl<'s> RemoteChild<'s> {
 
     /// Waits for the remote child to exit completely, returning the status that it exited with.
     ///
-    /// This function will continue to have the same return value after it has been called at least
-    /// once.
+    // This function will continue to have the same return value after it has been called at least
+    // once.
     ///
     /// The stdin handle to the child process, if any, will be closed before waiting. This helps
     /// avoid deadlock: it ensures that the child does not block waiting for input from the parent,
     /// while the parent waits for the child to exit.
-    pub fn wait(&mut self) -> Result<process::ExitStatus, Error> {
-        match self.channel.as_mut().unwrap().wait() {
+    pub async fn wait(mut self) -> Result<std::process::ExitStatus, Error> {
+        match self.channel.take().unwrap().await {
             Err(e) => Err(Error::Remote(e)),
             Ok(w) => match w.code() {
                 Some(255) => Err(Error::Disconnected),
@@ -62,6 +62,7 @@ impl<'s> RemoteChild<'s> {
         }
     }
 
+    /*
     /// Attempts to collect the exit status of the remote child if it has already exited.
     ///
     /// This function will not block the calling thread and will only check to see if the child
@@ -74,7 +75,7 @@ impl<'s> RemoteChild<'s> {
     /// returned.
     ///
     /// Note that unlike `wait`, this function will not attempt to drop stdin.
-    pub fn try_wait(&mut self) -> Result<Option<process::ExitStatus>, Error> {
+    pub fn try_wait(&mut self) -> Result<Option<std::process::ExitStatus>, Error> {
         match self.channel.as_mut().unwrap().try_wait() {
             Err(e) => Err(Error::Remote(e)),
             Ok(None) => Ok(None),
@@ -88,6 +89,7 @@ impl<'s> RemoteChild<'s> {
             },
         }
     }
+    */
 
     /// Simultaneously waits for the remote child to exit and collect all remaining output on the
     /// stdout/stderr handles, returning an `Output` instance.
@@ -99,8 +101,8 @@ impl<'s> RemoteChild<'s> {
     /// By default, stdin, stdout and stderr are inherited from the parent. In order to capture the
     /// output into this `Result<Output>` it is necessary to create new pipes between parent and
     /// child. Use `stdout(Stdio::piped())` or `stderr(Stdio::piped())`, respectively.
-    pub fn wait_with_output(mut self) -> Result<process::Output, Error> {
-        match self.channel.take().unwrap().wait_with_output() {
+    pub async fn wait_with_output(mut self) -> Result<std::process::Output, Error> {
+        match self.channel.take().unwrap().wait_with_output().await {
             Err(e) => Err(Error::Remote(e)),
             Ok(w) => match w.status.code() {
                 Some(255) => Err(Error::Disconnected),

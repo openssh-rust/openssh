@@ -63,14 +63,14 @@ jobs:
  # This represents the minimum Rust version supported.
  # Tests are not run as tests may require newer versions of rust.
  - job: msrv
-   displayName: "Minimum supported Rust version: 1.36.0"
+   displayName: "Minimum supported Rust version: 1.40.0"
    dependsOn: []
    pool:
      vmImage: ubuntu-latest
    steps:
      - template: install-rust.yml@templates
        parameters:
-         rust: 1.36.0
+         rust: 1.40.0 # bytes requires 1.39, mem::take requires 1.40
      - script: cargo check
        displayName: cargo check
      - script: cargo check --no-default-features
@@ -112,6 +112,7 @@ jobs:
  - template: coverage.yml@templates
    parameters:
      token: $(CODECOV_TOKEN_SECRET)
+     args: "--forward"
      services:
        opensshtest: openssh
      setup:
