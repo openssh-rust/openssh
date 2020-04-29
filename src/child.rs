@@ -20,8 +20,11 @@ use tokio::process;
 /// As a result, `RemoteChild` cannot expose `stdin`, `stdout`, and `stderr` as fields for
 /// split-borrows like [`std::process::Child`] does. Instead, it exposes
 /// [`stdin`](RemoteChild::stdin), [`stdout`](RemoteChild::stdout),
-/// and [`stderr`](RemoteChild::stderr) as methods.  Callers can call `.take()` to get the same
-/// effect as a split borrow, to use multiple streams concurrently:
+/// and [`stderr`](RemoteChild::stderr) as methods. Callers can call `.take()` to get the same
+/// effect as a split borrow and use multiple streams concurrently. Note that for the streams to be
+/// available,`Stdio::piped()` should be passed to the corresponding method on
+/// [`Command`](crate::Command).
+///
 /// ```rust,no_run
 /// # async fn foo() {
 /// # let child: openssh::RemoteChild<'static> = unimplemented!();
