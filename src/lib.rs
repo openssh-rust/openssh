@@ -37,7 +37,7 @@
 //!
 //! And finally, our commands never default to inheriting stdin/stdout/stderr, since we expect you
 //! are using this to automate things. Instead, unless otherwise noted, all I/O ports default to
-//! [`Stdio::null`].
+//! [`Stdio::null`](std::process::Stdio::null).
 //!
 //! # Authentication
 //!
@@ -82,6 +82,7 @@
 #![warn(
     missing_docs,
     missing_debug_implementations,
+    intra_doc_link_resolution_failure,
     rust_2018_idioms,
     unreachable_pub
 )]
@@ -111,7 +112,7 @@ pub use sftp::{Mode, RemoteFile, Sftp};
 /// You can use [`command`] to start a new command on the connected machine.
 ///
 /// When the `Session` is dropped, the connection to the remote host is severed, and any errors
-/// silently ignored. To disconnect and be alerted to errors, use [`close`].
+/// silently ignored. To disconnect and be alerted to errors, use [`close`](Session::close).
 #[derive(Debug)]
 pub struct Session {
     ctl: tempfile::TempDir,
