@@ -10,8 +10,8 @@ use tokio::process;
 ///
 /// A default configuration can be generated using [`Session::command(program)`](Session::command),
 /// where `program` gives a path to the program to be executed. Additional builder methods allow
-/// the configuration to be changed (for example, by adding arguments) prior to spawning.
-/// The interface is almost identical to that of [`std::process::Command`].
+/// the configuration to be changed (for example, by adding arguments) prior to spawning.  The
+/// interface is almost identical to that of [`std::process::Command`].
 ///
 /// `Command` can be reused to spawn multiple remote processes. The builder methods change the
 /// command without needing to immediately spawn the process. Similarly, you can call builder
