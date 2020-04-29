@@ -15,8 +15,8 @@ pub enum Error {
     /// The connection to the remote host was severed.
     ///
     /// Note that this is a best-effort error, and it _may_ instead signify that the remote process
-    /// exited with an error code of 255. You should call [`Session::check`](crate::Session::check) to verify if you get
-    /// this error back.
+    /// exited with an error code of 255. You should call [`Session::check`](crate::Session::check)
+    /// to verify if you get this error back.
     Disconnected,
 }
 

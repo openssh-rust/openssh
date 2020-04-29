@@ -6,8 +6,8 @@ use tokio::process;
 /// Representation of a running or exited remote child process.
 ///
 /// This structure is used to represent and manage remote child processes. A remote child process
-/// is created via the [`Command`](crate::Command) struct through [`Session::command`], which configures the
-/// spawning process and can itself be constructed using a builder-style interface.
+/// is created via the [`Command`](crate::Command) struct through [`Session::command`], which
+/// configures the spawning process and can itself be constructed using a builder-style interface.
 ///
 /// Calling [`wait`](RemoteChild::wait) (or other functions that wrap around it) will make the
 /// parent process wait until the child has actually exited before continuing.
@@ -20,13 +20,15 @@ use tokio::process;
 /// As a result, `RemoteChild` cannot expose `stdin`, `stdout`, and `stderr` as fields for
 /// split-borrows like [`std::process::Child`] does. Instead, it exposes
 /// [`stdin`](RemoteChild::stdin), [`stdout`](RemoteChild::stdout),
-/// and [`stderr`](RemoteChild::stderr).
-/// Callers can call `.take()` to get the same effect as a split borrow, to use multiple streams concurrently:
+/// and [`stderr`](RemoteChild::stderr) as methods.  Callers can call `.take()` to get the same
+/// effect as a split borrow, to use multiple streams concurrently:
 /// ```rust,no_run
+/// # async fn foo() {
 /// # let child: openssh::RemoteChild<'static> = unimplemented!();
 /// let stdin = child.stdin().take().unwrap();
 /// let stdout = child.stdout().take().unwrap();
-/// tokio::io::copy(&mut stdout, &mut stdin); //.await
+/// tokio::io::copy(&mut stdout, &mut stdin).await;
+/// # }
 /// ```
 #[derive(Debug)]
 pub struct RemoteChild<'s> {
