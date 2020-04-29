@@ -12,7 +12,7 @@ use tokio::io::AsyncWriteExt;
 
 /// A file-oriented channel to a remote host.
 ///
-/// You likely want [`write_to`] and [`read_from`].
+/// You likely want [`Sftp::write_to`] and [`Sftp::read_from`].
 #[derive(Debug, Clone)]
 pub struct Sftp<'s> {
     session: &'s Session,
@@ -47,12 +47,13 @@ impl Mode {
 /// Note that because we are operating against a remote host, errors may take a while to propagate.
 /// The various methods on `RemoteFile` will generally attempt to first check that the file you are
 /// trying to access can indeed be accessed in that way, but some errors may not become visible
-/// until you call [`close`]. In particular, the connection between you and the remote host may
-/// buffer bytes, so your write may report that some number of bytes have been successfully
-/// written, even though the remote disk is full. Or the file you are reading from may have been
-/// removed between when [`read_from`] checks that it exists and when it actually tries to read the
-/// first byte. For that reason, you should **make sure to call [`close`]** to observe any errors
-/// that may have occurred when operating on the remote file.
+/// until you call [`close`](RemoteFile::close).
+/// In particular, the connection between you and the remote host may buffer bytes, so your
+/// write may report that some number of bytes have been successfully written, even though
+/// the remote disk is full. Or the file you are reading from may have been removed between when
+/// [`read_from`](Sftp::read_from) checks that it exists and when it actually tries to read the
+/// first byte. For that reason, you should **make sure to call [`close`](RemoteFile::close)**
+/// to observe any errors that may have occurred when operating on the remote file.
 #[derive(Debug)]
 pub struct RemoteFile<'s> {
     cat: super::RemoteChild<'s>,
@@ -79,7 +80,7 @@ impl<'s> Sftp<'s> {
     /// can also produce false positives, such as if you are checking whether you can write to a
     /// file on a read-only file system that you still have write permissions on.
     ///
-    /// Operations like [`read_from`] and [`write_to`] internally perform similar checking to this
+    /// Operations like [`read_from`](Sftp::read_from) and [`write_to`](Sftp::write_to) internally perform similar checking to this
     /// method, so you do not need to call `can` before calling those methods. The checking
     /// performed by `write_to` can also test its permissions by actually attemping to create the
     /// remote file (since it is about to create one anyway), so its checking is more reliable than
@@ -262,8 +263,8 @@ impl<'s> Sftp<'s> {
     ///
     /// If the remote file exists, it will be truncated. If it does not, it will be created.
     ///
-    /// Note that some errors may not propagate until you call [`close`]. This method internally
-    /// performs similar checks to [`can`] though, so you should not need to call `can` before
+    /// Note that some errors may not propagate until you call [`close`](RemoteFile::close). This method internally
+    /// performs similar checks to [`can`](Sftp::can) though, so you should not need to call `can` before
     /// calling this method.
     ///
     /// # Examples
@@ -315,8 +316,9 @@ impl<'s> Sftp<'s> {
     ///
     /// If the remote file exists, it will be appended to. If it does not, it will be created.
     ///
-    /// Note that some errors may not propagate until you call [`close`]. This method internally
-    /// performs similar checks to [`can`] though, so you should not need to call `can` before
+    /// Note that some errors may not propagate until you call
+    /// [`close`](RemoteFile::close). This method internally
+    /// performs similar checks to [`can`](Sftp::can) though, so you should not need to call `can` before
     /// calling this method.
     ///
     /// # Examples
@@ -367,8 +369,8 @@ impl<'s> Sftp<'s> {
 
     /// Open the remote file at `path` for reading.
     ///
-    /// Note that some errors may not propagate until you call [`close`]. This method internally
-    /// performs similar checks to [`can`] though, so you should not need to call `can` before
+    /// Note that some errors may not propagate until you call [`close`](RemoteFile::close). This method internally
+    /// performs similar checks to [`can`](Sftp::can) though, so you should not need to call `can` before
     /// calling this method.
     ///
     /// # Examples
@@ -421,7 +423,7 @@ impl<'s> Sftp<'s> {
 impl RemoteFile<'_> {
     /// Close the handle to the remote file.
     ///
-    /// If the remote file was opened for reading, this will also call [`flush`](Write::flush).
+    /// If the remote file was opened for reading, this will also call [`flush`](AsyncWriteExt::flush).
     ///
     /// When you close the remote file, any errors on the remote end will also be propagated. This
     /// means that you could see errors about remote files not existing, or disks being full, only

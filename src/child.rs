@@ -6,7 +6,7 @@ use tokio::process;
 /// Representation of a running or exited remote child process.
 ///
 /// This structure is used to represent and manage remote child processes. A remote child process
-/// is created via the [`Command`] struct through [`Session::command`], which configures the
+/// is created via the [`Command`](crate::Command) struct through [`Session::command`], which configures the
 /// spawning process and can itself be constructed using a builder-style interface.
 ///
 /// Calling [`wait`](RemoteChild::wait) (or other functions that wrap around it) will make the
@@ -18,9 +18,10 @@ use tokio::process;
 /// yourself by executing a remote command like `pkill` to kill it on the remote side.
 ///
 /// As a result, `RemoteChild` cannot expose `stdin`, `stdout`, and `stderr` as fields for
-/// split-borrows like [`std::process::Child`] does. Instead, it exposes [`RemoteChild::stdin`],
-/// [`RemoteChild::stdout`], and [`RemoteChild::stderr`]. Callers can call `.take()` to get the
-/// same effect as a split borrow, to use multiple streams concurrently:
+/// split-borrows like [`std::process::Child`] does. Instead, it exposes
+/// [`stdin`](RemoteChild::stdin), [`stdout`](RemoteChild::stdout),
+/// and [`stderr`](RemoteChild::stderr).
+/// Callers can call `.take()` to get the same effect as a split borrow, to use multiple streams concurrently:
 /// ```rust,no_run
 /// # let child: openssh::RemoteChild<'static> = unimplemented!();
 /// let stdin = child.stdin().take().unwrap();

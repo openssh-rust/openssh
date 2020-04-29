@@ -83,7 +83,7 @@ impl<'s> Command<'s> {
     /// # ; }
     /// ```
     ///
-    /// To pass multiple arguments see [`args`].
+    /// To pass multiple arguments see [`args`](Command::args).
     ///
     ///   [`shellwords`]: https://crates.io/crates/shellwords
     pub fn arg<S: AsRef<OsStr>>(&mut self, arg: S) -> &mut Self {
@@ -99,7 +99,7 @@ impl<'s> Command<'s> {
     /// the remote host is running, we cannot prevent this, so consider escaping your arguments
     /// with something like [`shellwords`] as necessary.
     ///
-    /// To pass a single argument see [`arg`].
+    /// To pass a single argument see [`arg`](Command::arg).
     ///
     ///   [`shellwords`]: https://crates.io/crates/shellwords
     pub fn args<I, S>(&mut self, args: I) -> &mut Self
