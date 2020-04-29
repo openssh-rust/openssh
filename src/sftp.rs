@@ -316,8 +316,8 @@ impl<'s> Sftp<'s> {
     ///
     /// If the remote file exists, it will be appended to. If it does not, it will be created.
     ///
-    /// Note that some errors may not propagate until you call [`close`](RemoteFile::close). This 
-    /// method internally performs similar checks to [`can`](Sftp::can) though, so you should not 
+    /// Note that some errors may not propagate until you call [`close`](RemoteFile::close). This
+    /// method internally performs similar checks to [`can`](Sftp::can) though, so you should not
     /// need to call `can` before calling this method.
     ///
     /// # Examples
@@ -368,8 +368,8 @@ impl<'s> Sftp<'s> {
 
     /// Open the remote file at `path` for reading.
     ///
-    /// Note that some errors may not propagate until you call [`close`](RemoteFile::close). This 
-    /// method internally performs similar checks to [`can`](Sftp::can) though, so you should not 
+    /// Note that some errors may not propagate until you call [`close`](RemoteFile::close). This
+    /// method internally performs similar checks to [`can`](Sftp::can) though, so you should not
     /// need to call `can` before calling this method.
     ///
     /// # Examples
@@ -422,7 +422,7 @@ impl<'s> Sftp<'s> {
 impl RemoteFile<'_> {
     /// Close the handle to the remote file.
     ///
-    /// If the remote file was opened for reading, this will also call 
+    /// If the remote file was opened for reading, this will also call
     /// [`flush`](AsyncWriteExt::flush).
     ///
     /// When you close the remote file, any errors on the remote end will also be propagated. This
