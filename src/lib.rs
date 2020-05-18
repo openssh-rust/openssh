@@ -347,6 +347,8 @@ impl Drop for Session {
                 .arg("-O")
                 .arg("exit")
                 .arg(&self.addr)
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
                 .status();
         }
     }
