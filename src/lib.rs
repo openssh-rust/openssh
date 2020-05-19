@@ -54,9 +54,16 @@
 //! errors from this crate will almost necessarily be worse than those of a native SSH
 //! implementation. Sorry in advance :)
 //!
-//! If you suspect that the connection has failed, [`Session::check`] _may_ provide you with more
-//! information than you got from the failing command, since it does not execute a remote command
-//! that might interfere with extracting error messages.
+//! This also means that you may see strange errors when the remote process is terminated by a
+//! signal (such as through `kill` or `pkill`). When this happens, all the local ssh program sees
+//! is that the remote process disappeared, and so it returns with an error. It does not
+//! communicate that the process exited due to a signal. In cases like this, your call will return
+//! [`Error::Disconnected`], because the connection to _that_ remote process was disconnected. The
+//! ssh connection as a whole is likely still intact.
+//!
+//! To check if the connection has truly failed, use [`Session::check`]. It will return `Ok` if the
+//! master connection is still operational, and _may_ provide you with more information than you
+//! got from the failing command (that is, just [`Error::Disconnected`]) if it is not.
 //!
 //! # Examples
 //!

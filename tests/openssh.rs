@@ -370,6 +370,41 @@ async fn spawn_and_wait() {
 
 #[tokio::test]
 #[cfg_attr(not(ci), ignore)]
+async fn process_exit_on_signal() {
+    let session = Session::connect(&addr(), KnownHosts::Accept).await.unwrap();
+
+    let sleeping = session.command("sleep").arg("5566").spawn().unwrap();
+
+    // give it some time to make sure it starts
+    tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
+
+    // Now stop that process.
+    //
+    // We use `pkill -f` to match on the number rather than the `sleep` command, since other tests
+    // may use `sleep`. We use `-o` to ensure that we don't accidentally kill the ssh connection
+    // itself, but instead match the _oldest_ matching command.
+    let killed = session
+        .command("pkill")
+        .arg("-f")
+        .arg("-o")
+        .arg("5566")
+        .output()
+        .await
+        .unwrap();
+    eprintln!("{:?}", killed);
+    assert!(killed.status.success());
+
+    // await that process — this will yield "Disconnected", since the remote process disappeared
+    let failed = sleeping.wait().await.unwrap_err();
+    eprintln!("{:?}", failed);
+    assert!(matches!(failed, Error::Disconnected));
+
+    // the connection should still work though
+    let _ = session.check().await.unwrap();
+}
+
+#[tokio::test]
+#[cfg_attr(not(ci), ignore)]
 async fn broken_connection() {
     let session = Session::connect(&addr(), KnownHosts::Accept).await.unwrap();
 
