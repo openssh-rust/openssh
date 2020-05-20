@@ -178,18 +178,21 @@ impl<'s> Sftp<'s> {
             )));
         };
 
+        // https://github.com/sfackler/shell-escape/issues/5
+        let dir = dir.to_string_lossy();
+
         let test = self
             .session
             .command("test")
-            .arg("'('")
+            .arg("(")
             .arg("-d")
-            .arg(dir)
-            .arg("')'")
+            .arg(&dir)
+            .arg(")")
             .arg("-a")
-            .arg("'('")
+            .arg("(")
             .arg("-w")
-            .arg(dir)
-            .arg("')'")
+            .arg(&dir)
+            .arg(")")
             .output()
             .await?;
 
@@ -199,7 +202,7 @@ impl<'s> Sftp<'s> {
             .session
             .command("test")
             .arg("-e")
-            .arg(dir)
+            .arg(&dir)
             .status()
             .await?
             .success()
@@ -226,14 +229,17 @@ impl<'s> Sftp<'s> {
         path: impl AsRef<std::path::Path>,
     ) -> Result<(), Error> {
         if mode.is_write() {
+            // https://github.com/sfackler/shell-escape/issues/5
+            let path = path.as_ref().to_string_lossy();
+
             // for writes, we want a stronger (and cheaper) test than can()
             // we can't actually use `touch`, since it also works for dirs
             // note that this works b/c stdin is Stdio::null()
             let touch = self
                 .session
                 .command("cat")
-                .arg(">>")
-                .arg(path.as_ref())
+                .raw_arg(">>")
+                .arg(&path)
                 .stdin(Stdio::null())
                 .output()
                 .await?;
@@ -298,6 +304,9 @@ impl<'s> Sftp<'s> {
 
         self.init_op(Mode::Write, path).await?;
 
+        // https://github.com/sfackler/shell-escape/issues/5
+        let path = path.to_string_lossy();
+
         let cat = self
             .session
             .command("tee")
@@ -351,6 +360,9 @@ impl<'s> Sftp<'s> {
 
         self.init_op(Mode::Append, path).await?;
 
+        // https://github.com/sfackler/shell-escape/issues/5
+        let path = path.to_string_lossy();
+
         let cat = self
             .session
             .command("tee")
@@ -403,6 +415,9 @@ impl<'s> Sftp<'s> {
         let path = path.as_ref();
 
         self.init_op(Mode::Read, path).await?;
+
+        // https://github.com/sfackler/shell-escape/issues/5
+        let path = path.to_string_lossy();
 
         let cat = self
             .session

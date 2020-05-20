@@ -19,7 +19,7 @@ maintenance = { status = "experimental" }
 
 [dependencies]
 tempfile = "3.1.0"
-shellwords = "1"
+shell-escape = "0.1"
 tokio = { version = "0.2", features = [ "process", "io-util" ] }
 
 [dev-dependencies]

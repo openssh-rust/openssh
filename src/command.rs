@@ -1,5 +1,6 @@
 use super::RemoteChild;
 use super::{Error, Session};
+use std::borrow::Cow;
 use std::ffi::OsStr;
 use std::io;
 use std::process::Stdio;
@@ -60,11 +61,8 @@ impl<'s> Command<'s> {
 impl<'s> Command<'s> {
     /// Adds an argument to pass to the remote program.
     ///
-    /// The argument is passed as written to `ssh`, which will pass it again as an argument to the
-    /// remote shell. However, since the remote shell may do argument parsing, characters such as
-    /// spaces and `*` may be interpreted by the remote shell. Since we do not know what shell the
-    /// remote host is running, we cannot prevent this, so consider escaping your arguments with
-    /// something like [`shellwords`] as necessary.
+    /// Before it is passed to the remote host, `arg` is escaped so that special characters aren't
+    /// evaluated by the remote shell. If you do not want this behavior, use [`raw_arg`].
     ///
     /// Only one argument can be passed per use. So instead of:
     ///
@@ -84,25 +82,52 @@ impl<'s> Command<'s> {
     /// ```
     ///
     /// To pass multiple arguments see [`args`](Command::args).
+    pub fn arg<S: AsRef<str>>(&mut self, arg: S) -> &mut Self {
+        self.raw_arg(&*shell_escape::unix::escape(Cow::Borrowed(arg.as_ref())));
+        self
+    }
+
+    /// Adds an argument to pass to the remote program.
     ///
-    ///   [`shellwords`]: https://crates.io/crates/shellwords
-    pub fn arg<S: AsRef<OsStr>>(&mut self, arg: S) -> &mut Self {
+    /// Unlike [`arg`], this method does not shell-escape `arg`. The argument is passed as written
+    /// to `ssh`, which will pass it again as an argument to the remote shell. Since the remote
+    /// shell may do argument parsing, characters such as spaces and `*` may be interpreted by the
+    /// remote shell.
+    ///
+    /// To pass multiple unescaped arguments see [`raw_args`](Command::raw_args).
+    pub fn raw_arg<S: AsRef<OsStr>>(&mut self, arg: S) -> &mut Self {
         self.builder.arg(arg);
         self
     }
 
     /// Adds multiple arguments to pass to the remote program.
     ///
-    /// The arguments are passed as written to `ssh`, which will pass them again as arguments to
-    /// the remote shell. However, since the remote shell may do argument parsing, characters such
-    /// as spaces and `*` may be interpreted by the remote shell. Since we do not know what shell
-    /// the remote host is running, we cannot prevent this, so consider escaping your arguments
-    /// with something like [`shellwords`] as necessary.
+    /// Before they are passed to the remote host, each argument in `args` is escaped so that
+    /// special characters aren't evaluated by the remote shell. If you do not want this behavior,
+    /// use [`raw_args`].
     ///
     /// To pass a single argument see [`arg`](Command::arg).
-    ///
-    ///   [`shellwords`]: https://crates.io/crates/shellwords
     pub fn args<I, S>(&mut self, args: I) -> &mut Self
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<str>,
+    {
+        for arg in args {
+            self.builder
+                .arg(&*shell_escape::unix::escape(Cow::Borrowed(arg.as_ref())));
+        }
+        self
+    }
+
+    /// Adds multiple arguments to pass to the remote program.
+    ///
+    /// Unlike [`args`], this method does not shell-escape `args`. The arguments are passed as
+    /// written to `ssh`, which will pass them again as arguments to the remote shell. However,
+    /// since the remote shell may do argument parsing, characters such as spaces and `*` may be
+    /// interpreted by the remote shell.
+    ///
+    /// To pass a single argument see [`raw_arg`](Command::raw_arg).
+    pub fn raw_args<I, S>(&mut self, args: I) -> &mut Self
     where
         I: IntoIterator<Item = S>,
         S: AsRef<OsStr>,
