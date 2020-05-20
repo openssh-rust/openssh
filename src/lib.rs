@@ -294,8 +294,7 @@ impl Session {
     ///   [`shell-escape`]: https://crates.io/crates/shell-escape
     pub fn shell<S: AsRef<str>>(&self, command: S) -> Command<'_> {
         let mut cmd = self.command("sh");
-        cmd.arg("-c")
-            .arg(shell_escape::unix::escape(Cow::Borrowed(command.as_ref())));
+        cmd.arg("-c").arg(command);
         cmd
     }
 

@@ -35,7 +35,7 @@ async fn stdout() {
     let child = session
         .command("echo")
         .arg("foo")
-        .arg(">")
+        .raw_arg(">")
         .arg("/dev/stderr")
         .output()
         .await
@@ -91,7 +91,7 @@ async fn stderr() {
     let child = session
         .command("echo")
         .arg("foo")
-        .arg(">")
+        .raw_arg(">")
         .arg("/dev/stderr")
         .output()
         .await
@@ -462,7 +462,12 @@ async fn broken_connection() {
     let sleeping = session.command("sleep").arg("1000").spawn().unwrap();
 
     // get ID of remote ssh process
-    let ppid = session.command("echo").arg("$PPID").output().await.unwrap();
+    let ppid = session
+        .command("echo")
+        .raw_arg("$PPID")
+        .output()
+        .await
+        .unwrap();
     eprintln!("ppid: {:?}", ppid);
     let ppid: u32 = String::from_utf8(ppid.stdout)
         .unwrap()

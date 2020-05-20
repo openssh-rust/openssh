@@ -238,7 +238,7 @@ impl<'s> Sftp<'s> {
             let touch = self
                 .session
                 .command("cat")
-                .arg(">>")
+                .raw_arg(">>")
                 .arg(&path)
                 .stdin(Stdio::null())
                 .output()
