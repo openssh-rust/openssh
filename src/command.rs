@@ -83,8 +83,7 @@ impl<'s> Command<'s> {
     ///
     /// To pass multiple arguments see [`args`](Command::args).
     pub fn arg<S: AsRef<str>>(&mut self, arg: S) -> &mut Self {
-        self.builder
-            .arg(&*shell_escape::unix::escape(Cow::Borrowed(arg.as_ref())));
+        self.raw_arg(&*shell_escape::unix::escape(Cow::Borrowed(arg.as_ref())));
         self
     }
 
@@ -127,7 +126,7 @@ impl<'s> Command<'s> {
     /// since the remote shell may do argument parsing, characters such as spaces and `*` may be
     /// interpreted by the remote shell.
     ///
-    /// To pass a single argument see [`arg`](Command::arg).
+    /// To pass a single argument see [`raw_arg`](Command::raw_arg).
     pub fn raw_args<I, S>(&mut self, args: I) -> &mut Self
     where
         I: IntoIterator<Item = S>,

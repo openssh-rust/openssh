@@ -70,8 +70,9 @@
 //! Since that is _usually_ not what you expect to happen, `.arg("a b")` should pass a _single_
 //! argument with the value `a b`, `openssh` _escapes_ every argument (and the command itself) by
 //! default using [`shell-escape`]. This works well in most cases, but might run into issues when
-//! the remote shell has a different syntax than the shell `shell-escape` targets (bash). For
-//! example, Windows shells have different escaping syntax than bash does.
+//! the remote shell (generally the remote user's login shell) has a different syntax than the
+//! shell `shell-escape` targets (bash). For example, Windows shells have different escaping syntax
+//! than bash does.
 //!
 //! If this applies to you, you can use [`raw_arg`](Command::raw_arg),
 //! [`raw_args`](Command::raw_args), and [`raw_command`](Session::raw_command) to bypass the
