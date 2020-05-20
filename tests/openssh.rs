@@ -388,6 +388,15 @@ async fn escaping() {
 
     let status = dbg!(session
         .command("printf")
+        .args(vec!["%d %d", "1", "2"])
+        .output()
+        .await
+        .unwrap())
+    .status;
+    assert!(status.success());
+
+    let status = dbg!(session
+        .command("printf")
         .arg("%d %d")
         .raw_arg("1 2")
         .output()
