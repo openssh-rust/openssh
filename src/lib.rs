@@ -30,10 +30,7 @@
 //! handle to the _local_ `ssh` instance corresponding to the spawned remote command. The behavior
 //! of the methods of [`RemoteChild`] therefore match the behavior of `ssh`, rather than that of
 //! the remote command directly. Usually, these are the same, though not always, as highlighted in
-//! the documetantation the individual methods. Of particular note is the fact that arguments are
-//! passed to the remote shell, which **may interpret them**. Strings with `$` in them are
-//! particularly subject to this behavior, and you may want to consider using a library like
-//! [`shellwords`] on arguments and paths.
+//! the documetantation the individual methods. See also the section below on Remote Shells.
 //!
 //! And finally, our commands never default to inheriting stdin/stdout/stderr, since we expect you
 //! are using this to automate things. Instead, unless otherwise noted, all I/O ports default to
@@ -65,6 +62,21 @@
 //! master connection is still operational, and _may_ provide you with more information than you
 //! got from the failing command (that is, just [`Error::Disconnected`]) if it is not.
 //!
+//! # Remote Shells
+//!
+//! When you invoke a remote command through ssh, the remote command is executed by a shell on the
+//! remote end. That shell _interprets_ anything passed to it — it might evalute words starting
+//! with `$` as variables, split arguments by whitespace, and other things a shell is wont to do.
+//! Since that is _usually_ not what you expect to happen, `.arg("a b")` should pass a _single_
+//! argument with the value `a b`, `openssh` _escapes_ every argument (and the command itself) by
+//! default using [`shell-escape`]. This works well in most cases, but might run into issues when
+//! the remote shell has a different syntax than the shell `shell-escape` targets (bash). For
+//! example, Windows shells have different escaping syntax than bash does.
+//!
+//! If this applies to you, you can use [`raw_arg`](Command::raw_arg),
+//! [`raw_args`](Command::raw_args), and [`raw_command`](Session::raw_command) to bypass the
+//! escaping that `openssh` normally does for you.
+//!
 //! # Examples
 //!
 //! ```rust,no_run
@@ -84,7 +96,7 @@
 //! ```
 //!
 //!   [`ControlMaster`]: https://en.wikibooks.org/wiki/OpenSSH/Cookbook/Multiplexing
-//!   [`shellwords`]: https://crates.io/crates/shellwords
+//!   [`shell-escape`]: https://crates.io/crates/shell-escape
 
 #![warn(
     missing_docs,
@@ -94,6 +106,7 @@
     unreachable_pub
 )]
 
+use std::borrow::Cow;
 use std::ffi::OsStr;
 use std::io;
 use tokio::io::AsyncReadExt;
@@ -187,6 +200,10 @@ impl Session {
     /// Constructs a new [`Command`] for launching the program at path `program` on the remote
     /// host.
     ///
+    /// Before it is passed to the remote host, `program` is escaped so that special characters
+    /// aren't evaluated by the remote shell. If you do not want this behavior, use
+    /// [`raw_command`].
+    ///
     /// The returned `Command` is a builder, with the following default configuration:
     ///
     /// * No arguments to the program
@@ -196,7 +213,26 @@ impl Session {
     ///
     /// If `program` is not an absolute path, the `PATH` will be searched in an OS-defined way on
     /// the host.
-    pub fn command<S: AsRef<OsStr>>(&self, program: S) -> Command<'_> {
+    pub fn command<'a, S: Into<Cow<'a, str>>>(&self, program: S) -> Command<'_> {
+        self.raw_command(&*shell_escape::unix::escape(program.into()))
+    }
+
+    /// Constructs a new [`Command`] for launching the program at path `program` on the remote
+    /// host.
+    ///
+    /// Unlike [`command`], this method does not shell-escape `program`, so it may be evaluated in
+    /// unforeseen ways by the remote shell.
+    ///
+    /// The returned `Command` is a builder, with the following default configuration:
+    ///
+    /// * No arguments to the program
+    /// * Empty stdin and dsicard stdout/stderr for `spawn` or `status`, but create output pipes for `output`
+    ///
+    /// Builder methods are provided to change these defaults and otherwise configure the process.
+    ///
+    /// If `program` is not an absolute path, the `PATH` will be searched in an OS-defined way on
+    /// the host.
+    pub fn raw_command<S: AsRef<OsStr>>(&self, program: S) -> Command<'_> {
         // XXX: Should we do a self.check() here first?
 
         // NOTE: we pass -p 9 nine here (the "discard" port) to ensure that ssh does not
@@ -242,12 +278,12 @@ impl Session {
     ///
     /// To counter this, this method assumes that the remote shell (the one launched by `sshd`) is
     /// [POSIX compliant]. This is more or less equivalent to "supports `bash` syntax" if you don't
-    /// look too closely. It uses [`shellwords`] to escape `command` before sending it to the
+    /// look too closely. It uses [`shell-escape`] to escape `command` before sending it to the
     /// remote shell, with the expectation that the remote shell will only end up undoing that one
     /// "level" of escaping, thus producing the original `command` as an argument to `sh`. This
     /// works _most of the time_.
     ///
-    /// With sufficiently complex or weird commands, the escaping of `shellwords` may not fully
+    /// With sufficiently complex or weird commands, the escaping of `shell-escape` may not fully
     /// match the "un-escaping" of the remote shell. This will manifest as escape characters
     /// appearing in the `sh` command that you did not intend to be there. If this happens, try
     /// changing the remote shell if you can, or fall back to [`command`] and do the escaping
@@ -255,10 +291,11 @@ impl Session {
     ///
     ///   [POSIX compliant]: https://pubs.opengroup.org/onlinepubs/9699919799/xrat/V4_xcu_chap02.html
     ///   [this article]: https://mywiki.wooledge.org/Arguments
-    ///   [`shellwords`]: https://crates.io/crates/shellwords
+    ///   [`shell-escape`]: https://crates.io/crates/shell-escape
     pub fn shell<S: AsRef<str>>(&self, command: S) -> Command<'_> {
         let mut cmd = self.command("sh");
-        cmd.arg("-c").arg(shellwords::escape(command.as_ref()));
+        cmd.arg("-c")
+            .arg(shell_escape::unix::escape(Cow::Borrowed(command.as_ref())));
         cmd
     }
 

@@ -366,6 +366,57 @@ async fn spawn_and_wait() {
     assert!(t.elapsed() > Duration::from_secs(1));
     sleeping2.wait_with_output().await.unwrap();
     assert!(t.elapsed() > Duration::from_secs(2));
+
+    session.close().await.unwrap();
+}
+
+#[tokio::test]
+#[cfg_attr(not(ci), ignore)]
+async fn escaping() {
+    let session = Session::connect(&addr(), KnownHosts::Accept).await.unwrap();
+
+    let status = dbg!(session
+        .command("printf")
+        .arg("%d %d")
+        .arg("1")
+        .arg("2")
+        .output()
+        .await
+        .unwrap())
+    .status;
+    assert!(status.success());
+
+    let status = dbg!(session
+        .command("printf")
+        .arg("%d %d")
+        .raw_arg("1 2")
+        .output()
+        .await
+        .unwrap())
+    .status;
+    assert!(status.success());
+
+    let status = dbg!(session
+        .command("printf")
+        .arg("%d %d")
+        .raw_args(std::iter::once("1 2"))
+        .output()
+        .await
+        .unwrap())
+    .status;
+    assert!(status.success());
+
+    let status = dbg!(session
+        .raw_command("printf '%d %d'")
+        .arg("1")
+        .arg("2")
+        .output()
+        .await
+        .unwrap())
+    .status;
+    assert!(status.success());
+
+    session.close().await.unwrap();
 }
 
 #[tokio::test]
