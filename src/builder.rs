@@ -159,6 +159,8 @@ impl SessionBuilder {
         }
 
         if let Some(ref k) = self.keyfile {
+            // if the user gives a keyfile, _only_ use that keyfile
+            init.arg("-o").arg("IdentitiesOnly=yes");
             init.arg("-i").arg(k);
         }
 
