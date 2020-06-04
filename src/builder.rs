@@ -12,6 +12,7 @@ pub struct SessionBuilder {
     port: Option<String>,
     keyfile: Option<std::path::PathBuf>,
     connect_timeout: Option<String>,
+    server_alive_interval: Option<u64>,
     known_hosts_check: KnownHosts,
 }
 
@@ -22,6 +23,7 @@ impl Default for SessionBuilder {
             port: None,
             keyfile: None,
             connect_timeout: None,
+            server_alive_interval: None,
             known_hosts_check: KnownHosts::Add,
         }
     }
@@ -66,6 +68,16 @@ impl SessionBuilder {
     /// Defaults to `None`.
     pub fn connect_timeout(&mut self, d: std::time::Duration) -> &mut Self {
         self.connect_timeout = Some(d.as_secs().to_string());
+        self
+    }
+
+    /// Set the timeout interval after which if no data has been received from the server, ssh
+    /// will request a response from the server (`ssh -o ServerAliveInterval`).
+    ///
+    /// This value is specified in seconds. Any sub-second duration remainder will be ignored.
+    /// Defaults to `None`.
+    pub fn server_alive_interval(&mut self, d: std::time::Duration) -> &mut Self {
+        self.server_alive_interval = Some(d.as_secs());
         self
     }
 
@@ -148,6 +160,11 @@ impl SessionBuilder {
 
         if let Some(ref timeout) = self.connect_timeout {
             init.arg("-o").arg(format!("ConnectTimeout={}", timeout));
+        }
+
+        if let Some(ref interval) = self.server_alive_interval {
+            init.arg("-o")
+                .arg(format!("ServerAliveInterval={}", interval));
         }
 
         if let Some(ref port) = self.port {
