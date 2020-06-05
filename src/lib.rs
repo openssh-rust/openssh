@@ -17,6 +17,9 @@
 //! the [`Session`] that spawned them. When the session is [closed](Session::close), the connection
 //! is severed, and there can be no outstanding remote clients.
 //!
+//! Note that the maximum number of multiplexed remote commands is 10 by default. This value can be
+//! increased by changing the `MaxSessions` setting in [`sshd_config`].
+//!
 //! Much like with [`std::process::Command`], you have multiple options when it comes to launching
 //! a remote command. You can [spawn](Command::spawn) the remote command, which just gives you a
 //! handle to the running process, you can run the command and wait for its
@@ -97,6 +100,7 @@
 //! ```
 //!
 //!   [`ControlMaster`]: https://en.wikibooks.org/wiki/OpenSSH/Cookbook/Multiplexing
+//!   [`sshd_config`]: https://linux.die.net/man/5/sshd_config
 //!   [`shell-escape`]: https://crates.io/crates/shell-escape
 
 #![warn(
@@ -208,7 +212,8 @@ impl Session {
     /// The returned `Command` is a builder, with the following default configuration:
     ///
     /// * No arguments to the program
-    /// * Empty stdin and dsicard stdout/stderr for `spawn` or `status`, but create output pipes for `output`
+    /// * Empty stdin and dsicard stdout/stderr for `spawn` or `status`, but create output pipes for
+    ///   `output`
     ///
     /// Builder methods are provided to change these defaults and otherwise configure the process.
     ///
@@ -227,7 +232,8 @@ impl Session {
     /// The returned `Command` is a builder, with the following default configuration:
     ///
     /// * No arguments to the program
-    /// * Empty stdin and dsicard stdout/stderr for `spawn` or `status`, but create output pipes for `output`
+    /// * Empty stdin and dsicard stdout/stderr for `spawn` or `status`, but create output pipes for
+    ///   `output`
     ///
     /// Builder methods are provided to change these defaults and otherwise configure the process.
     ///
