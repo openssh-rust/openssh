@@ -1,5 +1,6 @@
 use super::{Error, Session};
 use std::borrow::Cow;
+use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use tempfile::Builder;
 use tokio::io::AsyncReadExt;
@@ -10,10 +11,11 @@ use tokio::process;
 pub struct SessionBuilder {
     user: Option<String>,
     port: Option<String>,
-    keyfile: Option<std::path::PathBuf>,
+    keyfile: Option<PathBuf>,
     connect_timeout: Option<String>,
     server_alive_interval: Option<u64>,
     known_hosts_check: KnownHosts,
+    control_dir: Option<PathBuf>,
 }
 
 impl Default for SessionBuilder {
@@ -25,6 +27,7 @@ impl Default for SessionBuilder {
             connect_timeout: None,
             server_alive_interval: None,
             known_hosts_check: KnownHosts::Add,
+            control_dir: None,
         }
     }
 }
@@ -49,7 +52,7 @@ impl SessionBuilder {
     /// Set the keyfile to use (`ssh -i`).
     ///
     /// Defaults to `None`.
-    pub fn keyfile(&mut self, p: impl AsRef<std::path::Path>) -> &mut Self {
+    pub fn keyfile(&mut self, p: impl AsRef<Path>) -> &mut Self {
         self.keyfile = Some(p.as_ref().to_path_buf());
         self
     }
@@ -78,6 +81,16 @@ impl SessionBuilder {
     /// Defaults to `None`.
     pub fn server_alive_interval(&mut self, d: std::time::Duration) -> &mut Self {
         self.server_alive_interval = Some(d.as_secs());
+        self
+    }
+
+    /// Set the directory in which the temporary directory containing the control socket will
+    /// be created.
+    /// If not set, `./` will be used (the current directory).
+    ///
+    /// Defaults to `None`.
+    pub fn control_directory(&mut self, p: impl AsRef<Path>) -> &mut Self {
+        self.control_dir = Some(p.as_ref().to_path_buf());
         self
     }
 
@@ -137,9 +150,14 @@ impl SessionBuilder {
 
     pub(crate) async fn just_connect<S: AsRef<str>>(&self, host: S) -> Result<Session, Error> {
         let destination = host.as_ref();
+
+        let mut socketdir = &Path::new("./").to_path_buf();
+        if let Some(ref control_dir) = self.control_dir {
+            socketdir = control_dir;
+        }
         let dir = Builder::new()
             .prefix(".ssh-connection")
-            .tempdir_in("./")
+            .tempdir_in(socketdir)
             .map_err(Error::Master)?;
         let mut init = process::Command::new("ssh");
 
