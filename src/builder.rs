@@ -86,9 +86,8 @@ impl SessionBuilder {
 
     /// Set the directory in which the temporary directory containing the control socket will
     /// be created.
-    /// If not set, `./` will be used (the current directory).
     ///
-    /// Defaults to `None`.
+    /// If not set, `./` will be used (the current directory).
     pub fn control_directory(&mut self, p: impl AsRef<Path>) -> &mut Self {
         self.control_dir = Some(p.as_ref().to_path_buf());
         self
@@ -151,10 +150,8 @@ impl SessionBuilder {
     pub(crate) async fn just_connect<S: AsRef<str>>(&self, host: S) -> Result<Session, Error> {
         let destination = host.as_ref();
 
-        let mut socketdir = &Path::new("./").to_path_buf();
-        if let Some(ref control_dir) = self.control_dir {
-            socketdir = control_dir;
-        }
+        let defaultdir = Path::new("./").to_path_buf();
+        let socketdir = self.control_dir.as_ref().unwrap_or(&defaultdir);
         let dir = Builder::new()
             .prefix(".ssh-connection")
             .tempdir_in(socketdir)

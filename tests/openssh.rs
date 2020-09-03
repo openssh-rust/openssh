@@ -9,11 +9,25 @@ fn addr() -> String {
     std::env::var("TEST_HOST").unwrap_or("ssh://test-user@127.0.0.1:2222".to_string())
 }
 
+fn path() -> String {
+    std::env::var("TEST_DIR").unwrap_or("./".to_string())
+}
+
 #[tokio::test]
 #[cfg_attr(not(ci), ignore)]
 async fn it_connects() {
     let session = Session::connect(&addr(), KnownHosts::Accept).await.unwrap();
     session.check().await.unwrap();
+    session.close().await.unwrap();
+}
+
+#[tokio::test]
+#[cfg_attr(not(ci), ignore)]
+async fn control_dir() {
+    let session = SessionBuilder::default().control_directory(&path()).connect(&addr()).await.unwrap();
+    session.check().await.unwrap();
+    let mut iter = std::fs::read_dir(std::path::Path::new(&path())).unwrap();
+    assert!(iter.next().is_some());
     session.close().await.unwrap();
 }
 
