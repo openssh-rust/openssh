@@ -19,6 +19,24 @@ async fn it_connects() {
 
 #[tokio::test]
 #[cfg_attr(not(ci), ignore)]
+async fn control_dir() {
+    let dirname = std::path::Path::new("control-test");
+    assert!(!dirname.exists());
+    std::fs::create_dir(dirname).unwrap();
+    let session = SessionBuilder::default()
+        .control_directory(&dirname)
+        .connect(&addr())
+        .await
+        .unwrap();
+    session.check().await.unwrap();
+    let mut iter = std::fs::read_dir(&dirname).unwrap();
+    assert!(iter.next().is_some());
+    session.close().await.unwrap();
+    std::fs::remove_dir(&dirname).unwrap();
+}
+
+#[tokio::test]
+#[cfg_attr(not(ci), ignore)]
 async fn terminate_on_drop() {
     drop(Session::connect(&addr(), KnownHosts::Add).await.unwrap());
     // NOTE: how do we test that it actually killed the master here?
