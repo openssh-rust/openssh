@@ -21,15 +21,18 @@ async fn it_connects() {
 #[cfg_attr(not(ci), ignore)]
 async fn control_dir() {
     let dirname = std::path::Path::new("control-test");
-    if !dirname.exists() {
-        std::fs::create_dir(dirname);
-    }
-    let session = SessionBuilder::default().control_directory(&dirname).connect(&addr()).await.unwrap();
+    assert!(!dirname.exists());
+    std::fs::create_dir(dirname).unwrap();
+    let session = SessionBuilder::default()
+        .control_directory(&dirname)
+        .connect(&addr())
+        .await
+        .unwrap();
     session.check().await.unwrap();
     let mut iter = std::fs::read_dir(&dirname).unwrap();
     assert!(iter.next().is_some());
     session.close().await.unwrap();
-    std::fs::remove_dir(&dirname);
+    std::fs::remove_dir(&dirname).unwrap();
 }
 
 #[tokio::test]
