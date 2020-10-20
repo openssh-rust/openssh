@@ -436,7 +436,7 @@ async fn process_exit_on_signal() {
     let sleeping = session.command("sleep").arg("5566").spawn().unwrap();
 
     // give it some time to make sure it starts
-    tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
+    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
 
     // Now stop that process.
     //
