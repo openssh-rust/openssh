@@ -49,24 +49,24 @@ impl<'s> RemoteChild<'s> {
     ///
     /// Note that disconnecting does _not_ kill the remote process, it merely kills the local
     /// handle to that remote process.
-    pub fn disconnect(mut self) -> io::Result<()> {
+    pub async fn disconnect(mut self) -> io::Result<()> {
         if let Some(mut channel) = self.channel.take() {
             // this disconnects, but does not kill the remote process
-            channel.kill()?;
+            channel.kill().await?;
         }
         Ok(())
     }
 
     /// Waits for the remote child to exit completely, returning the status that it exited with.
     ///
-    // This function will continue to have the same return value after it has been called at least
-    // once.
+    /// This function will continue to have the same return value after it has been called at least
+    /// once.
     ///
     /// The stdin handle to the child process, if any, will be closed before waiting. This helps
     /// avoid deadlock: it ensures that the child does not block waiting for input from the parent,
     /// while the parent waits for the child to exit.
-    pub async fn wait(mut self) -> Result<std::process::ExitStatus, Error> {
-        match self.channel.take().unwrap().await {
+    pub async fn wait(&mut self) -> Result<std::process::ExitStatus, Error> {
+        match self.channel.as_mut().unwrap().wait().await {
             Err(e) => Err(Error::Remote(e)),
             Ok(w) => match w.code() {
                 Some(255) => Err(Error::Disconnected),
@@ -79,7 +79,6 @@ impl<'s> RemoteChild<'s> {
         }
     }
 
-    /*
     /// Attempts to collect the exit status of the remote child if it has already exited.
     ///
     /// This function will not block the calling thread and will only check to see if the child
@@ -106,7 +105,6 @@ impl<'s> RemoteChild<'s> {
             },
         }
     }
-    */
 
     /// Simultaneously waits for the remote child to exit and collect all remaining output on the
     /// stdout/stderr handles, returning an `Output` instance.

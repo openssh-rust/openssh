@@ -145,7 +145,7 @@ async fn stdin() {
 
     // cat should now have terminated
     let status = child.wait().await.unwrap();
-    // drop(child);
+    drop(child);
 
     // ... successfully
     assert!(status.success());
@@ -323,11 +323,11 @@ async fn bad_remote_command() {
     assert!(matches!(failed, Error::Remote(ref e) if e.kind() == io::ErrorKind::NotFound));
 
     // even if you spawn first
-    let child = session.command("no such program").spawn().unwrap();
+    let mut child = session.command("no such program").spawn().unwrap();
     let failed = child.wait().await.unwrap_err();
     eprintln!("{:?}", failed);
     assert!(matches!(failed, Error::Remote(ref e) if e.kind() == io::ErrorKind::NotFound));
-    // child.disconnect().unwrap_err();
+    child.disconnect().await.unwrap_err();
 
     // of if you want output
     let child = session.command("no such program").spawn().unwrap();
@@ -335,15 +335,13 @@ async fn bad_remote_command() {
     eprintln!("{:?}", failed);
     assert!(matches!(failed, Error::Remote(ref e) if e.kind() == io::ErrorKind::NotFound));
 
-    /*
     // no matter how hard you _try_
     let mut child = session.command("no such program").spawn().unwrap();
     std::thread::sleep(std::time::Duration::from_millis(500));
-    let failed = child.try_wait().await.unwrap_err();
+    let failed = child.try_wait().unwrap_err();
     eprintln!("{:?}", failed);
     assert!(matches!(failed, Error::Remote(ref e) if e.kind() == io::ErrorKind::NotFound));
-    child.disconnect().unwrap_err();
-    */
+    child.disconnect().await.unwrap_err();
 
     session.close().await.unwrap();
 }
@@ -451,10 +449,10 @@ async fn escaping() {
 async fn process_exit_on_signal() {
     let session = Session::connect(&addr(), KnownHosts::Accept).await.unwrap();
 
-    let sleeping = session.command("sleep").arg("5566").spawn().unwrap();
+    let mut sleeping = session.command("sleep").arg("5566").spawn().unwrap();
 
     // give it some time to make sure it starts
-    tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
+    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
 
     // Now stop that process.
     //
@@ -541,7 +539,10 @@ async fn broken_connection() {
     // check should obviously fail
     let failed = session.check().await.unwrap_err();
     if let Error::Master(ref ioe) = failed {
-        assert_eq!(ioe.kind(), io::ErrorKind::ConnectionAborted);
+        if ioe.kind() != io::ErrorKind::ConnectionAborted {
+            eprintln!("{:?}", ioe);
+            assert_eq!(ioe.kind(), io::ErrorKind::ConnectionAborted);
+        }
     } else {
         unreachable!("{:?}", failed);
     }
