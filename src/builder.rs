@@ -192,7 +192,7 @@ impl SessionBuilder {
         let mut child = init.spawn().map_err(Error::Connect)?;
         let stdout = child.stdout.take().unwrap();
         let mut stderr = child.stderr.take().unwrap();
-        let status = child.await.map_err(Error::Connect)?;
+        let status = child.wait().await.map_err(Error::Connect)?;
 
         if !status.success() {
             let mut err = String::new();
