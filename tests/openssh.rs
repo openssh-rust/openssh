@@ -521,7 +521,10 @@ async fn broken_connection() {
     // check should obviously fail
     let failed = session.check().await.unwrap_err();
     if let Error::Master(ref ioe) = failed {
-        assert_eq!(ioe.kind(), io::ErrorKind::ConnectionAborted);
+        if ioe.kind() != io::ErrorKind::ConnectionAborted {
+            eprintln!("{:?}", ioe);
+            assert_eq!(ioe.kind(), io::ErrorKind::ConnectionAborted);
+        }
     } else {
         unreachable!("{:?}", failed);
     }
