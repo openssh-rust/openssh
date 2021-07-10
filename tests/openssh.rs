@@ -1,7 +1,12 @@
-use openssh::*;
+use lazy_static::lazy_static;
 use std::io;
+use std::io::Write;
 use std::process::Stdio;
+
+use regex::Regex;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+use openssh::*;
 
 // TODO: how do we test the connection actually _failing_ so that the master reports an error?
 
@@ -33,6 +38,116 @@ async fn control_dir() {
     assert!(iter.next().is_some());
     session.close().await.unwrap();
     std::fs::remove_dir(&dirname).unwrap();
+}
+
+#[derive(Default, Debug, PartialEq, Eq)]
+struct ProtoUserHostPort<'a> {
+    proto: Option<&'a str>,
+    user: Option<&'a str>,
+    host: Option<&'a str>,
+    port: Option<&'a str>,
+}
+
+fn parse_user_host_port<'a>(s: &'a str) -> Option<ProtoUserHostPort> {
+    lazy_static! {
+        static ref SSH_REGEX: Regex = Regex::new(
+            r"(?x)^((?P<proto>[[:alpha:]]+)://)?((?P<user>.*?)@)?(?P<host>.*?)(:(?P<port>\d+))?$"
+        )
+        .unwrap();
+    }
+    SSH_REGEX.captures(s).and_then(|cap| {
+        Some(ProtoUserHostPort {
+            proto: cap.name("proto").and_then(|m| Some(m.as_str())),
+            user: cap.name("user").and_then(|m| Some(m.as_str())),
+            host: cap.name("host").and_then(|m| Some(m.as_str())),
+            port: cap.name("port").and_then(|m| Some(m.as_str())),
+        })
+    })
+}
+
+#[test]
+fn test_parse_proto_user_host_port() {
+    let addr = "ssh://test-user@127.0.0.1:2222";
+    let parsed_addr = parse_user_host_port(&addr).unwrap();
+    assert_eq!("ssh", parsed_addr.proto.unwrap());
+    assert_eq!("test-user", parsed_addr.user.unwrap());
+    assert_eq!("127.0.0.1", parsed_addr.host.unwrap());
+    assert_eq!("2222", parsed_addr.port.unwrap());
+}
+
+#[test]
+fn test_parse_user_host_port() {
+    let addr = "test-user@127.0.0.1:2222";
+    let parsed_addr = parse_user_host_port(&addr).unwrap();
+    assert!(parsed_addr.proto.is_none());
+    assert_eq!("test-user", parsed_addr.user.unwrap());
+    assert_eq!("127.0.0.1", parsed_addr.host.unwrap());
+    assert_eq!("2222", parsed_addr.port.unwrap());
+}
+
+#[test]
+fn test_parse_user_host() {
+    let addr = "test-user@127.0.0.1";
+    let parsed_addr = parse_user_host_port(&addr).unwrap();
+    assert!(parsed_addr.proto.is_none());
+    assert_eq!("test-user", parsed_addr.user.unwrap());
+    assert_eq!("127.0.0.1", parsed_addr.host.unwrap());
+    assert!(parsed_addr.port.is_none());
+}
+
+#[test]
+fn test_parse_host_port() {
+    let addr = "127.0.0.1:2222";
+    let parsed_addr = parse_user_host_port(&addr).unwrap();
+    assert!(parsed_addr.proto.is_none());
+    assert!(parsed_addr.user.is_none());
+    assert_eq!("127.0.0.1", parsed_addr.host.unwrap());
+    assert_eq!("2222", parsed_addr.port.unwrap());
+}
+
+#[test]
+fn test_parse_host() {
+    let addr = "127.0.0.1";
+    let parsed_addr = parse_user_host_port(&addr).unwrap();
+    assert!(parsed_addr.proto.is_none());
+    assert!(parsed_addr.user.is_none());
+    assert_eq!("127.0.0.1", parsed_addr.host.unwrap());
+    assert!(parsed_addr.port.is_none());
+}
+
+#[tokio::test]
+#[cfg_attr(not(ci), ignore)]
+async fn config_file() {
+    let dirname = std::path::Path::new("config-file-test");
+    let ssh_config_file = dirname.join("alternate_ssh_config");
+    assert!(!dirname.exists());
+    assert!(!ssh_config_file.exists());
+    std::fs::create_dir(dirname).unwrap();
+
+    let addr = addr();
+    let parsed_addr = parse_user_host_port(&addr).unwrap();
+    let ssh_config_contents = format!(
+        r#"Host config-file-test
+        User {}
+        HostName {}
+        Port {}"#,
+        parsed_addr.user.unwrap_or("test-user"),
+        parsed_addr.host.unwrap_or("127.0.0.1"),
+        parsed_addr.port.unwrap_or("2222")
+    );
+    let mut ssh_config_handle = std::fs::File::create(&ssh_config_file).unwrap();
+    ssh_config_handle
+        .write_all(ssh_config_contents.as_bytes())
+        .unwrap();
+    let session = SessionBuilder::default()
+        .known_hosts_check(KnownHosts::Accept)
+        .config_file(&ssh_config_file)
+        .connect("config-file-test") // this host name is resolved by the custom ssh_config.
+        .await
+        .unwrap();
+    session.check().await.unwrap();
+    session.close().await.unwrap();
+    std::fs::remove_dir_all(&dirname).unwrap();
 }
 
 #[tokio::test]
