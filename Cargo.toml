@@ -21,6 +21,7 @@ maintenance = { status = "experimental" }
 tempfile = "3.1.0"
 shell-escape = "0.1"
 tokio = { version = "1", features = [ "process", "io-util" ] }
+openssh-mux-client = { version = "0.2.0", optional = true }
 
 [dev-dependencies]
 lazy_static = "1.4.0"
