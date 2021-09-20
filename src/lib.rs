@@ -117,6 +117,9 @@ use std::io;
 use tokio::io::AsyncReadExt;
 use tokio::process;
 
+#[cfg(feature = "enable-openssh-mux-client")]
+use openssh_mux_client::connection;
+
 mod builder;
 pub use builder::{KnownHosts, SessionBuilder};
 
@@ -174,6 +177,7 @@ impl Session {
     ///
     /// Since this does not run a remote command, it has a better chance of extracting useful error
     /// messages than other commands.
+    #[cfg(not(feature = "enable-openssh-mux-client"))]
     pub async fn check(&self) -> Result<(), Error> {
         if self.terminated {
             return Err(Error::Disconnected);
@@ -199,6 +203,34 @@ impl Session {
             }
         } else {
             Ok(())
+        }
+    }
+
+    /// Check the status of the underlying SSH connection.
+    ///
+    /// Since this does not run a remote command, it has a better chance of extracting useful error
+    /// messages than other commands.
+    #[cfg(feature = "enable-openssh-mux-client")]
+    pub async fn check(&self) -> Result<(), Error> {
+        use connection::Connection;
+
+        if self.terminated {
+            return Err(Error::Disconnected);
+        }
+
+        match Connection::connect(self.ctl.path().join("master")).await {
+            Ok(_conn) => Ok(()),
+            Err(err) => {
+                match &err {
+                    connection::Error::IOError(ioerr) => {
+                        match ioerr.kind() {
+                            io::ErrorKind::NotFound => Err(Error::Disconnected),
+                            _ => Err(err.into()),
+                        }
+                    },
+                    _ => Err(err.into()),
+                }
+            },
         }
     }
 
