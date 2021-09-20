@@ -208,8 +208,9 @@ impl Session {
 
     /// Check the status of the underlying SSH connection.
     ///
-    /// Since this does not run a remote command, it has a better chance of extracting useful error
-    /// messages than other commands.
+    /// # Cancel safety
+    ///
+    /// All methods of this struct is not cancellation safe.
     #[cfg(feature = "enable-openssh-mux-client")]
     pub async fn check(&self) -> Result<(), Error> {
         use connection::Connection;
