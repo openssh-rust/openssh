@@ -220,16 +220,12 @@ impl Session {
 
         match Connection::connect(self.ctl.path().join("master")).await {
             Ok(_conn) => Ok(()),
-            Err(err) => {
-                match &err {
-                    connection::Error::IOError(ioerr) => {
-                        match ioerr.kind() {
-                            io::ErrorKind::NotFound => Err(Error::Disconnected),
-                            _ => Err(err.into()),
-                        }
-                    },
+            Err(err) => match &err {
+                connection::Error::IOError(ioerr) => match ioerr.kind() {
+                    io::ErrorKind::NotFound => Err(Error::Disconnected),
                     _ => Err(err.into()),
-                }
+                },
+                _ => Err(err.into()),
             },
         }
     }
