@@ -27,9 +27,11 @@ pub enum Error {
     #[cfg(feature = "enable-openssh-mux-client")]
     MuxClient(connection::Error),
 
+    /// Failed to allocate the tty on remote
     #[cfg(feature = "enable-openssh-mux-client")]
     TtyAllocFail,
 
+    /// IO Error when reading/writing from Child*
     #[cfg(feature = "enable-openssh-mux-client")]
     IOError(io::Error),
 }
@@ -58,7 +60,7 @@ impl fmt::Display for Error {
             Error::TtyAllocFail => write!(f, "Tty allocation on remote failed"),
 
             #[cfg(feature = "enable-openssh-mux-client")]
-            Error::IOError(_) => write!(f, "IO Error"),
+            Error::IOError(_) => write!(f, "IO Error when reading/writing from Child*"),
         }
     }
 }
@@ -80,7 +82,6 @@ impl std::error::Error for Error {
 
             #[cfg(feature = "enable-openssh-mux-client")]
             Error::IOError(ref e) => Some(e),
-
         }
     }
 }
