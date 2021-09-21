@@ -18,12 +18,12 @@ codecov = { repository = "jonhoo/openssh-rs", branch = "master", service = "gith
 maintenance = { status = "experimental" }
 
 [features]
-enable-openssh-mux-client = ["openssh-mux-client", "tokio-pipe"]
+enable-openssh-mux-client = ["openssh-mux-client", "tokio-pipe", "tokio/io-util", "tokio/rt"]
 
 [dependencies]
 tempfile = "3.1.0"
 shell-escape = "0.1"
-tokio = { version = "1", features = [ "process", "io-util", "rt" ] }
+tokio = { version = "1", features = [ "process" ] }
 openssh-mux-client = { version = "0.2.0", optional = true }
 tokio-pipe = { version = "0.2.1", optional = true }
 
