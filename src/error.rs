@@ -29,6 +29,9 @@ pub enum Error {
 
     #[cfg(feature = "enable-openssh-mux-client")]
     TtyAllocFail,
+
+    #[cfg(feature = "enable-openssh-mux-client")]
+    IOError(io::Error),
 }
 
 /// connection::Error is a unique type used in openssh_mux_client
@@ -53,6 +56,9 @@ impl fmt::Display for Error {
 
             #[cfg(feature = "enable-openssh-mux-client")]
             Error::TtyAllocFail => write!(f, "Tty allocation on remote failed"),
+
+            #[cfg(feature = "enable-openssh-mux-client")]
+            Error::IOError(_) => write!(f, "IO Error"),
         }
     }
 }
@@ -71,6 +77,10 @@ impl std::error::Error for Error {
 
             #[cfg(feature = "enable-openssh-mux-client")]
             Error::TtyAllocFail => None,
+
+            #[cfg(feature = "enable-openssh-mux-client")]
+            Error::IOError(ref e) => Some(e),
+
         }
     }
 }
