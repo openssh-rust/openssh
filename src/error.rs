@@ -26,6 +26,9 @@ pub enum Error {
     /// "openssh-mux-client" to connect to the ssh multiplex server.
     #[cfg(feature = "enable-openssh-mux-client")]
     MuxClient(connection::Error),
+
+    #[cfg(feature = "enable-openssh-mux-client")]
+    TtyAllocFail,
 }
 
 /// connection::Error is a unique type used in openssh_mux_client
@@ -47,6 +50,9 @@ impl fmt::Display for Error {
 
             #[cfg(feature = "enable-openssh-mux-client")]
             Error::MuxClient(_) => write!(f, "Failed to connect to the ssh multiplex server"),
+
+            #[cfg(feature = "enable-openssh-mux-client")]
+            Error::TtyAllocFail => write!(f, "Tty allocation on remote failed"),
         }
     }
 }
@@ -62,6 +68,9 @@ impl std::error::Error for Error {
 
             #[cfg(feature = "enable-openssh-mux-client")]
             Error::MuxClient(ref e) => Some(e),
+
+            #[cfg(feature = "enable-openssh-mux-client")]
+            Error::TtyAllocFail => None,
         }
     }
 }
