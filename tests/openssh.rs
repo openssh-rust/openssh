@@ -157,6 +157,13 @@ async fn terminate_on_drop() {
     // NOTE: how do we test that it actually killed the master here?
 }
 
+#[tokio::test(flavor = "current_thread")]
+#[cfg_attr(not(ci), ignore)]
+async fn terminate_on_drop_current_thread() {
+    drop(Session::connect(&addr(), KnownHosts::Add).await.unwrap());
+    // NOTE: how do we test that it actually killed the master here?
+}
+
 #[tokio::test]
 #[cfg_attr(not(ci), ignore)]
 async fn stdout() {

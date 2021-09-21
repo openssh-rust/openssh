@@ -207,9 +207,7 @@ impl Session {
     }
 
     #[cfg(feature = "enable-openssh-mux-client")]
-    async fn create_conn(&self)
-        -> Result<connection::Connection, connection::Error>
-    {
+    async fn create_conn(&self) -> Result<connection::Connection, connection::Error> {
         connection::Connection::connect(self.ctl.path().join("master")).await
     }
 
@@ -230,8 +228,7 @@ impl Session {
             Ok(_conn) => Ok(()),
             Err(err) => match &err {
                 connection::Error::IOError(ioerr) => match ioerr.kind() {
-                    ErrorKind::NotFound | ErrorKind::ConnectionReset =>
-                        Err(Error::Disconnected),
+                    ErrorKind::NotFound | ErrorKind::ConnectionReset => Err(Error::Disconnected),
                     _ => Err(err.into()),
                 },
                 _ => Err(err.into()),
@@ -354,6 +351,7 @@ impl Session {
         self.terminate().await
     }
 
+    #[cfg_attr(feature = "enable-openssh-mux-client", allow(dead_code))]
     async fn take_master_error(&self) -> Option<Error> {
         let (_stdout, mut stderr) = self.master.lock().unwrap().take()?;
 
@@ -376,6 +374,7 @@ impl Session {
         Some(Error::Master(io::Error::new(kind, stderr)))
     }
 
+    #[cfg(not(feature = "enable-openssh-mux-client"))]
     async fn terminate(&mut self) -> Result<(), Error> {
         if !self.terminated {
             let exit = process::Command::new("ssh")
@@ -421,8 +420,20 @@ impl Session {
 
         Ok(())
     }
+
+    #[cfg(feature = "enable-openssh-mux-client")]
+    async fn terminate(&mut self) -> Result<(), Error> {
+        if !self.terminated {
+            self.create_conn().await?.request_stop_listening().await?;
+
+            self.terminated = true;
+        }
+
+        Ok(())
+    }
 }
 
+#[cfg(not(feature = "enable-openssh-mux-client"))]
 impl Drop for Session {
     fn drop(&mut self) {
         if !self.terminated {
@@ -437,6 +448,41 @@ impl Drop for Session {
                 .stdout(std::process::Stdio::null())
                 .stderr(std::process::Stdio::null())
                 .status();
+        }
+    }
+}
+
+#[cfg(feature = "enable-openssh-mux-client")]
+impl Drop for Session {
+    fn drop(&mut self) {
+        use connection::Connection;
+        use tokio::runtime::{Builder, Handle};
+
+        if self.terminated {
+            return;
+        }
+
+        let path = self.ctl.path().join("master");
+
+        let f = || async move {
+            let _: Result<(), connection::Error> = async move {
+                Connection::connect(path)
+                    .await?
+                    .request_stop_listening()
+                    .await
+            }
+            .await;
+        };
+
+        if let Ok(handle) = Handle::try_current() {
+            handle.spawn(f());
+        } else {
+            let rt = Builder::new_current_thread() // The new Runtime will use current_thread
+                .enable_all() // Enable IO and timer driver if available
+                .build() // Build and return Result<Runtime>
+                .unwrap();
+
+            rt.block_on(f());
         }
     }
 }
