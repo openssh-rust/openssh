@@ -206,6 +206,13 @@ impl Session {
         }
     }
 
+    #[cfg(feature = "enable-openssh-mux-client")]
+    async fn create_conn(&self)
+        -> Result<connection::Connection, connection::Error>
+    {
+        connection::Connection::connect(self.ctl.path().join("master")).await
+    }
+
     /// Check the status of the underlying SSH connection.
     ///
     /// # Cancel safety
@@ -213,17 +220,18 @@ impl Session {
     /// All methods of this struct is not cancellation safe.
     #[cfg(feature = "enable-openssh-mux-client")]
     pub async fn check(&self) -> Result<(), Error> {
-        use connection::Connection;
+        use io::ErrorKind;
 
         if self.terminated {
             return Err(Error::Disconnected);
         }
 
-        match Connection::connect(self.ctl.path().join("master")).await {
+        match self.create_conn().await {
             Ok(_conn) => Ok(()),
             Err(err) => match &err {
                 connection::Error::IOError(ioerr) => match ioerr.kind() {
-                    io::ErrorKind::NotFound => Err(Error::Disconnected),
+                    ErrorKind::NotFound | ErrorKind::ConnectionReset =>
+                        Err(Error::Disconnected),
                     _ => Err(err.into()),
                 },
                 _ => Err(err.into()),
