@@ -14,9 +14,9 @@ pub enum Error {
     #[error("failed to establish initial connection to the remote host")]
     Connect(#[source] io::Error),
 
-    /// Failed to run the `ssh` command locally.
-    #[error("failed to run the `ssh` command locally")]
-    Ssh(#[source] io::Error),
+    /// Failed to connect to the ssh multiplex server.
+    #[error("failed to connect to the ssh multiplex server")]
+    Ssh(#[from] connection::Error),
 
     /// The remote process failed.
     #[error("the remote process failed")]
@@ -29,10 +29,6 @@ pub enum Error {
     /// to verify if you get this error back.
     #[error("the connection was terminated")]
     Disconnected,
-
-    /// Failed to connect to the ssh multiplex server.
-    #[error("failed to connect to the ssh multiplex server")]
-    MuxClient(#[from] connection::Error),
 
     /// IO Error when creating/reading/writing from ChildStdin, ChildStdout, ChildStderr.
     #[error("IO Error when creating/reading/writing from ChildStdin, ChildStdout, ChildStderr")]
@@ -137,16 +133,6 @@ mod tests {
         assert_eq!(format!("{}", e), format!("{}", expect));
 
         let e = Error::Connect(ioe());
-        assert!(!format!("{}", e).is_empty());
-        let e = e
-            .source()
-            .expect("source failed")
-            .downcast_ref::<io::Error>()
-            .expect("source not io");
-        assert_eq!(e.kind(), expect.kind());
-        assert_eq!(format!("{}", e), format!("{}", expect));
-
-        let e = Error::Ssh(ioe());
         assert!(!format!("{}", e).is_empty());
         let e = e
             .source()
