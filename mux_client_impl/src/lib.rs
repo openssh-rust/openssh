@@ -146,7 +146,6 @@ pub type Result<T, Err = Error> = std::result::Result<T, Err>;
 pub struct Session {
     ctl: path::PathBuf,
     addr: String,
-    terminated: bool,
     master: std::sync::Mutex<Option<(tokio::process::ChildStdout, tokio::process::ChildStderr)>>,
 }
 
@@ -164,7 +163,8 @@ impl Session {
     /// instead.
     ///
     /// For more options, see [`SessionBuilder`].
-    pub async fn connect<S: AsRef<str>>(destination: S, check: KnownHosts) -> Result<Self> {
+    pub async fn connect<S: AsRef<str>>(destination: S, check: KnownHosts) -> Result<Self> 
+    {
         let mut s = SessionBuilder::default();
         s.known_hosts_check(check);
         s.connect(destination.as_ref()).await
@@ -176,10 +176,6 @@ impl Session {
     ///
     /// All methods of this struct is not cancellation safe.
     pub async fn check(&self) -> Result<()> {
-        if self.terminated {
-            return Err(Error::Disconnected);
-        }
-
         Connection::connect(&self.ctl)
             .await?
             .send_alive_check()
@@ -276,18 +272,12 @@ impl Session {
 
     /// Terminate the remote connection.
     pub async fn close(mut self) -> Result<()> {
-        self.terminate().await
-    }
+        Connection::connect(&self.ctl)
+            .await?
+            .request_stop_listening()
+            .await?;
 
-    async fn terminate(&mut self) -> Result<()> {
-        if !self.terminated {
-            Connection::connect(&self.ctl)
-                .await?
-                .request_stop_listening()
-                .await?;
-
-            self.terminated = true;
-        }
+        self.ctl = path::PathBuf::new();
 
         Ok(())
     }
@@ -298,11 +288,10 @@ impl Drop for Session {
         use std::mem::replace;
         use tokio::runtime::{Builder, Handle};
 
-        if self.terminated {
+        let path = replace(&mut self.ctl, path::PathBuf::new());
+        if path.as_os_str().is_empty() {
             return;
         }
-
-        let path = replace(&mut self.ctl, path::PathBuf::new());
 
         let f = || async move {
             let _: Result<(), connection::Error> = async move {
