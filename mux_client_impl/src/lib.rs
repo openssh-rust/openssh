@@ -145,7 +145,7 @@ pub type Result<T, Err = Error> = std::result::Result<T, Err>;
 #[derive(Debug)]
 pub struct Session {
     ctl: path::PathBuf,
-    master: std::sync::Mutex<Option<(tokio::process::ChildStdout, tokio::process::ChildStderr)>>,
+    master: (tokio::process::ChildStdout, tokio::process::ChildStderr),
 }
 
 // TODO: UserKnownHostsFile for custom known host fingerprint.

@@ -3,7 +3,6 @@ use super::{Error, Result, Session};
 use std::borrow::Cow;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
-use std::sync::Mutex;
 
 use tempfile::Builder;
 
@@ -238,7 +237,7 @@ impl SessionBuilder {
 
         Ok(Session {
             ctl,
-            master: Mutex::new(Some((stdout, stderr))),
+            master: (stdout, stderr),
         })
     }
 }
