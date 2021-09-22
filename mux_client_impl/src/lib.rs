@@ -145,7 +145,6 @@ pub type Result<T, Err = Error> = std::result::Result<T, Err>;
 #[derive(Debug)]
 pub struct Session {
     ctl: path::PathBuf,
-    addr: String,
     master: std::sync::Mutex<Option<(tokio::process::ChildStdout, tokio::process::ChildStderr)>>,
 }
 

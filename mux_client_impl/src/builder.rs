@@ -238,7 +238,6 @@ impl SessionBuilder {
 
         Ok(Session {
             ctl,
-            addr: String::from(destination),
             master: Mutex::new(Some((stdout, stderr))),
         })
     }
