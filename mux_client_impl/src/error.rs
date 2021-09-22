@@ -16,23 +16,40 @@ pub enum Error {
 
     /// Failed to connect to the ssh multiplex server.
     #[error("failed to connect to the ssh multiplex server")]
-    Ssh(#[from] connection::Error),
+    Ssh(#[source] connection::Error),
 
     /// The remote process failed.
     #[error("the remote process failed")]
     Remote(#[source] io::Error),
 
     /// The connection to the remote host was severed.
-    ///
-    /// Note that this is a best-effort error, and it _may_ instead signify that the remote process
-    /// exited with an error code of 255. You should call [`Session::check`](crate::Session::check)
-    /// to verify if you get this error back.
     #[error("the connection was terminated")]
     Disconnected,
 
     /// IO Error when creating/reading/writing from ChildStdin, ChildStdout, ChildStderr.
     #[error("IO Error when creating/reading/writing from ChildStdin, ChildStdout, ChildStderr")]
     IOError(#[source] io::Error),
+}
+impl From<connection::Error> for Error {
+    fn from(err: connection::Error) -> Self {
+        use io::ErrorKind;
+
+        match &err {
+            connection::Error::IOError(ioerr) => match ioerr.kind() {
+                ErrorKind::NotFound
+                | ErrorKind::ConnectionReset
+                // If the listener of a unix socket exits without removing the socket
+                // file, then attempt to connect to the file results in
+                // `ConnectionRefused`.
+                | ErrorKind::ConnectionRefused
+                | ErrorKind::ConnectionAborted
+                | ErrorKind::NotConnected => Error::Disconnected,
+
+                _ => Error::Ssh(err),
+            },
+            _ => Error::Ssh(err),
+        }
+    }
 }
 
 impl Error {
