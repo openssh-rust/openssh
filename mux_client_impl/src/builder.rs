@@ -236,7 +236,8 @@ impl SessionBuilder {
         }
 
         Ok(Session {
-            ctl,
+            tempdir: dir,
+            terminated: false,
             master: (stdout, stderr),
         })
     }

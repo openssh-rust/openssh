@@ -115,6 +115,7 @@ use std::borrow::Cow;
 use std::path;
 
 use tokio::process;
+use tempfile::TempDir;
 
 use openssh_mux_client::connection::{self, Connection};
 
@@ -146,7 +147,9 @@ pub type Result<T, Err = Error> = std::result::Result<T, Err>;
 /// silently ignored. To disconnect and be alerted to errors, use [`close`](Session::close).
 #[derive(Debug)]
 pub struct Session {
-    ctl: path::PathBuf,
+    /// TempDir will automatically removes the temporary dir on drop
+    tempdir: TempDir,
+    terminated: bool,
     master: (process::ChildStdout, process::ChildStderr),
 }
 
@@ -154,6 +157,10 @@ pub struct Session {
 // TODO: Extract process output in Session::check(), Session::connect(), and Session::terminate().
 
 impl Session {
+    fn ctl(&self) -> path::PathBuf {
+        self.tempdir.path().join("master")
+    }
+
     /// Return the stdout/stderr handle for the master process.
     pub fn get_master_output(&mut self) -> &mut (process::ChildStdout, process::ChildStderr) {
         &mut self.master
@@ -182,7 +189,7 @@ impl Session {
     ///
     /// All methods of this struct is not cancellation safe.
     pub async fn check(&self) -> Result<()> {
-        Connection::connect(&self.ctl)
+        Connection::connect(&self.ctl())
             .await?
             .send_alive_check()
             .await?;
@@ -228,7 +235,7 @@ impl Session {
     /// If `program` is not an absolute path, the `PATH` will be searched in an OS-defined way on
     /// the host.
     pub fn raw_command<'a, S: Into<Cow<'a, str>>>(&self, program: S) -> Command<'_> {
-        Command::new(self, &self.ctl, program.into().to_string())
+        Command::new(self, self.ctl(), program.into().to_string())
     }
 
     /// Constructs a new [`Command`] that runs the provided shell command on the remote host.
@@ -278,12 +285,12 @@ impl Session {
 
     /// Terminate the remote connection.
     pub async fn close(mut self) -> Result<()> {
-        Connection::connect(&self.ctl)
+        Connection::connect(&self.ctl())
             .await?
             .request_stop_listening()
             .await?;
 
-        self.ctl = path::PathBuf::new();
+        self.terminated = true;
 
         Ok(())
     }
@@ -291,13 +298,13 @@ impl Session {
 
 impl Drop for Session {
     fn drop(&mut self) {
-        use std::mem::replace;
         use tokio::runtime::{Builder, Handle};
 
-        let path = replace(&mut self.ctl, path::PathBuf::new());
-        if path.as_os_str().is_empty() {
+        if self.terminated {
             return;
         }
+
+        let path = self.ctl();
 
         let f = || async move {
             let _: Result<(), connection::Error> = async move {

@@ -2,7 +2,7 @@ use super::RemoteChild;
 use super::Result;
 use super::{as_raw_fd, ChildStderr, ChildStdin, ChildStdout, Stdio};
 
-use std::path::Path;
+use std::path::PathBuf;
 use std::process;
 
 use openssh_mux_client::connection::{Connection, EstablishedSession, Session};
@@ -42,7 +42,7 @@ use openssh_mux_client::connection::{Connection, EstablishedSession, Session};
 pub struct Command<'s> {
     session: &'s super::Session,
     cmd: String,
-    ctl: &'s Path,
+    ctl: PathBuf,
 
     stdin_v: Stdio,
     stdout_v: Stdio,
@@ -50,7 +50,7 @@ pub struct Command<'s> {
 }
 
 impl<'s> Command<'s> {
-    pub(crate) fn new(session: &'s super::Session, ctl: &'s Path, cmd: String) -> Self {
+    pub(crate) fn new(session: &'s super::Session, ctl: PathBuf, cmd: String) -> Self {
         Self {
             session,
 
@@ -192,7 +192,7 @@ impl<'s> Command<'s> {
         // Then launch!
         let session = Session::builder().cmd(&self.cmd).build();
 
-        let established_session = Connection::connect(self.ctl)
+        let established_session = Connection::connect(&self.ctl)
             .await?
             .open_new_session(
                 &session,
