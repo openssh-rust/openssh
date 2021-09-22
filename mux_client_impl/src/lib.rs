@@ -114,7 +114,6 @@
 use std::borrow::Cow;
 use std::path;
 
-use tokio::process;
 use tempfile::TempDir;
 
 use openssh_mux_client::connection::{self, Connection};
@@ -150,7 +149,6 @@ pub struct Session {
     /// TempDir will automatically removes the temporary dir on drop
     tempdir: TempDir,
     terminated: bool,
-    master: (process::ChildStdout, process::ChildStderr),
 }
 
 // TODO: UserKnownHostsFile for custom known host fingerprint.
@@ -159,11 +157,6 @@ pub struct Session {
 impl Session {
     fn ctl(&self) -> path::PathBuf {
         self.tempdir.path().join("master")
-    }
-
-    /// Return the stdout/stderr handle for the master process.
-    pub fn get_master_output(&mut self) -> &mut (process::ChildStdout, process::ChildStderr) {
-        &mut self.master
     }
 
     /// Connect to the host at the given `addr` over SSH.

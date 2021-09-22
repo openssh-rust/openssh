@@ -3,10 +3,11 @@ use super::{Error, Result, Session};
 use std::borrow::Cow;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
+use std::fs;
+use std::str;
 
 use tempfile::Builder;
 
-use tokio::io::AsyncReadExt;
 use tokio::process;
 
 /// Build a [`Session`] with options.
@@ -171,12 +172,14 @@ impl SessionBuilder {
             .prefix(".ssh-connection")
             .tempdir_in(socketdir)
             .map_err(Error::Master)?;
+
         let ctl = dir.path().join("master");
+        let log = dir.path().join("log");
 
         let mut init = process::Command::new("ssh");
         init.stdin(Stdio::null())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
             .arg("-S")
             .arg(&ctl)
             .arg("-M")
@@ -187,7 +190,9 @@ impl SessionBuilder {
             .arg("-o")
             .arg("BatchMode=yes")
             .arg("-o")
-            .arg(self.known_hosts_check.as_option());
+            .arg(self.known_hosts_check.as_option())
+            .arg("-E")
+            .arg(&log);
 
         if let Some(timeout) = &self.connect_timeout {
             init.arg("-o").arg(format!("ConnectTimeout={}", timeout));
@@ -225,21 +230,18 @@ impl SessionBuilder {
         // if the call _didn't_ error, then the backgrounded ssh client will still hold onto those
         // handles, and it's still running, so those reads will hang indefinitely.
         let mut child = init.spawn().map_err(Error::Connect)?;
-        let stdout = child.stdout.take().unwrap();
-        let mut stderr = child.stderr.take().unwrap();
         let status = child.wait().await.map_err(Error::Connect)?;
 
         if !status.success() {
-            let mut err = String::new();
-            stderr.read_to_string(&mut err).await.unwrap();
-            return Err(Error::interpret_ssh_error(&err));
+            Err(Error::interpret_ssh_error(
+                str::from_utf8(&fs::read(log).unwrap()).unwrap()
+            ))
+        } else {
+            Ok(Session {
+                tempdir: dir,
+                terminated: false,
+            })
         }
-
-        Ok(Session {
-            tempdir: dir,
-            terminated: false,
-            master: (stdout, stderr),
-        })
     }
 }
 
