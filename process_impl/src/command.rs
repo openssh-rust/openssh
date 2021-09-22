@@ -1,6 +1,5 @@
 use super::RemoteChild;
 use super::{Error, Session};
-
 use std::borrow::Cow;
 use std::ffi::OsStr;
 use std::io;
