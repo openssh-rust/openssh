@@ -116,7 +116,7 @@ use std::path;
 
 use tempfile::TempDir;
 
-use openssh_mux_client::connection::{self, Connection};
+use openssh_mux_client::connection::Connection;
 
 mod builder;
 pub use builder::{KnownHosts, SessionBuilder};
@@ -147,8 +147,7 @@ pub type Result<T, Err = Error> = std::result::Result<T, Err>;
 #[derive(Debug)]
 pub struct Session {
     /// TempDir will automatically removes the temporary dir on drop
-    tempdir: TempDir,
-    terminated: bool,
+    tempdir: Option<TempDir>,
 }
 
 // TODO: UserKnownHostsFile for custom known host fingerprint.
@@ -156,7 +155,7 @@ pub struct Session {
 
 impl Session {
     fn ctl(&self) -> path::PathBuf {
-        self.tempdir.path().join("master")
+        self.tempdir.as_ref().unwrap().path().join("master")
     }
 
     /// Connect to the host at the given `addr` over SSH.
@@ -276,14 +275,25 @@ impl Session {
         cmd
     }
 
-    /// Terminate the remote connection.
-    pub async fn close(mut self) -> Result<()> {
-        Connection::connect(&self.ctl())
+    async fn request_server_shutdown(tempdir: &TempDir) -> Result<()> {
+        Connection::connect(&tempdir.path().join("master"))
             .await?
             .request_stop_listening()
             .await?;
 
-        self.terminated = true;
+        Ok(())
+    }
+
+    /// Terminate the remote connection.
+    pub async fn close(mut self) -> Result<()> {
+        // This also set self.tempdir to None so that Drop::drop would do nothing.
+        let tempdir = self.tempdir.take().unwrap();
+
+        Self::request_server_shutdown(&tempdir).await?;
+
+        tempdir
+            .close()
+            .map_err(Error::RemoveTempDir)?;
 
         Ok(())
     }
@@ -293,20 +303,14 @@ impl Drop for Session {
     fn drop(&mut self) {
         use tokio::runtime::{Builder, Handle};
 
-        if self.terminated {
-            return;
-        }
-
-        let path = self.ctl();
+        // Keep tempdir alive until the connection is established
+        let tempdir = match self.tempdir.take() {
+            Some(tempdir) => tempdir,
+            None => return,
+        };
 
         let f = || async move {
-            let _: Result<(), connection::Error> = async move {
-                Connection::connect(path)
-                    .await?
-                    .request_stop_listening()
-                    .await
-            }
-            .await;
+            let _ = Self::request_server_shutdown(&tempdir).await;
         };
 
         if let Ok(handle) = Handle::try_current() {

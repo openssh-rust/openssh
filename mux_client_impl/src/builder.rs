@@ -238,8 +238,7 @@ impl SessionBuilder {
             ))
         } else {
             Ok(Session {
-                tempdir: dir,
-                terminated: false,
+                tempdir: Some(dir),
             })
         }
     }

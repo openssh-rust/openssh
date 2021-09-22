@@ -26,6 +26,10 @@ pub enum Error {
     #[error("the connection was terminated")]
     Disconnected,
 
+    /// Failed to remove temporary dir.
+    #[error("failed to remove temporary dir")]
+    RemoveTempDir(#[source] io::Error),
+
     /// IO Error when creating/reading/writing from ChildStdin, ChildStdout, ChildStderr.
     #[error("IO Error when creating/reading/writing from ChildStdin, ChildStdout, ChildStderr")]
     IOError(#[source] io::Error),
