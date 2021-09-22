@@ -112,9 +112,11 @@
 )]
 
 use std::borrow::Cow;
+#[cfg(not(feature = "enable-openssh-mux-client"))]
 use std::ffi::OsStr;
 use std::io;
 use tokio::io::AsyncReadExt;
+#[cfg(not(feature = "enable-openssh-mux-client"))]
 use tokio::process;
 
 #[cfg(feature = "enable-openssh-mux-client")]
@@ -126,13 +128,18 @@ pub use builder::{KnownHosts, SessionBuilder};
 mod command;
 pub use command::Command;
 
+#[cfg(feature = "enable-openssh-mux-client")]
+pub use command::{ChildStderr, ChildStdin, ChildStdout, Stdio};
+
 mod child;
 pub use child::RemoteChild;
 
 mod error;
 pub use error::Error;
 
+#[cfg(not(feature = "enable-openssh-mux-client"))]
 mod sftp;
+#[cfg(not(feature = "enable-openssh-mux-client"))]
 pub use sftp::{Mode, RemoteFile, Sftp};
 
 /// A single SSH session to a remote host.
@@ -208,7 +215,7 @@ impl Session {
 
     #[cfg(feature = "enable-openssh-mux-client")]
     async fn create_conn(&self) -> Result<connection::Connection, connection::Error> {
-        connection::Connection::connect(self.ctl.path().join("master")).await
+        connection::Connection::connect(self.ctl_path()).await
     }
 
     /// Check the status of the underlying SSH connection.
@@ -253,8 +260,31 @@ impl Session {
     ///
     /// If `program` is not an absolute path, the `PATH` will be searched in an OS-defined way on
     /// the host.
+    #[cfg(not(feature = "enable-openssh-mux-client"))]
     pub fn command<'a, S: Into<Cow<'a, str>>>(&self, program: S) -> Command<'_> {
         self.raw_command(&*shell_escape::unix::escape(program.into()))
+    }
+
+    /// Constructs a new [`Command`] for launching the program at path `program` on the remote
+    /// host.
+    ///
+    /// Before it is passed to the remote host, `program` is escaped so that special characters
+    /// aren't evaluated by the remote shell. If you do not want this behavior, use
+    /// [`raw_command`].
+    ///
+    /// The returned `Command` is a builder, with the following default configuration:
+    ///
+    /// * No arguments to the program
+    /// * Empty stdin and dsicard stdout/stderr for `spawn` or `status`, but create output pipes for
+    ///   `output`
+    ///
+    /// Builder methods are provided to change these defaults and otherwise configure the process.
+    ///
+    /// If `program` is not an absolute path, the `PATH` will be searched in an OS-defined way on
+    /// the host.
+    #[cfg(feature = "enable-openssh-mux-client")]
+    pub fn command<'a, S: Into<Cow<'a, str>>>(&self, program: S) -> Command<'_> {
+        self.raw_command(program)
     }
 
     /// Constructs a new [`Command`] for launching the program at path `program` on the remote
@@ -273,6 +303,7 @@ impl Session {
     ///
     /// If `program` is not an absolute path, the `PATH` will be searched in an OS-defined way on
     /// the host.
+    #[cfg(not(feature = "enable-openssh-mux-client"))]
     pub fn raw_command<S: AsRef<OsStr>>(&self, program: S) -> Command<'_> {
         // XXX: Should we do a self.check() here first?
 
@@ -292,6 +323,28 @@ impl Session {
             .arg(program);
 
         Command::new(self, cmd)
+    }
+
+    /// Constructs a new [`Command`] for launching the program at path `program` on the remote
+    /// host.
+    ///
+    /// Unlike [`command`], this method does not shell-escape `program`, so it may be evaluated in
+    /// unforeseen ways by the remote shell.
+    ///
+    /// The returned `Command` is a builder, with the following default configuration:
+    ///
+    /// * No arguments to the program
+    /// * Empty stdin and dsicard stdout/stderr for `spawn` or `status`, but create output pipes for
+    ///   `output`
+    ///
+    /// Builder methods are provided to change these defaults and otherwise configure the process.
+    ///
+    /// If `program` is not an absolute path, the `PATH` will be searched in an OS-defined way on
+    /// the host.
+    #[cfg(feature = "enable-openssh-mux-client")]
+    pub fn raw_command<'a, S: Into<Cow<'a, str>>>(&self, program: S) -> Command<'_> {
+        let control_path = self.ctl_path().to_str().unwrap().to_string();
+        Command::new(self, control_path, program.into().to_string())
     }
 
     /// Constructs a new [`Command`] that runs the provided shell command on the remote host.
@@ -342,6 +395,7 @@ impl Session {
     /// Prepare to perform file operations on the remote host.
     ///
     /// See [`Sftp`] for details on how to interact with the remote files.
+    #[cfg(not(feature = "enable-openssh-mux-client"))]
     pub fn sftp(&self) -> Sftp<'_> {
         Sftp::new(self)
     }
@@ -462,7 +516,7 @@ impl Drop for Session {
             return;
         }
 
-        let path = self.ctl.path().join("master");
+        let path = self.ctl_path();
 
         let f = || async move {
             let _: Result<(), connection::Error> = async move {

@@ -29,9 +29,9 @@ cat .test-key | ssh-add -
 rm -rf control-test/ config-file-test/
 export RUSTFLAGS='--cfg=ci'
 
-cargo test --test openssh
+cargo test --test openssh -- --nocapture
 exit_code=$?
-cargo test --features 'enable-openssh-mux-client' --test openssh
+cargo test --features 'enable-openssh-mux-client' --test openssh -- --nocapture
 exit_code2=$?
 [ $exit_code2 -ne 0 ] && exit_code=$exit_code2
 

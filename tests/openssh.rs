@@ -1,6 +1,7 @@
 use lazy_static::lazy_static;
 use std::io;
 use std::io::Write;
+#[cfg(not(feature = "enable-openssh-mux-client"))]
 use std::process::Stdio;
 
 use regex::Regex;
@@ -241,17 +242,27 @@ async fn stderr() {
     session.close().await.unwrap();
 }
 
+#[cfg(not(feature = "enable-openssh-mux-client"))]
+async fn spawn<'s>(cmd: &mut Command<'s>) -> Result<RemoteChild<'s>, Error> {
+    cmd.spawn()
+}
+
+#[cfg(feature = "enable-openssh-mux-client")]
+async fn spawn<'s>(cmd: &mut Command<'s>) -> Result<RemoteChild<'s>, Error> {
+    cmd.spawn().await
+}
+
 #[tokio::test]
 #[cfg_attr(not(ci), ignore)]
 async fn stdin() {
     let session = Session::connect(&addr(), KnownHosts::Accept).await.unwrap();
 
-    let mut child = session
-        .command("cat")
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .spawn()
-        .unwrap();
+    let mut child = spawn(
+            session
+                .command("cat")
+                .stdin(Stdio::piped())
+                .stdout(Stdio::piped())
+        ).await.unwrap();
 
     // write something to standard in and send EOF
     let mut stdin = child.stdin().take().unwrap();
@@ -286,6 +297,7 @@ macro_rules! assert_kind {
     }
 }
 
+#[cfg(not(feature = "enable-openssh-mux-client"))]
 #[tokio::test]
 #[cfg_attr(not(ci), ignore)]
 async fn sftp_can() {
@@ -351,6 +363,7 @@ async fn sftp_can() {
     session.close().await.unwrap();
 }
 
+#[cfg(not(feature = "enable-openssh-mux-client"))]
 #[tokio::test]
 #[cfg_attr(not(ci), ignore)]
 async fn sftp() {
@@ -445,27 +458,30 @@ async fn bad_remote_command() {
     assert!(matches!(failed, Error::Remote(ref e) if e.kind() == io::ErrorKind::NotFound));
 
     // even if you spawn first
-    let mut child = session.command("no such program").spawn().unwrap();
+    let mut child = spawn(&mut session.command("no such program")).await.unwrap();
     let failed = child.wait().await.unwrap_err();
     eprintln!("{:?}", failed);
     assert!(matches!(failed, Error::Remote(ref e) if e.kind() == io::ErrorKind::NotFound));
     child.disconnect().await.unwrap_err();
 
     // of if you want output
-    let child = session.command("no such program").spawn().unwrap();
+    let child = spawn(&mut session.command("no such program")).await.unwrap();
     let failed = child.wait_with_output().await.unwrap_err();
     eprintln!("{:?}", failed);
     assert!(matches!(failed, Error::Remote(ref e) if e.kind() == io::ErrorKind::NotFound));
 
-    // no matter how hard you _try_
-    let mut child = session.command("no such program").spawn().unwrap();
-    std::thread::sleep(std::time::Duration::from_millis(500));
-    let failed = child.try_wait().unwrap_err();
-    eprintln!("{:?}", failed);
-    assert!(matches!(failed, Error::Remote(ref e) if e.kind() == io::ErrorKind::NotFound));
-    child.disconnect().await.unwrap_err();
+    #[cfg(not(feature = "enable-openssh-mux-client"))]
+    {
+        // no matter how hard you _try_
+        let mut child = spawn(&mut session.command("no such program")).await.unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(500));
+        let failed = child.try_wait().unwrap_err();
+        eprintln!("{:?}", failed);
+        assert!(matches!(failed, Error::Remote(ref e) if e.kind() == io::ErrorKind::NotFound));
+        child.disconnect().await.unwrap_err();
 
-    session.close().await.unwrap();
+        session.close().await.unwrap();
+    }
 }
 
 #[tokio::test]
@@ -493,12 +509,13 @@ async fn spawn_and_wait() {
     let session = Session::connect(&addr(), KnownHosts::Accept).await.unwrap();
 
     let t = Instant::now();
-    let sleeping1 = session.command("sleep").arg("1").spawn().unwrap();
-    let sleeping2 = sleeping1
-        .session()
-        .command("sleep")
-        .arg("2")
-        .spawn()
+    let sleeping1 = spawn(session.command("sleep").arg("1")).await.unwrap();
+    let sleeping2 = spawn(
+            sleeping1
+                .session()
+                .command("sleep")
+                .arg("2")
+        ).await
         .unwrap();
     sleeping1.wait_with_output().await.unwrap();
     assert!(t.elapsed() > Duration::from_secs(1));
@@ -508,6 +525,7 @@ async fn spawn_and_wait() {
     session.close().await.unwrap();
 }
 
+#[cfg(not(feature = "enable-openssh-mux-client"))]
 #[tokio::test]
 #[cfg_attr(not(ci), ignore)]
 async fn escaping() {
@@ -571,8 +589,10 @@ async fn escaping() {
 async fn process_exit_on_signal() {
     let session = Session::connect(&addr(), KnownHosts::Accept).await.unwrap();
 
-    let mut sleeping = session.command("sleep").arg("5566").spawn().unwrap();
+    eprintln!("Create new process sleep");
+    let mut sleeping = spawn(session.command("sleep").arg("5566")).await.unwrap();
 
+    eprintln!("Sleeping");
     // give it some time to make sure it starts
     tokio::time::sleep(std::time::Duration::from_secs(1)).await;
 
@@ -581,6 +601,7 @@ async fn process_exit_on_signal() {
     // We use `pkill -f` to match on the number rather than the `sleep` command, since other tests
     // may use `sleep`. We use `-o` to ensure that we don't accidentally kill the ssh connection
     // itself, but instead match the _oldest_ matching command.
+    eprintln!("Now kill the sleep process");
     let killed = session
         .command("pkill")
         .arg("-f")
@@ -593,6 +614,7 @@ async fn process_exit_on_signal() {
     assert!(killed.status.success());
 
     // await that process — this will yield "Disconnected", since the remote process disappeared
+    eprintln!("Waiting for sleep process to exit");
     let failed = sleeping.wait().await.unwrap_err();
     eprintln!("{:?}", failed);
     assert!(matches!(failed, Error::Disconnected));
@@ -606,7 +628,7 @@ async fn process_exit_on_signal() {
 async fn broken_connection() {
     let session = Session::connect(&addr(), KnownHosts::Accept).await.unwrap();
 
-    let sleeping = session.command("sleep").arg("1000").spawn().unwrap();
+    let sleeping = spawn(session.command("sleep").arg("1000")).await.unwrap();
 
     // get ID of remote ssh process
     let ppid = session
