@@ -1,9 +1,9 @@
 use super::{Error, Result, Session};
 
 use std::borrow::Cow;
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
-use std::fs;
 use std::str;
 
 use tempfile::Builder;
@@ -166,8 +166,8 @@ impl SessionBuilder {
     pub(crate) async fn just_connect<S: AsRef<str>>(&self, host: S) -> Result<Session> {
         let destination = host.as_ref();
 
-        let defaultdir = Path::new("./").to_path_buf();
-        let socketdir = self.control_dir.as_ref().unwrap_or(&defaultdir);
+        let defaultdir = Path::new("./");
+        let socketdir = self.control_dir.as_deref().unwrap_or(&defaultdir);
         let dir = Builder::new()
             .prefix(".ssh-connection")
             .tempdir_in(socketdir)
@@ -234,12 +234,10 @@ impl SessionBuilder {
 
         if !status.success() {
             Err(Error::interpret_ssh_error(
-                str::from_utf8(&fs::read(log).unwrap()).unwrap()
+                str::from_utf8(&fs::read(log).unwrap()).unwrap(),
             ))
         } else {
-            Ok(Session {
-                tempdir: Some(dir),
-            })
+            Ok(Session { tempdir: Some(dir) })
         }
     }
 }
