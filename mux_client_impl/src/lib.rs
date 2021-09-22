@@ -112,7 +112,6 @@
 )]
 
 use std::borrow::Cow;
-use std::io;
 use std::path;
 
 use openssh_mux_client::connection::{self, Connection};
@@ -177,22 +176,16 @@ impl Session {
     ///
     /// All methods of this struct is not cancellation safe.
     pub async fn check(&self) -> Result<()> {
-        use io::ErrorKind;
-
         if self.terminated {
             return Err(Error::Disconnected);
         }
 
-        match Connection::connect(&self.ctl).await {
-            Ok(_conn) => Ok(()),
-            Err(err) => match &err {
-                connection::Error::IOError(ioerr) => match ioerr.kind() {
-                    ErrorKind::NotFound | ErrorKind::ConnectionReset => Err(Error::Disconnected),
-                    _ => Err(err.into()),
-                },
-                _ => Err(err.into()),
-            },
-        }
+        Connection::connect(&self.ctl)
+            .await?
+            .send_alive_check()
+            .await?;
+
+        Ok(())
     }
 
     /// Constructs a new [`Command`] for launching the program at path `program` on the remote
