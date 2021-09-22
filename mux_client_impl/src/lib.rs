@@ -158,6 +158,11 @@ impl Session {
         self.tempdir.as_ref().unwrap().path().join("master")
     }
 
+    /// Return the path to the ssh log file.
+    pub fn get_ssh_log_path(&self) -> path::PathBuf {
+        self.tempdir.as_ref().unwrap().path().join("log")
+    }
+
     /// Connect to the host at the given `addr` over SSH.
     ///
     /// The format of `destination` is the same as the `destination` argument to `ssh`. It may be
@@ -168,8 +173,7 @@ impl Session {
     /// instead.
     ///
     /// For more options, see [`SessionBuilder`].
-    pub async fn connect<S: AsRef<str>>(destination: S, check: KnownHosts) -> Result<Self> 
-    {
+    pub async fn connect<S: AsRef<str>>(destination: S, check: KnownHosts) -> Result<Self> {
         let mut s = SessionBuilder::default();
         s.known_hosts_check(check);
         s.connect(destination.as_ref()).await
@@ -291,9 +295,7 @@ impl Session {
 
         Self::request_server_shutdown(&tempdir).await?;
 
-        tempdir
-            .close()
-            .map_err(Error::RemoveTempDir)?;
+        tempdir.close().map_err(Error::RemoveTempDir)?;
 
         Ok(())
     }
