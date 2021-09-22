@@ -1,8 +1,12 @@
-use super::{Error, Session};
+use super::{Error, Result, Session};
+
 use std::borrow::Cow;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
+use std::sync::Mutex;
+
 use tempfile::Builder;
+
 use tokio::io::AsyncReadExt;
 use tokio::process;
 
@@ -115,15 +119,15 @@ impl SessionBuilder {
     /// If connecting requires interactive authentication based on `STDIN` (such as reading a
     /// password), the connection will fail. Consider setting up keypair-based authentication
     /// instead.
-    pub async fn connect<S: AsRef<str>>(&self, destination: S) -> Result<Session, Error> {
+    pub async fn connect<S: AsRef<str>>(&self, destination: S) -> Result<Session> {
         let destination = destination.as_ref();
         let (builder, destination) = self.resolve(destination);
         builder.just_connect(destination).await
     }
 
     fn resolve<'a, 'b>(&'a self, mut destination: &'b str) -> (Cow<'a, Self>, &'b str) {
-        // the "new" ssh://user@host:port form is not supported by all versions of ssh, so we
-        // always translate it into the option form.
+        // the "new" ssh://user@host:port form is not supported by all versions of ssh,
+        // so we always translate it into the option form.
         let mut user = None;
         let mut port = None;
         if destination.starts_with("ssh://") {
@@ -159,7 +163,7 @@ impl SessionBuilder {
         (Cow::Owned(with_overrides), destination)
     }
 
-    pub(crate) async fn just_connect<S: AsRef<str>>(&self, host: S) -> Result<Session, Error> {
+    pub(crate) async fn just_connect<S: AsRef<str>>(&self, host: S) -> Result<Session> {
         let destination = host.as_ref();
 
         let defaultdir = Path::new("./").to_path_buf();
@@ -168,13 +172,14 @@ impl SessionBuilder {
             .prefix(".ssh-connection")
             .tempdir_in(socketdir)
             .map_err(Error::Master)?;
-        let mut init = process::Command::new("ssh");
+        let ctl = dir.path().join("master");
 
+        let mut init = process::Command::new("ssh");
         init.stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .arg("-S")
-            .arg(dir.path().join("master"))
+            .arg(&ctl)
             .arg("-M")
             .arg("-f")
             .arg("-N")
@@ -185,30 +190,30 @@ impl SessionBuilder {
             .arg("-o")
             .arg(self.known_hosts_check.as_option());
 
-        if let Some(ref timeout) = self.connect_timeout {
+        if let Some(timeout) = &self.connect_timeout {
             init.arg("-o").arg(format!("ConnectTimeout={}", timeout));
         }
 
-        if let Some(ref interval) = self.server_alive_interval {
+        if let Some(interval) = &self.server_alive_interval {
             init.arg("-o")
                 .arg(format!("ServerAliveInterval={}", interval));
         }
 
-        if let Some(ref port) = self.port {
+        if let Some(port) = &self.port {
             init.arg("-p").arg(port);
         }
 
-        if let Some(ref user) = self.user {
+        if let Some(user) = &self.user {
             init.arg("-l").arg(user);
         }
 
-        if let Some(ref k) = self.keyfile {
+        if let Some(k) = &self.keyfile {
             // if the user gives a keyfile, _only_ use that keyfile
             init.arg("-o").arg("IdentitiesOnly=yes");
             init.arg("-i").arg(k);
         }
 
-        if let Some(ref config_file) = self.config_file {
+        if let Some(config_file) = &self.config_file {
             init.arg("-F").arg(config_file);
         }
 
@@ -232,10 +237,10 @@ impl SessionBuilder {
         }
 
         Ok(Session {
-            ctl: dir,
+            ctl,
             addr: String::from(destination),
             terminated: false,
-            master: std::sync::Mutex::new(Some((stdout, stderr))),
+            master: Mutex::new(Some((stdout, stderr))),
         })
     }
 }
@@ -269,41 +274,46 @@ impl KnownHosts {
     }
 }
 
-#[test]
-fn resolve() {
-    let b = SessionBuilder::default();
-    let (b, d) = b.resolve("ssh://test-user@127.0.0.1:2222");
-    assert_eq!(b.port.as_deref(), Some("2222"));
-    assert_eq!(b.user.as_deref(), Some("test-user"));
-    assert_eq!(d, "127.0.0.1");
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-    let b = SessionBuilder::default();
-    let (b, d) = b.resolve("ssh://test-user@opensshtest:2222");
-    assert_eq!(b.port.as_deref(), Some("2222"));
-    assert_eq!(b.user.as_deref(), Some("test-user"));
-    assert_eq!(d, "opensshtest");
-
-    let b = SessionBuilder::default();
-    let (b, d) = b.resolve("ssh://opensshtest:2222");
-    assert_eq!(b.port.as_deref(), Some("2222"));
-    assert_eq!(b.user.as_deref(), None);
-    assert_eq!(d, "opensshtest");
-
-    let b = SessionBuilder::default();
-    let (b, d) = b.resolve("ssh://test-user@opensshtest");
-    assert_eq!(b.port.as_deref(), None);
-    assert_eq!(b.user.as_deref(), Some("test-user"));
-    assert_eq!(d, "opensshtest");
-
-    let b = SessionBuilder::default();
-    let (b, d) = b.resolve("ssh://opensshtest");
-    assert_eq!(b.port.as_deref(), None);
-    assert_eq!(b.user.as_deref(), None);
-    assert_eq!(d, "opensshtest");
-
-    let b = SessionBuilder::default();
-    let (b, d) = b.resolve("opensshtest");
-    assert_eq!(b.port.as_deref(), None);
-    assert_eq!(b.user.as_deref(), None);
-    assert_eq!(d, "opensshtest");
+    #[test]
+    fn resolve() {
+        let b = SessionBuilder::default();
+        let (b, d) = b.resolve("ssh://test-user@127.0.0.1:2222");
+        assert_eq!(b.port.as_deref(), Some("2222"));
+        assert_eq!(b.user.as_deref(), Some("test-user"));
+        assert_eq!(d, "127.0.0.1");
+    
+        let b = SessionBuilder::default();
+        let (b, d) = b.resolve("ssh://test-user@opensshtest:2222");
+        assert_eq!(b.port.as_deref(), Some("2222"));
+        assert_eq!(b.user.as_deref(), Some("test-user"));
+        assert_eq!(d, "opensshtest");
+    
+        let b = SessionBuilder::default();
+        let (b, d) = b.resolve("ssh://opensshtest:2222");
+        assert_eq!(b.port.as_deref(), Some("2222"));
+        assert_eq!(b.user.as_deref(), None);
+        assert_eq!(d, "opensshtest");
+    
+        let b = SessionBuilder::default();
+        let (b, d) = b.resolve("ssh://test-user@opensshtest");
+        assert_eq!(b.port.as_deref(), None);
+        assert_eq!(b.user.as_deref(), Some("test-user"));
+        assert_eq!(d, "opensshtest");
+    
+        let b = SessionBuilder::default();
+        let (b, d) = b.resolve("ssh://opensshtest");
+        assert_eq!(b.port.as_deref(), None);
+        assert_eq!(b.user.as_deref(), None);
+        assert_eq!(d, "opensshtest");
+    
+        let b = SessionBuilder::default();
+        let (b, d) = b.resolve("opensshtest");
+        assert_eq!(b.port.as_deref(), None);
+        assert_eq!(b.user.as_deref(), None);
+        assert_eq!(d, "opensshtest");
+    }
 }

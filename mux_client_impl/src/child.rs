@@ -1,6 +1,5 @@
-use super::{ChildStderr, ChildStdin, ChildStdout, Error, Session};
+use super::{ChildStderr, ChildStdin, ChildStdout, Error, Result, Session};
 
-use std::io;
 use std::os::unix::process::ExitStatusExt;
 use std::process::{ExitStatus, Output};
 
@@ -60,7 +59,7 @@ impl<'s> RemoteChild<'s> {
     ///
     /// Note that disconnecting does _not_ kill the remote process, it merely kills the local
     /// handle to that remote process.
-    pub async fn disconnect(self) -> io::Result<()> {
+    pub async fn disconnect(self) -> Result<()> {
         Ok(())
     }
 
@@ -72,7 +71,7 @@ impl<'s> RemoteChild<'s> {
     /// The stdin handle to the child process, if any, will be closed before waiting. This helps
     /// avoid deadlock: it ensures that the child does not block waiting for input from the parent,
     /// while the parent waits for the child to exit.
-    pub async fn wait(&mut self) -> Result<ExitStatus, Error> {
+    pub async fn wait(&mut self) -> Result<ExitStatus> {
         let established_session = match self.established_session.take() {
             Some(established_session) => established_session,
             None => return Ok(self.exit_status.unwrap()),
@@ -80,10 +79,7 @@ impl<'s> RemoteChild<'s> {
 
         match established_session.wait().await {
             Ok(session_status) => match session_status {
-                SessionStatus::TtyAllocFail(established_session) => {
-                    self.established_session = Some(established_session);
-                    Err(Error::TtyAllocFail)
-                }
+                SessionStatus::TtyAllocFail(_established_session) => unreachable!(),
                 SessionStatus::Exited {
                     conn: _conn,
                     exit_value,
@@ -110,7 +106,7 @@ impl<'s> RemoteChild<'s> {
     /// By default, stdin, stdout and stderr are inherited from the parent. In order to capture the
     /// output into this `Result<Output>` it is necessary to create new pipes between parent and
     /// child. Use `stdout(Stdio::piped())` or `stderr(Stdio::piped())`, respectively.
-    pub async fn wait_with_output(mut self) -> Result<Output, Error> {
+    pub async fn wait_with_output(mut self) -> Result<Output> {
         let status = self.wait().await?;
 
         let mut output = Output {
@@ -119,24 +115,18 @@ impl<'s> RemoteChild<'s> {
             stderr: Vec::new(),
         };
 
-        match self.child_stdout {
-            Some(mut child_stdout) => {
-                child_stdout
-                    .read_to_end(&mut output.stdout)
-                    .await
-                    .map_err(|err| Error::IOError(err))?;
-            }
-            None => (),
+        if let Some(mut child_stdout) = self.child_stdout {
+            child_stdout
+                .read_to_end(&mut output.stdout)
+                .await
+                .map_err(Error::IOError)?;
         }
 
-        match self.child_stderr {
-            Some(mut child_stderr) => {
-                child_stderr
-                    .read_to_end(&mut output.stderr)
-                    .await
-                    .map_err(|err| Error::IOError(err))?;
-            }
-            None => (),
+        if let Some(mut child_stderr) = self.child_stderr {
+            child_stderr
+                .read_to_end(&mut output.stderr)
+                .await
+                .map_err(Error::IOError)?;
         }
 
         Ok(output)

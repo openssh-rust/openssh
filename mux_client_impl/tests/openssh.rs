@@ -1,4 +1,4 @@
-use lazy_static::lazy_static;
+use once_cell::sync::OnceCell;
 use std::io;
 use std::io::Write;
 
@@ -48,13 +48,16 @@ struct ProtoUserHostPort<'a> {
 }
 
 fn parse_user_host_port<'a>(s: &'a str) -> Option<ProtoUserHostPort> {
-    lazy_static! {
-        static ref SSH_REGEX: Regex = Regex::new(
-            r"(?x)^((?P<proto>[[:alpha:]]+)://)?((?P<user>.*?)@)?(?P<host>.*?)(:(?P<port>\d+))?$"
+    static SSH_REGEX: OnceCell<Regex> = OnceCell::new();
+
+    let ssh_regex = SSH_REGEX.get_or_init(|| {
+        Regex::new(
+            r#"(?x)^((?P<proto>[[:alpha:]]+)://)?((?P<user>.*?)@)?(?P<host>.*?)(:(?P<port>\d+))?$"#,
         )
-        .unwrap();
-    }
-    SSH_REGEX.captures(s).and_then(|cap| {
+        .unwrap()
+    });
+
+    ssh_regex.captures(s).and_then(|cap| {
         Some(ProtoUserHostPort {
             proto: cap.name("proto").and_then(|m| Some(m.as_str())),
             user: cap.name("user").and_then(|m| Some(m.as_str())),
@@ -266,17 +269,6 @@ async fn stdin() {
     assert!(status.success());
 
     session.close().await.unwrap();
-}
-
-macro_rules! assert_kind {
-    ($e:expr, $kind:expr) => {
-        let e = $e;
-        assert!(
-            matches!(e, Error::Remote(ref e) if e.kind() == $kind),
-            "{:?}",
-            e
-        );
-    }
 }
 
 #[tokio::test]

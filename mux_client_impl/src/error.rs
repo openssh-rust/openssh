@@ -1,78 +1,42 @@
-use std::fmt;
 use std::io;
 
 use openssh_mux_client::connection;
+use thiserror::Error;
 
 /// Errors that occur when interacting with a remote process.
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum Error {
     /// The master connection failed.
-    Master(io::Error),
+    #[error("the master connection failed")]
+    Master(#[source] io::Error),
+
     /// Failed to establish initial connection to the remote host.
-    Connect(io::Error),
+    #[error("failed to establish initial connection to the remote host")]
+    Connect(#[source] io::Error),
+
     /// Failed to run the `ssh` command locally.
-    Ssh(io::Error),
+    #[error("failed to run the `ssh` command locally")]
+    Ssh(#[source] io::Error),
+
     /// The remote process failed.
-    Remote(io::Error),
+    #[error("the remote process failed")]
+    Remote(#[source] io::Error),
+
     /// The connection to the remote host was severed.
     ///
     /// Note that this is a best-effort error, and it _may_ instead signify that the remote process
     /// exited with an error code of 255. You should call [`Session::check`](crate::Session::check)
     /// to verify if you get this error back.
+    #[error("the connection was terminated")]
     Disconnected,
 
-    /// When "enable-openssh-mux-client" is enabled, openssh-rs would se
-    /// "openssh-mux-client" to connect to the ssh multiplex server.
-    MuxClient(connection::Error),
+    /// Failed to connect to the ssh multiplex server.
+    #[error("failed to connect to the ssh multiplex server")]
+    MuxClient(#[from] connection::Error),
 
-    /// Failed to allocate the tty on remote
-    TtyAllocFail,
-
-    /// IO Error when reading/writing from Child*
-    IOError(io::Error),
-}
-
-/// connection::Error is a unique type used in openssh_mux_client
-impl From<connection::Error> for Error {
-    fn from(err: connection::Error) -> Self {
-        Self::MuxClient(err)
-    }
-}
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match *self {
-            Error::Master(_) => write!(f, "the master connection failed"),
-            Error::Connect(_) => write!(f, "failed to connect to the remote host"),
-            Error::Ssh(_) => write!(f, "the local ssh command could not be executed"),
-            Error::Remote(_) => write!(f, "the remote command could not be executed"),
-            Error::Disconnected => write!(f, "the connection was terminated"),
-
-            Error::MuxClient(_) => write!(f, "Failed to connect to the ssh multiplex server"),
-
-            Error::TtyAllocFail => write!(f, "Tty allocation on remote failed"),
-
-            Error::IOError(_) => write!(f, "IO Error when reading/writing from Child*"),
-        }
-    }
-}
-
-impl std::error::Error for Error {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match *self {
-            Error::Master(ref e)
-            | Error::Connect(ref e)
-            | Error::Ssh(ref e)
-            | Error::Remote(ref e) => Some(e),
-            Error::Disconnected => None,
-
-            Error::MuxClient(ref e) => Some(e),
-
-            Error::TtyAllocFail => None,
-
-            Error::IOError(ref e) => Some(e),
-        }
-    }
+    /// IO Error when creating/reading/writing from ChildStdin, ChildStdout, ChildStderr.
+    #[error("IO Error when creating/reading/writing from ChildStdin, ChildStdout, ChildStderr")]
+    IOError(#[source] io::Error),
 }
 
 impl Error {

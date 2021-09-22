@@ -1,194 +1,11 @@
-use super::Error;
 use super::RemoteChild;
+use super::Result;
+use super::{as_raw_fd, ChildStderr, ChildStdin, ChildStdout, Stdio};
 
-use core::mem::replace;
-use core::pin::Pin;
-use core::task::{Context, Poll};
-
-use std::fs::OpenOptions;
-use std::io::{self, IoSlice};
-use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
-
-use once_cell::sync::OnceCell;
-use nix::unistd;
+use std::path::Path;
+use std::process;
 
 use openssh_mux_client::connection::{Connection, EstablishedSession, Session};
-use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
-use tokio_pipe::{pipe, PipeRead, PipeWrite};
-
-/// Open "/dev/null" with RW.
-fn get_null_fd() -> RawFd {
-    static NULL_FD: OnceCell<RawFd> = OnceCell::new();
-    *NULL_FD.get_or_init(|| {
-        let file = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .open("/dev/null")
-            .unwrap();
-        IntoRawFd::into_raw_fd(file)
-    })
-}
-
-/// Wrapper for RawFd that automatically closes it on drop.
-#[derive(Debug)]
-pub struct Fd(RawFd);
-impl Drop for Fd {
-    fn drop(&mut self) {
-        unistd::close(self.0).unwrap();
-    }
-}
-impl AsRawFd for Fd {
-    fn as_raw_fd(&self) -> RawFd {
-        self.0
-    }
-}
-impl<T: IntoRawFd> From<T> for Fd {
-    fn from(val: T) -> Self {
-        Self(IntoRawFd::into_raw_fd(val))
-    }
-}
-impl FromRawFd for Fd {
-    unsafe fn from_raw_fd(fd: RawFd) -> Self {
-        Self(fd)
-    }
-}
-
-fn as_raw_fd(fd: &Option<Fd>) -> RawFd {
-    match fd {
-        Some(fd) => fd.0,
-        None => get_null_fd(),
-    }
-}
-
-/// Similar to std::process::Stdio
-#[derive(Debug)]
-pub enum Stdio {
-    /// Read/Write to /dev/null
-    Null,
-    /// Read/Write to a newly created pipe
-    Pipe,
-    /// Read/Write to custom fd
-    Fd(Fd),
-}
-impl Stdio {
-    pub fn piped() -> Self {
-        Stdio::Pipe
-    }
-
-    fn to_stdin(self) -> Result<(Option<Fd>, Option<ChildStdin>), Error> {
-        match self {
-            Stdio::Null => Ok((None, None)),
-            Stdio::Pipe => {
-                let (read, write) = pipe().map_err(Error::IOError)?;
-                Ok(( Some(read.into()), Some(ChildStdin(write)) ))
-            }
-            Stdio::Fd(fd) => Ok(( Some(fd), None )),
-        }
-    }
-
-    fn to_stdout(self) -> Result<(Option<Fd>, Option<ChildStdout>), Error> {
-        match self {
-            Stdio::Null => Ok((None, None)),
-            Stdio::Pipe => {
-                let (read, write) = pipe().map_err(Error::IOError)?;
-                Ok(( Some(write.into()), Some(ChildStdout(read)) ))
-            }
-            Stdio::Fd(fd) => Ok(( Some(fd), None )),
-        }
-    }
-
-    fn to_stderr(self) -> Result<(Option<Fd>, Option<ChildStderr>), Error> {
-        let (fd, stdout) = self.to_stdout()?;
-        Ok(( fd, stdout.map(|out| ChildStderr(out.0)) ))
-    }
-}
-impl<T: IntoRawFd> From<T> for Stdio {
-    fn from(val: T) -> Self {
-        Stdio::Fd(val.into())
-    }
-}
-impl FromRawFd for Stdio {
-    unsafe fn from_raw_fd(fd: RawFd) -> Self {
-        Stdio::Fd(fd.into())
-    }
-}
-
-/// Input for the remote child.
-#[derive(Debug)]
-pub struct ChildStdin(PipeWrite);
-impl AsRawFd for ChildStdin {
-    fn as_raw_fd(&self) -> RawFd {
-        AsRawFd::as_raw_fd(&self.0)
-    }
-}
-impl IntoRawFd for ChildStdin {
-    fn into_raw_fd(self) -> RawFd {
-        IntoRawFd::into_raw_fd(self.0)
-    }
-}
-impl AsyncWrite for ChildStdin {
-    fn poll_write(
-        self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-        buf: &[u8],
-    ) -> Poll<io::Result<usize>> {
-        AsyncWrite::poll_write(unsafe { self.map_unchecked_mut(|s| &mut s.0) }, cx, buf)
-    }
-
-    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        AsyncWrite::poll_flush(unsafe { self.map_unchecked_mut(|s| &mut s.0) }, cx)
-    }
-
-    fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        AsyncWrite::poll_shutdown(unsafe { self.map_unchecked_mut(|s| &mut s.0) }, cx)
-    }
-
-    fn poll_write_vectored(
-        self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-        bufs: &[IoSlice<'_>],
-    ) -> Poll<io::Result<usize>> {
-        AsyncWrite::poll_write_vectored(unsafe { self.map_unchecked_mut(|s| &mut s.0) }, cx, bufs)
-    }
-
-    fn is_write_vectored(&self) -> bool {
-        AsyncWrite::is_write_vectored(&self.0)
-    }
-}
-
-macro_rules! impl_writer {
-    ( $type:ident ) => {
-        impl AsRawFd for $type {
-            fn as_raw_fd(&self) -> RawFd {
-                AsRawFd::as_raw_fd(&self.0)
-            }
-        }
-        impl IntoRawFd for $type {
-            fn into_raw_fd(self) -> RawFd {
-                IntoRawFd::into_raw_fd(self.0)
-            }
-        }
-        impl AsyncRead for $type {
-            fn poll_read(
-                self: Pin<&mut Self>,
-                cx: &mut Context<'_>,
-                buf: &mut ReadBuf<'_>,
-            ) -> Poll<io::Result<()>> {
-                AsyncRead::poll_read(unsafe { self.map_unchecked_mut(|s| &mut s.0) }, cx, buf)
-            }
-        }
-    };
-}
-
-/// stdout for the remote child.
-#[derive(Debug)]
-pub struct ChildStdout(PipeRead);
-impl_writer!(ChildStdout);
-
-/// stderr for the remote child.
-#[derive(Debug)]
-pub struct ChildStderr(PipeRead);
-impl_writer!(ChildStderr);
 
 /// A remote process builder, providing fine-grained control over how a new remote process should
 /// be spawned.
@@ -225,7 +42,7 @@ impl_writer!(ChildStderr);
 pub struct Command<'s> {
     session: &'s super::Session,
     cmd: String,
-    control_path: String,
+    ctl: &'s Path,
 
     stdin_v: Stdio,
     stdout_v: Stdio,
@@ -233,16 +50,16 @@ pub struct Command<'s> {
 }
 
 impl<'s> Command<'s> {
-    pub(crate) fn new(session: &'s super::Session, control_path: String, cmd: String) -> Self {
+    pub(crate) fn new(session: &'s super::Session, ctl: &'s Path, cmd: String) -> Self {
         Self {
             session,
 
             cmd,
-            control_path,
+            ctl,
 
-            stdin_v: Stdio::Null,
-            stdout_v: Stdio::Null,
-            stderr_v: Stdio::Null,
+            stdin_v: Stdio::null(),
+            stdout_v: Stdio::null(),
+            stderr_v: Stdio::null(),
         }
     }
 }
@@ -362,31 +179,24 @@ impl<'s> Command<'s> {
     /// After this function, stdin, stdout and stderr is reset.
     async fn spawn_impl(
         &mut self,
-    ) -> Result<
-        (
-            EstablishedSession,
-            Option<ChildStdin>,
-            Option<ChildStdout>,
-            Option<ChildStderr>,
-        ),
-        Error,
-    > {
-        let (stdin, child_stdin) = replace(&mut self.stdin_v, Stdio::Null).to_stdin()?;
-        let (stdout, child_stdout) = replace(&mut self.stdout_v, Stdio::Null).to_stdout()?;
-        let (stderr, child_stderr) = replace(&mut self.stderr_v, Stdio::Null).to_stderr()?;
+    ) -> Result<(
+        EstablishedSession,
+        Option<ChildStdin>,
+        Option<ChildStdout>,
+        Option<ChildStderr>,
+    )> {
+        let (stdin, child_stdin) = self.stdin_v.take().into_stdin()?;
+        let (stdout, child_stdout) = self.stdout_v.take().into_stdout()?;
+        let (stderr, child_stderr) = self.stderr_v.take().into_stderr()?;
 
         // Then launch!
         let session = Session::builder().cmd(&self.cmd).build();
 
-        let established_session = Connection::connect(&self.control_path)
+        let established_session = Connection::connect(self.ctl)
             .await?
             .open_new_session(
                 &session,
-                &[
-                    as_raw_fd(&stdin),
-                    as_raw_fd(&stdout),
-                    as_raw_fd(&stderr)
-                ]
+                &[as_raw_fd(&stdin), as_raw_fd(&stdout), as_raw_fd(&stderr)],
             )
             .await
             .map_err(|(err, _)| err)?;
@@ -399,7 +209,7 @@ impl<'s> Command<'s> {
     /// By default, stdin is empty, and stdout and stderr are discarded.
     ///
     /// After this function, stdin, stdout and stderr is reset.
-    pub async fn spawn(&mut self) -> Result<RemoteChild<'s>, Error> {
+    pub async fn spawn(&mut self) -> Result<RemoteChild<'s>> {
         let (established_session, child_stdin, child_stdout, child_stderr) =
             self.spawn_impl().await?;
 
@@ -420,14 +230,14 @@ impl<'s> Command<'s> {
     /// By default, stdout and stderr are captured (and used to provide the resulting output).
     /// Stdin is set to `Stdio::null`, and any attempt by the child process to read from
     /// the stdin stream will result in the stream immediately closing.
-    pub async fn output(&mut self) -> Result<std::process::Output, Error> {
+    pub async fn output(&mut self) -> Result<process::Output> {
         self.spawn().await?.wait_with_output().await
     }
 
     /// Executes the remote command, waiting for it to finish and collecting its exit status.
     ///
     /// By default, stdin is empty, and stdout and stderr are discarded.
-    pub async fn status(&mut self) -> Result<std::process::ExitStatus, Error> {
+    pub async fn status(&mut self) -> Result<process::ExitStatus> {
         self.spawn().await?.wait().await
     }
 }

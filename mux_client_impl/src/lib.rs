@@ -113,20 +113,29 @@
 
 use std::borrow::Cow;
 use std::io;
+use std::path;
 
-use openssh_mux_client::connection;
+use openssh_mux_client::connection::{self, Connection};
 
 mod builder;
 pub use builder::{KnownHosts, SessionBuilder};
 
+mod fd;
+pub(crate) use fd::*;
+
+mod stdio;
+pub use stdio::{ChildStderr, ChildStdin, ChildStdout, Stdio};
+
 mod command;
-pub use command::{Command, ChildStderr, ChildStdin, ChildStdout, Stdio};
+pub use command::Command;
 
 mod child;
 pub use child::RemoteChild;
 
 mod error;
 pub use error::Error;
+/// Typedef just like std::io::Error
+pub type Result<T, Err = Error> = std::result::Result<T, Err>;
 
 /// A single SSH session to a remote host.
 ///
@@ -136,7 +145,7 @@ pub use error::Error;
 /// silently ignored. To disconnect and be alerted to errors, use [`close`](Session::close).
 #[derive(Debug)]
 pub struct Session {
-    ctl: tempfile::TempDir,
+    ctl: path::PathBuf,
     addr: String,
     terminated: bool,
     master: std::sync::Mutex<Option<(tokio::process::ChildStdout, tokio::process::ChildStderr)>>,
@@ -146,10 +155,6 @@ pub struct Session {
 // TODO: Extract process output in Session::check(), Session::connect(), and Session::terminate().
 
 impl Session {
-    fn ctl_path(&self) -> std::path::PathBuf {
-        self.ctl.path().join("master")
-    }
-
     /// Connect to the host at the given `addr` over SSH.
     ///
     /// The format of `destination` is the same as the `destination` argument to `ssh`. It may be
@@ -160,14 +165,10 @@ impl Session {
     /// instead.
     ///
     /// For more options, see [`SessionBuilder`].
-    pub async fn connect<S: AsRef<str>>(destination: S, check: KnownHosts) -> Result<Self, Error> {
+    pub async fn connect<S: AsRef<str>>(destination: S, check: KnownHosts) -> Result<Self> {
         let mut s = SessionBuilder::default();
         s.known_hosts_check(check);
         s.connect(destination.as_ref()).await
-    }
-
-    async fn create_conn(&self) -> Result<connection::Connection, connection::Error> {
-        connection::Connection::connect(self.ctl_path()).await
     }
 
     /// Check the status of the underlying SSH connection.
@@ -175,14 +176,14 @@ impl Session {
     /// # Cancel safety
     ///
     /// All methods of this struct is not cancellation safe.
-    pub async fn check(&self) -> Result<(), Error> {
+    pub async fn check(&self) -> Result<()> {
         use io::ErrorKind;
 
         if self.terminated {
             return Err(Error::Disconnected);
         }
 
-        match self.create_conn().await {
+        match Connection::connect(&self.ctl).await {
             Ok(_conn) => Ok(()),
             Err(err) => match &err {
                 connection::Error::IOError(ioerr) => match ioerr.kind() {
@@ -232,8 +233,7 @@ impl Session {
     /// If `program` is not an absolute path, the `PATH` will be searched in an OS-defined way on
     /// the host.
     pub fn raw_command<'a, S: Into<Cow<'a, str>>>(&self, program: S) -> Command<'_> {
-        let control_path = self.ctl_path().to_str().unwrap().to_string();
-        Command::new(self, control_path, program.into().to_string())
+        Command::new(self, &self.ctl, program.into().to_string())
     }
 
     /// Constructs a new [`Command`] that runs the provided shell command on the remote host.
@@ -282,13 +282,16 @@ impl Session {
     }
 
     /// Terminate the remote connection.
-    pub async fn close(mut self) -> Result<(), Error> {
+    pub async fn close(mut self) -> Result<()> {
         self.terminate().await
     }
 
-    async fn terminate(&mut self) -> Result<(), Error> {
+    async fn terminate(&mut self) -> Result<()> {
         if !self.terminated {
-            self.create_conn().await?.request_stop_listening().await?;
+            Connection::connect(&self.ctl)
+                .await?
+                .request_stop_listening()
+                .await?;
 
             self.terminated = true;
         }
@@ -299,14 +302,14 @@ impl Session {
 
 impl Drop for Session {
     fn drop(&mut self) {
-        use connection::Connection;
+        use std::mem::replace;
         use tokio::runtime::{Builder, Handle};
 
         if self.terminated {
             return;
         }
 
-        let path = self.ctl_path();
+        let path = replace(&mut self.ctl, path::PathBuf::new());
 
         let f = || async move {
             let _: Result<(), connection::Error> = async move {
