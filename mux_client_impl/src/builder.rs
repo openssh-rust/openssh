@@ -285,31 +285,31 @@ mod tests {
         assert_eq!(b.port.as_deref(), Some("2222"));
         assert_eq!(b.user.as_deref(), Some("test-user"));
         assert_eq!(d, "127.0.0.1");
-    
+
         let b = SessionBuilder::default();
         let (b, d) = b.resolve("ssh://test-user@opensshtest:2222");
         assert_eq!(b.port.as_deref(), Some("2222"));
         assert_eq!(b.user.as_deref(), Some("test-user"));
         assert_eq!(d, "opensshtest");
-    
+
         let b = SessionBuilder::default();
         let (b, d) = b.resolve("ssh://opensshtest:2222");
         assert_eq!(b.port.as_deref(), Some("2222"));
         assert_eq!(b.user.as_deref(), None);
         assert_eq!(d, "opensshtest");
-    
+
         let b = SessionBuilder::default();
         let (b, d) = b.resolve("ssh://test-user@opensshtest");
         assert_eq!(b.port.as_deref(), None);
         assert_eq!(b.user.as_deref(), Some("test-user"));
         assert_eq!(d, "opensshtest");
-    
+
         let b = SessionBuilder::default();
         let (b, d) = b.resolve("ssh://opensshtest");
         assert_eq!(b.port.as_deref(), None);
         assert_eq!(b.user.as_deref(), None);
         assert_eq!(d, "opensshtest");
-    
+
         let b = SessionBuilder::default();
         let (b, d) = b.resolve("opensshtest");
         assert_eq!(b.port.as_deref(), None);
