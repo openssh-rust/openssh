@@ -213,16 +213,13 @@ impl<'s> Command<'s> {
         let (established_session, child_stdin, child_stdout, child_stderr) =
             self.spawn_impl().await?;
 
-        Ok(RemoteChild {
-            session: self.session,
-
-            established_session: Some(established_session),
-            exit_status: None,
-
+        Ok(RemoteChild::new(
+            self.session,
+            established_session,
             child_stdin,
             child_stdout,
             child_stderr,
-        })
+        ))
     }
 
     /// Executes the remote command, waiting for it to finish and collecting all of its output.
