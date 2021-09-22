@@ -114,6 +114,8 @@
 use std::borrow::Cow;
 use std::path;
 
+use tokio::process;
+
 use openssh_mux_client::connection::{self, Connection};
 
 mod builder;
@@ -145,13 +147,18 @@ pub type Result<T, Err = Error> = std::result::Result<T, Err>;
 #[derive(Debug)]
 pub struct Session {
     ctl: path::PathBuf,
-    master: (tokio::process::ChildStdout, tokio::process::ChildStderr),
+    master: (process::ChildStdout, process::ChildStderr),
 }
 
 // TODO: UserKnownHostsFile for custom known host fingerprint.
 // TODO: Extract process output in Session::check(), Session::connect(), and Session::terminate().
 
 impl Session {
+    /// Return the stdout/stderr handle for the master process.
+    pub fn get_master_output(&mut self) -> &mut (process::ChildStdout, process::ChildStderr) {
+        &mut self.master
+    }
+
     /// Connect to the host at the given `addr` over SSH.
     ///
     /// The format of `destination` is the same as the `destination` argument to `ssh`. It may be
