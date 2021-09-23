@@ -276,7 +276,7 @@ impl<'s> Sftp<'s> {
     /// # Examples
     ///
     /// ```no_run
-    /// # use openssh::*;
+    /// # use process_impl::*;
     /// # #[tokio::main]
     /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// use std::io::prelude::*;
@@ -332,7 +332,7 @@ impl<'s> Sftp<'s> {
     /// # Examples
     ///
     /// ```no_run
-    /// # use openssh::*;
+    /// # use process_impl::*;
     /// # #[tokio::main]
     /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// use std::io::prelude::*;
@@ -387,7 +387,7 @@ impl<'s> Sftp<'s> {
     /// # Examples
     ///
     /// ```no_run
-    /// # use openssh::*;
+    /// # use process_impl::*;
     /// # #[tokio::main]
     /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// use std::io::prelude::*;
