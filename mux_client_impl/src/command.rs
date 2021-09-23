@@ -228,7 +228,12 @@ impl<'s> Command<'s> {
     /// Stdin is set to `Stdio::null`, and any attempt by the child process to read from
     /// the stdin stream will result in the stream immediately closing.
     pub async fn output(&mut self) -> Result<process::Output> {
-        self.spawn().await?.wait_with_output().await
+        self.stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .await?
+            .wait_with_output()
+            .await
     }
 
     /// Executes the remote command, waiting for it to finish and collecting its exit status.
