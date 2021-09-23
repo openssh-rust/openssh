@@ -106,7 +106,7 @@
 #![warn(
     missing_docs,
     missing_debug_implementations,
-    broken_intra_doc_links,
+    rustdoc::broken_intra_doc_links,
     rust_2018_idioms,
     unreachable_pub
 )]
