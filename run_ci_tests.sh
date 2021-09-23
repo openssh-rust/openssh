@@ -26,6 +26,7 @@ docker run \
 
 echo Running the test:
 docker run \
+    --name openssh-rs-test-env \
     --rm \
     -it \
     --mount type=bind,src="$PWD",dst=/openssh-rs \
@@ -33,6 +34,7 @@ docker run \
     openssh-rs-test-env \
     /openssh-rs/run_tests.sh
 exit_code=$?
+docker rm -f openssh-rs-test-env
 
 if [ $exit_code -ne 0 ]; then
     echo Test failed, here\'s the log of sshd:
