@@ -89,7 +89,10 @@ impl<'s> Command<'s> {
     ///
     /// To pass multiple arguments see [`args`](Command::args).
     pub fn arg<S: AsRef<str>>(&mut self, arg: S) -> &mut Self {
-        self.raw_arg(arg)
+        self.cmd.push_str(" \"");
+        self.cmd.push_str(arg.as_ref());
+        self.cmd.push('"');
+        self
     }
 
     /// Adds an argument to pass to the remote program.
@@ -118,7 +121,10 @@ impl<'s> Command<'s> {
         I: IntoIterator<Item = S>,
         S: AsRef<str>,
     {
-        self.raw_args(args)
+        for arg in args {
+            self.arg(arg);
+        }
+        self
     }
 
     /// Adds multiple arguments to pass to the remote program.
