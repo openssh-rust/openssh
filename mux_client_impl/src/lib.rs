@@ -138,6 +138,10 @@ pub use error::Error;
 /// Typedef just like std::io::Error
 pub type Result<T, Err = Error> = std::result::Result<T, Err>;
 
+#[cfg(test)]
+#[macro_use]
+extern crate assert_matches;
+
 /// A single SSH session to a remote host.
 ///
 /// You can use [`command`] to start a new command on the connected machine.
