@@ -1,6 +1,8 @@
-use once_cell::sync::OnceCell;
 use std::io;
 use std::io::Write;
+use std::str;
+
+use once_cell::sync::OnceCell;
 
 use regex::Regex;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -196,20 +198,22 @@ async fn shell() {
     assert!(child.success());
 
     let child = session
-        .shell(r#"rm test-user\ Documents"#)
-        .status()
+        .shell(r#"rm "test-user Documents""#)
+        .output()
         .await
         .unwrap();
-    assert!(child.success());
+    eprintln!("shell: {:#?}", child);
+    assert!(child.status.success());
 
-    let child = session.shell("echo \\$SHELL").output().await.unwrap();
-    assert_eq!(child.stdout, b"$SHELL\n");
+    let child = session.shell("echo '\\$SHELL'").output().await.unwrap();
+    assert_eq!(str::from_utf8(&child.stdout).unwrap(), "$SHELL\n");
 
     let child = session
         .shell(r#"echo $USER | grep -c test"#)
         .status()
         .await
         .unwrap();
+    eprintln!("shell: {:#?}", child);
     assert!(child.success());
 
     session.close().await.unwrap();
@@ -277,35 +281,27 @@ async fn bad_remote_command() {
     let session = Session::connect(&addr(), KnownHosts::Accept).await.unwrap();
 
     // a bad remote command should result in a _local_ error.
-    let failed = session
-        .command("no such program")
-        .output()
-        .await
-        .unwrap_err();
+    let failed = session.command("no such program").output().await.unwrap();
     eprintln!("{:?}", failed);
-    assert!(matches!(failed, Error::Remote(ref e) if e.kind() == io::ErrorKind::NotFound));
+    assert!(!failed.status.success());
 
     // no matter how you run it
-    let failed = session
-        .command("no such program")
-        .status()
-        .await
-        .unwrap_err();
+    let failed = session.command("no such program").status().await.unwrap();
     eprintln!("{:?}", failed);
-    assert!(matches!(failed, Error::Remote(ref e) if e.kind() == io::ErrorKind::NotFound));
+    assert!(!failed.success());
 
     // even if you spawn first
     let mut child = session.command("no such program").spawn().await.unwrap();
-    let failed = child.wait().await.unwrap_err();
+    let failed = child.wait().await.unwrap();
     eprintln!("{:?}", failed);
-    assert!(matches!(failed, Error::Remote(ref e) if e.kind() == io::ErrorKind::NotFound));
-    child.disconnect().await.unwrap_err();
+    assert!(!failed.success());
+    child.disconnect().await.unwrap();
 
     // of if you want output
     let child = session.command("no such program").spawn().await.unwrap();
-    let failed = child.wait_with_output().await.unwrap_err();
+    let failed = child.wait_with_output().await.unwrap();
     eprintln!("{:?}", failed);
-    assert!(matches!(failed, Error::Remote(ref e) if e.kind() == io::ErrorKind::NotFound));
+    assert!(!failed.status.success());
 }
 
 #[tokio::test]
@@ -430,90 +426,94 @@ async fn process_exit_on_signal() {
         .output()
         .await
         .unwrap();
-    eprintln!("{:?}", killed);
+    eprintln!("process_exit_on_signal: {:?}", killed);
     assert!(killed.status.success());
 
     // await that process — this will yield "Disconnected", since the remote process disappeared
-    let failed = sleeping.wait().await.unwrap_err();
-    eprintln!("{:?}", failed);
-    assert!(matches!(failed, Error::Disconnected));
+    eprintln!("process_exit_on_signal: Waiting for sleeping to exit");
+    let failed = sleeping.wait().await.unwrap();
+    eprintln!("process_exit_on_signal: {:?}", failed);
+    assert!(!failed.success());
 
     // the connection should still work though
     let _ = session.check().await.unwrap();
 }
 
-#[tokio::test]
-#[cfg_attr(not(ci), ignore)]
-async fn broken_connection() {
-    let session = Session::connect(&addr(), KnownHosts::Accept).await.unwrap();
-
-    let sleeping = session.command("sleep").arg("1000").spawn().await.unwrap();
-
-    // get ID of remote ssh process
-    let ppid = session
-        .command("echo")
-        .raw_arg("$PPID")
-        .output()
-        .await
-        .unwrap();
-    eprintln!("ppid: {:?}", ppid);
-    let ppid: u32 = String::from_utf8(ppid.stdout)
-        .unwrap()
-        .trim()
-        .parse()
-        .unwrap();
-
-    // and kill it -- this kills the master connection
-    let killed = session
-        .command("kill")
-        .arg("-9")
-        .arg(&format!("{}", ppid))
-        .output()
-        .await
-        .unwrap_err();
-    eprintln!("{:?}", killed);
-    assert!(matches!(killed, Error::Disconnected));
-
-    // this fails because the master connection is gone
-    let failed = session
-        .command("echo")
-        .arg("foo")
-        .output()
-        .await
-        .unwrap_err();
-    eprintln!("{:?}", failed);
-    assert!(matches!(failed, Error::Disconnected));
-
-    // so does this
-    let failed = session
-        .command("echo")
-        .arg("foo")
-        .status()
-        .await
-        .unwrap_err();
-    eprintln!("{:?}", failed);
-    assert!(matches!(failed, Error::Disconnected));
-
-    // the spawned child we're waiting for must also have failed
-    let failed = sleeping.wait_with_output().await.unwrap_err();
-    eprintln!("{:?}", failed);
-    assert!(matches!(failed, Error::Disconnected));
-
-    // check should obviously fail
-    let failed = session.check().await.unwrap_err();
-    if let Error::Master(ref ioe) = failed {
-        if ioe.kind() != io::ErrorKind::ConnectionAborted {
-            eprintln!("{:?}", ioe);
-            assert_eq!(ioe.kind(), io::ErrorKind::ConnectionAborted);
-        }
-    } else {
-        unreachable!("{:?}", failed);
-    }
-
-    // what should close do in this instance?
-    // probably not return an error, since the connection _is_ closed.
-    session.close().await.unwrap();
-}
+// broken_connection is comment out because mux_client_impl does not
+// utilize external process to communicate to the ssh multiplex server/master.
+//
+//#[tokio::test]
+//#[cfg_attr(not(ci), ignore)]
+//async fn broken_connection() { // Run for over 60 seconds
+//    let session = Session::connect(&addr(), KnownHosts::Accept).await.unwrap();
+//
+//    let sleeping = session.command("sleep").arg("1000").spawn().await.unwrap();
+//
+//    // get ID of remote ssh process
+//    let ppid = session
+//        .command("echo")
+//        .raw_arg("$PPID")
+//        .output()
+//        .await
+//        .unwrap();
+//    eprintln!("ppid: {:?}", ppid);
+//    let ppid: u32 = String::from_utf8(ppid.stdout)
+//        .unwrap()
+//        .trim()
+//        .parse()
+//        .unwrap(); // TODO: This failed: ParseIntError { kind: Empty }
+//
+//    // and kill it -- this kills the master connection
+//    let killed = session
+//        .command("kill")
+//        .arg("-9")
+//        .arg(&format!("{}", ppid))
+//        .output()
+//        .await
+//        .unwrap_err();
+//    eprintln!("{:?}", killed);
+//    assert!(matches!(killed, Error::Disconnected));
+//
+//    // this fails because the master connection is gone
+//    let failed = session
+//        .command("echo")
+//        .arg("foo")
+//        .output()
+//        .await
+//        .unwrap_err();
+//    eprintln!("{:?}", failed);
+//    assert!(matches!(failed, Error::Disconnected));
+//
+//    // so does this
+//    let failed = session
+//        .command("echo")
+//        .arg("foo")
+//        .status()
+//        .await
+//        .unwrap_err();
+//    eprintln!("{:?}", failed);
+//    assert!(matches!(failed, Error::Disconnected));
+//
+//    // the spawned child we're waiting for must also have failed
+//    let failed = sleeping.wait_with_output().await.unwrap_err();
+//    eprintln!("{:?}", failed);
+//    assert!(matches!(failed, Error::Disconnected));
+//
+//    // check should obviously fail
+//    let failed = session.check().await.unwrap_err();
+//    if let Error::Master(ref ioe) = failed {
+//        if ioe.kind() != io::ErrorKind::ConnectionAborted {
+//            eprintln!("{:?}", ioe);
+//            assert_eq!(ioe.kind(), io::ErrorKind::ConnectionAborted);
+//        }
+//    } else {
+//        unreachable!("{:?}", failed);
+//    }
+//
+//    // what should close do in this instance?
+//    // probably not return an error, since the connection _is_ closed.
+//    session.close().await.unwrap();
+//}
 
 #[tokio::test]
 async fn cannot_resolve() {
