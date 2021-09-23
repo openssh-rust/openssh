@@ -27,7 +27,7 @@ use tokio::process;
 ///
 /// ```rust,no_run
 /// # async fn foo() {
-/// # let child: mux_client_impl::RemoteChild<'static> = unimplemented!();
+/// # let child: process_impl::RemoteChild<'static> = unimplemented!();
 /// let stdin = child.stdin().take().unwrap();
 /// let stdout = child.stdout().take().unwrap();
 /// tokio::io::copy(&mut stdout, &mut stdin).await;
