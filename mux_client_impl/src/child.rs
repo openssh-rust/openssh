@@ -33,7 +33,7 @@ use openssh_mux_client::connection::{EstablishedSession, SessionStatus};
 ///
 /// ```rust,no_run
 /// # async fn foo() {
-/// # let child: openssh::RemoteChild<'static> = unimplemented!();
+/// # let child: mux_client_impl::RemoteChild<'static> = unimplemented!();
 /// let stdin = child.stdin().take().unwrap();
 /// let stdout = child.stdout().take().unwrap();
 /// tokio::io::copy(&mut stdout, &mut stdin).await;

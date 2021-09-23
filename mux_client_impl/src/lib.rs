@@ -85,8 +85,8 @@
 //!
 //! ```rust,no_run
 //! # #[tokio::main]
-//! # async fn main() -> Result<(), openssh::Error> {
-//! use openssh::{Session, KnownHosts};
+//! # async fn main() -> Result<(), mux_client_impl::Error> {
+//! use mux_client_impl::{Session, KnownHosts};
 //!
 //! let session = Session::connect("me@ssh.example.com", KnownHosts::Strict).await?;
 //! let ls = session.command("ls").output().await?;

@@ -73,7 +73,7 @@ impl<'s> Command<'s> {
     /// Only one argument can be passed per use. So instead of:
     ///
     /// ```no_run
-    /// # fn foo(c: &mut openssh::Command<'_>) { c
+    /// # fn foo(c: &mut mux_client_impl::Command<'_>) { c
     /// .arg("-C /path/to/repo")
     /// # ; }
     /// ```
@@ -81,7 +81,7 @@ impl<'s> Command<'s> {
     /// usage would be:
     ///
     /// ```no_run
-    /// # fn foo(c: &mut openssh::Command<'_>) { c
+    /// # fn foo(c: &mut mux_client_impl::Command<'_>) { c
     /// .arg("-C")
     /// .arg("/path/to/repo")
     /// # ; }
