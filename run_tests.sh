@@ -28,4 +28,4 @@ exec cargo test \
     --workspace \
     --target-dir ./ci-target \
     --no-fail-fast \
-    -- --nocapture --test-threads=1 # Use test-threads=1 so that the output is readable
+    -- --nocapture --test-threads=3 # Use test-threads=3 so that the output is readable
