@@ -2,8 +2,8 @@ use std::io;
 use std::io::Write;
 use std::str;
 
-use once_cell::sync::OnceCell;
 use assert_matches::assert_matches;
+use once_cell::sync::OnceCell;
 
 use regex::Regex;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -12,8 +12,11 @@ use mux_client_impl::*;
 
 // TODO: how do we test the connection actually _failing_ so that the master reports an error?
 
-fn addr() -> String {
-    std::env::var("TEST_HOST").unwrap_or("ssh://test-user@127.0.0.1:2222".to_string())
+fn addr() -> &'static str {
+    static ADDR: OnceCell<Option<String>> = OnceCell::new();
+    ADDR.get_or_init(|| std::env::var("TEST_HOST").ok())
+        .as_deref()
+        .unwrap_or("ssh://test-user@127.0.0.1:2222")
 }
 
 #[tokio::test]
