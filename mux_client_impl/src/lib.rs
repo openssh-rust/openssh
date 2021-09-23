@@ -115,6 +115,7 @@ use std::borrow::Cow;
 use std::path;
 
 use tempfile::TempDir;
+use shell_escape::escape;
 
 use openssh_mux_client::connection::Connection;
 
@@ -215,7 +216,7 @@ impl Session {
     /// If `program` is not an absolute path, the `PATH` will be searched in an OS-defined way on
     /// the host.
     pub fn command<'a, S: Into<Cow<'a, str>>>(&self, program: S) -> Command<'_> {
-        self.raw_command(program)
+        self.raw_command(escape(program.into()))
     }
 
     /// Constructs a new [`Command`] for launching the program at path `program` on the remote
