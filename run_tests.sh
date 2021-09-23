@@ -1,7 +1,7 @@
 #!/bin/bash
 
 export HOSTNAME=openssh
-export TEST_HOST=ssh://test-user@${HOSTNAME}:2222
+export TEST_HOST=ssh://test-user@`dig +short $HOSTNAME`:2222
 
 cd $(dirname `realpath $0`)
 
@@ -15,8 +15,8 @@ eval $(ssh-agent)
 cat .test-key | ssh-add -
 
 echo Run tests
-for $each in mux_client_impl process_impl; do
-    rm -rf $each/control-test $each/config-file-test
+for each in mux_client_impl process_impl; do
+    rm -rf $each/control-test $each/config-file-test $each/.ssh-connection*
 done
 
 export RUSTFLAGS='--cfg=ci'
