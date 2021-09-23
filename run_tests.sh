@@ -19,5 +19,13 @@ for each in mux_client_impl process_impl; do
     rm -rf $each/control-test $each/config-file-test $each/.ssh-connection*
 done
 
+mkdir -p ci-cargo-home
+
 export RUSTFLAGS='--cfg=ci'
-exec cargo test --all-features --workspace --target-dir ./ci-target -- --nocapture
+export CARGO_HOME="$(realpath ci-cargo-home)"
+exec cargo test \
+    --all-features \
+    --workspace \
+    --target-dir ./ci-target \
+    --no-fail-fast \
+    -- --nocapture --test-threads=1 # Use test-threads=1 so that the output is readable

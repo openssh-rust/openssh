@@ -1,5 +1,7 @@
 /target
 /ci-target
+/ci-cargo-home
+.ssh-connection*
 process_impl/target
 mux_client_impl/target
 Cargo.lock
