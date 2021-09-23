@@ -29,4 +29,4 @@ exec cargo test \
     --target-dir ./ci-target \
     --no-fail-fast \
     --test openssh \
-    -- --nocapture --test-threads=3 # Use test-threads=3 so that the output is readable
+    -- --test-threads=3 # Use test-threads=3 so that the output is readable
