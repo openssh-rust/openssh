@@ -114,8 +114,8 @@
 use std::borrow::Cow;
 use std::path;
 
-use tempfile::TempDir;
 use shell_escape::escape;
+use tempfile::TempDir;
 
 use openssh_mux_client::connection::Connection;
 
