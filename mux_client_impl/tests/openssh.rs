@@ -3,6 +3,7 @@ use std::io::Write;
 use std::str;
 
 use once_cell::sync::OnceCell;
+use assert_matches::assert_matches;
 
 use regex::Regex;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -318,7 +319,7 @@ async fn connect_timeout() {
     assert!(t.elapsed() > Duration::from_secs(1));
     assert!(t.elapsed() < Duration::from_secs(2));
     eprintln!("{:?}", failed);
-    assert!(matches!(failed, Error::Connect(ref e) if e.kind() == io::ErrorKind::TimedOut));
+    assert_matches!(failed, Error::Connect(e) if e.kind() == io::ErrorKind::TimedOut);
 }
 
 #[tokio::test]
