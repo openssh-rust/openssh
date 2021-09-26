@@ -118,6 +118,7 @@ use shell_escape::escape;
 use tempfile::TempDir;
 
 use openssh_mux_client::connection::Connection;
+pub use openssh_mux_client::connection::{ForwardType, Socket};
 
 mod builder;
 pub use builder::{KnownHosts, SessionBuilder};
@@ -282,6 +283,25 @@ impl Session {
         let mut cmd = self.command("sh");
         cmd.arg("-c").arg(command);
         cmd
+    }
+
+    /// Request to open a local/remote port forwarding.
+    /// The `Socket` can be either a unix socket or a tcp socket.
+    ///
+    /// Currently, there is no way of stopping a port forwarding due to the fact that
+    /// openssh multiplex server/master does not support this.
+    pub async fn request_port_forward(
+        &self,
+        forward_type: ForwardType,
+        listen_socket: &Socket<'_>,
+        connect_socket: &Socket<'_>,
+    ) -> Result<()> {
+        Connection::connect(&self.ctl())
+            .await?
+            .request_port_forward(forward_type, listen_socket, connect_socket)
+            .await?;
+
+        Ok(())
     }
 
     async fn request_server_shutdown(tempdir: &TempDir) -> Result<()> {
