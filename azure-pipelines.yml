@@ -63,14 +63,14 @@ jobs:
  # This represents the minimum Rust version supported.
  # Tests are not run as tests may require newer versions of rust.
  - job: msrv
-   displayName: "Minimum supported Rust version: 1.45.0"
+   displayName: "Minimum supported Rust version: 1.52.1"
    dependsOn: []
    pool:
      vmImage: ubuntu-latest
    steps:
      - template: install-rust.yml@templates
        parameters:
-         rust: 1.45.0 # bytes requires 1.39, mem::take requires 1.40, tokio 0.3 requires 1.45
+         rust: 1.52.1 # bytes requires 1.39, mem::take requires 1.40, tokio 0.3 requires 1.45, openssh_mux_client requires 1.52.1
      - script: cargo check
        displayName: cargo check
      - script: cargo check --no-default-features
