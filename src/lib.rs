@@ -116,6 +116,24 @@ pub use error::Error;
 /// Typedef just like std::io::Error
 pub type Result<T, Err = Error> = std::result::Result<T, Err>;
 
+mod fd;
+pub(crate) use fd::*;
+
+mod stdio;
+pub use stdio::{ChildStderr, ChildStdin, ChildStdout, Stdio};
+
+mod builder;
+pub use builder::{KnownHosts, SessionBuilder};
+
+mod session;
+pub use session::Session;
+
+mod command;
+pub use command::Command;
+
+mod child;
+pub use child::RemoteChild;
+
 /// process_impl
 pub mod process_impl;
 
