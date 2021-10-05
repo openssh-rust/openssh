@@ -98,7 +98,7 @@ jobs:
          cat .test-key | ssh-add -
        displayName: Set up ssh-agent
      - template: install-rust.yml@templates
-     - script: cargo test --all-features --workspace --test openssh
+     - script: cargo test --all-features --test openssh-process --test openssh-mux-client
        displayName: cargo test --cfg=ci
        env:
          # makes all the ignored tests not ignored
@@ -112,7 +112,7 @@ jobs:
  - template: coverage.yml@templates
    parameters:
      token: $(CODECOV_TOKEN_SECRET)
-     args: "--forward --all-features --workspace"
+     args: "--forward --all-features"
      services:
        opensshtest: openssh
      setup:
