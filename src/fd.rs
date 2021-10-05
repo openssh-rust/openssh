@@ -19,6 +19,11 @@ fn get_null_fd() -> RawFd {
 
 #[derive(Debug)]
 pub(crate) struct Fd(RawFd);
+impl Fd {
+    pub(crate) fn into_raw_fd(self) -> RawFd {
+        self.0
+    }
+}
 impl Drop for Fd {
     fn drop(&mut self) {
         unistd::close(self.0).unwrap();

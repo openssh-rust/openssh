@@ -8,6 +8,8 @@ use core::task::{Context, Poll};
 use std::io::{self, IoSlice};
 use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
 
+use std::process;
+
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 use tokio_pipe::{pipe, PipeRead, PipeWrite};
 
@@ -75,6 +77,17 @@ impl<T: IntoRawFd> From<T> for Stdio {
 impl FromRawFd for Stdio {
     unsafe fn from_raw_fd(fd: RawFd) -> Self {
         Self(StdioImpl::Fd(fd.into()))
+    }
+}
+impl From<Stdio> for process::Stdio {
+    fn from(stdio: Stdio) -> Self {
+        match stdio.0 {
+            StdioImpl::Null => process::Stdio::null(),
+            StdioImpl::Pipe => process::Stdio::piped(),
+            StdioImpl::Fd(fd) => unsafe {
+                process::Stdio::from_raw_fd(fd.into_raw_fd())
+            },
+        }
     }
 }
 
