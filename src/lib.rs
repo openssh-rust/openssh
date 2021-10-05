@@ -113,6 +113,8 @@
 
 mod error;
 pub use error::Error;
+/// Typedef just like std::io::Error
+pub type Result<T, Err = Error> = std::result::Result<T, Err>;
 
 /// process_impl
 pub mod process_impl;
