@@ -111,6 +111,9 @@
     unreachable_pub
 )]
 
+mod error;
+pub use error::Error;
+
 /// process_impl
 pub mod process_impl;
 
