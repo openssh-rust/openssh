@@ -2,7 +2,7 @@ use super::RemoteChild;
 use super::Result;
 use super::Stdio;
 
-use std::path::PathBuf;
+use std::ffi::OsStr;
 use std::process;
 
 /// A remote process builder, providing fine-grained control over how a new remote process should
@@ -38,14 +38,13 @@ use std::process;
 ///   [`env(1)`]: https://linux.die.net/man/1/env
 #[derive(Debug)]
 pub struct Command<'s> {
-    session: &'s super::Session,
-}
+    pub(crate) session: &'s super::Session,
 
-impl<'s> Command<'s> {
-    pub(crate) fn new(_session: &'s super::Session, _ctl: PathBuf, _cmd: String) -> Self 
-    {
-        todo!()
-    }
+    #[cfg(not(feature = "mux_client"))]
+    pub(crate) inner: super::process_impl::Command,
+
+    #[cfg(feature = "mux_client")]
+    pub(crate) inner: super::mux_client_impl::Command,
 }
 
 impl<'s> Command<'s> {
@@ -57,7 +56,7 @@ impl<'s> Command<'s> {
     /// Only one argument can be passed per use. So instead of:
     ///
     /// ```no_run
-    /// # fn foo(c: &mut mux_client_impl::Command<'_>) { c
+    /// # fn foo(c: &mut openssh::Command<'_>) { c
     /// .arg("-C /path/to/repo")
     /// # ; }
     /// ```
@@ -65,15 +64,16 @@ impl<'s> Command<'s> {
     /// usage would be:
     ///
     /// ```no_run
-    /// # fn foo(c: &mut mux_client_impl::Command<'_>) { c
+    /// # fn foo(c: &mut openssh::Command<'_>) { c
     /// .arg("-C")
     /// .arg("/path/to/repo")
     /// # ; }
     /// ```
     ///
     /// To pass multiple arguments see [`args`](Command::args).
-    pub fn arg<S: AsRef<str>>(&mut self, _arg: S) -> &mut Self {
-        todo!()
+    pub fn arg<S: AsRef<str>>(&mut self, arg: S) -> &mut Self {
+        self.inner.arg(arg);
+        self
     }
 
     /// Adds an argument to pass to the remote program.
@@ -84,8 +84,9 @@ impl<'s> Command<'s> {
     /// remote shell.
     ///
     /// To pass multiple unescaped arguments see [`raw_args`](Command::raw_args).
-    pub fn raw_arg<S: AsRef<str>>(&mut self, _arg: S) -> &mut Self {
-        todo!()
+    pub fn raw_arg<S: AsRef<OsStr>>(&mut self, arg: S) -> &mut Self {
+        self.inner.raw_arg(arg);
+        self
     }
 
     /// Adds multiple arguments to pass to the remote program.
@@ -117,7 +118,7 @@ impl<'s> Command<'s> {
     pub fn raw_args<I, S>(&mut self, args: I) -> &mut Self
     where
         I: IntoIterator<Item = S>,
-        S: AsRef<str>,
+        S: AsRef<OsStr>,
     {
         for arg in args {
             self.raw_arg(arg);
@@ -132,8 +133,9 @@ impl<'s> Command<'s> {
     ///
     /// [`null`]: struct.Stdio.html#method.null
     /// [`piped`]: struct.Stdio.html#method.piped
-    pub fn stdin<T: Into<Stdio>>(&mut self, _cfg: T) -> &mut Self {
-        todo!()
+    pub fn stdin<T: Into<Stdio>>(&mut self, cfg: T) -> &mut Self {
+        self.inner.stdin(cfg.into());
+        self
     }
 
     /// Configuration for the remote process's standard output (stdout) handle.
@@ -143,8 +145,9 @@ impl<'s> Command<'s> {
     ///
     /// [`null`]: struct.Stdio.html#method.null
     /// [`piped`]: struct.Stdio.html#method.piped
-    pub fn stdout<T: Into<Stdio>>(&mut self, _cfg: T) -> &mut Self {
-        todo!()
+    pub fn stdout<T: Into<Stdio>>(&mut self, cfg: T) -> &mut Self {
+        self.inner.stdout(cfg.into());
+        self
     }
 
     /// Configuration for the remote process's standard error (stderr) handle.
@@ -154,8 +157,9 @@ impl<'s> Command<'s> {
     ///
     /// [`null`]: struct.Stdio.html#method.null
     /// [`piped`]: struct.Stdio.html#method.piped
-    pub fn stderr<T: Into<Stdio>>(&mut self, _cfg: T) -> &mut Self {
-        todo!()
+    pub fn stderr<T: Into<Stdio>>(&mut self, cfg: T) -> &mut Self {
+        self.inner.stderr(cfg.into());
+        self
     }
 
     /// Executes the remote command without waiting for it, returning a handle to it instead.
@@ -164,7 +168,15 @@ impl<'s> Command<'s> {
     ///
     /// After this function, stdin, stdout and stderr is reset.
     pub async fn spawn(&mut self) -> Result<RemoteChild<'s>> {
-        todo!()
+        Ok(RemoteChild {
+            session: self.session,
+
+            #[cfg(not(feature = "mux_client"))]
+            inner: self.inner.spawn()?,
+
+            #[cfg(feature = "mux_client")]
+            inner: self.inner.spawn().await?,
+        })
     }
 
     /// Executes the remote command, waiting for it to finish and collecting all of its output.

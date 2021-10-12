@@ -23,11 +23,18 @@ mkdir -p ci-cargo-home
 
 export RUSTFLAGS='--cfg=ci'
 export CARGO_HOME="$(realpath ci-cargo-home)"
-exec cargo test \
-    --all-features \
-    --workspace \
+
+echo Running openssh-process
+cargo test \
     --target-dir ./ci-target \
     --no-fail-fast \
     --test openssh-process \
+    -- --test-threads=3 # Use test-threads=3 so that the output is readable
+
+echo Running openssh-mux-client
+exec cargo test \
+    --all-features \
+    --target-dir ./ci-target \
+    --no-fail-fast \
     --test openssh-mux-client \
     -- --test-threads=3 # Use test-threads=3 so that the output is readable

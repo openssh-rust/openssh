@@ -1,10 +1,14 @@
 use super::{Error, Session};
+
+use core::marker::PhantomData;
+
 use std::io;
 use std::process::Stdio;
 use std::{
     pin::Pin,
     task::{Context, Poll},
 };
+
 use tokio::io::AsyncWriteExt;
 
 // TODO: it would _probably_ be better to actually use sftp here, since I'm pretty sure it has some
@@ -56,8 +60,9 @@ impl Mode {
 /// the remote file.
 #[derive(Debug)]
 pub struct RemoteFile<'s> {
-    cat: super::RemoteChild<'s>,
+    cat: super::RemoteChild,
     mode: Mode,
+    phantom: PhantomData<&'s Session>,
 }
 
 // TODO: something like std::fs::OpenOptions
@@ -276,7 +281,7 @@ impl<'s> Sftp<'s> {
     /// # Examples
     ///
     /// ```no_run
-    /// # use process_impl::*;
+    /// # use openssh::*;
     /// # #[tokio::main]
     /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// use std::io::prelude::*;
@@ -315,10 +320,7 @@ impl<'s> Sftp<'s> {
             .stderr(Stdio::piped())
             .spawn()?;
 
-        Ok(RemoteFile {
-            cat,
-            mode: Mode::Write,
-        })
+        Ok(RemoteFile::new(cat, Mode::Write))
     }
 
     /// Open the remote file at `path` for appending.
@@ -332,7 +334,7 @@ impl<'s> Sftp<'s> {
     /// # Examples
     ///
     /// ```no_run
-    /// # use process_impl::*;
+    /// # use openssh::*;
     /// # #[tokio::main]
     /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// use std::io::prelude::*;
@@ -372,10 +374,7 @@ impl<'s> Sftp<'s> {
             .stderr(Stdio::piped())
             .spawn()?;
 
-        Ok(RemoteFile {
-            cat,
-            mode: Mode::Append,
-        })
+        Ok(RemoteFile::new(cat, Mode::Append))
     }
 
     /// Open the remote file at `path` for reading.
@@ -387,7 +386,7 @@ impl<'s> Sftp<'s> {
     /// # Examples
     ///
     /// ```no_run
-    /// # use process_impl::*;
+    /// # use openssh::*;
     /// # #[tokio::main]
     /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// use std::io::prelude::*;
@@ -427,14 +426,19 @@ impl<'s> Sftp<'s> {
             .stderr(Stdio::piped())
             .spawn()?;
 
-        Ok(RemoteFile {
-            cat,
-            mode: Mode::Read,
-        })
+        Ok(RemoteFile::new(cat, Mode::Read))
     }
 }
 
 impl RemoteFile<'_> {
+    fn new(cat: super::RemoteChild, mode: Mode) -> Self {
+        RemoteFile {
+            cat,
+            mode,
+            phantom: PhantomData,
+        }
+    }
+
     /// Close the handle to the remote file.
     ///
     /// If the remote file was opened for reading, this will also call

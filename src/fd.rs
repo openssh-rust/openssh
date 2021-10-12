@@ -1,10 +1,15 @@
-use std::fs::OpenOptions;
 use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
 
+#[cfg(feature = "mux_client")]
+use std::fs::OpenOptions;
+
 use nix::unistd;
+
+#[cfg(feature = "mux_client")]
 use once_cell::sync::OnceCell;
 
 /// Open "/dev/null" with RW.
+#[cfg(feature = "mux_client")]
 fn get_null_fd() -> RawFd {
     static NULL_FD: OnceCell<RawFd> = OnceCell::new();
     *NULL_FD.get_or_init(|| {
@@ -19,11 +24,6 @@ fn get_null_fd() -> RawFd {
 
 #[derive(Debug)]
 pub(crate) struct Fd(RawFd);
-impl Fd {
-    pub(crate) fn into_raw_fd(self) -> RawFd {
-        self.0
-    }
-}
 impl Drop for Fd {
     fn drop(&mut self) {
         unistd::close(self.0).unwrap();
@@ -45,6 +45,7 @@ impl FromRawFd for Fd {
     }
 }
 
+#[cfg(feature = "mux_client")]
 pub(crate) fn as_raw_fd(fd: &Option<Fd>) -> RawFd {
     match fd {
         Some(fd) => fd.0,

@@ -16,7 +16,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 //use tokio::net::{TcpListener, TcpStream};
 //use tokio::time::sleep;
 
-use openssh::mux_client_impl::*;
+use openssh::*;
 
 // TODO: how do we test the connection actually _failing_ so that the master reports an error?
 

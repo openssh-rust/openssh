@@ -1,4 +1,4 @@
-use openssh::process_impl::*;
+use openssh::*;
 
 #[tokio::main]
 async fn main() {

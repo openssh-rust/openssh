@@ -1,10 +1,13 @@
 use std::borrow::Cow;
-use std::path;
+use std::ffi::OsStr;
+
+#[cfg(not(feature = "mux_client"))]
+use super::Sftp;
 
 #[cfg(feature = "mux_client")]
-pub use openssh_mux_client::connection::{ForwardType, Socket};
+use super::{ForwardType, Socket};
 
-pub use super::{Command, KnownHosts, SessionBuilder, Result};
+use super::{Command, KnownHosts, Result, SessionBuilder};
 
 /// A single SSH session to a remote host.
 ///
@@ -13,22 +16,15 @@ pub use super::{Command, KnownHosts, SessionBuilder, Result};
 /// When the `Session` is dropped, the connection to the remote host is severed, and any errors
 /// silently ignored. To disconnect and be alerted to errors, use [`close`](Session::close).
 #[derive(Debug)]
-pub struct Session {
-}
+pub struct Session(
+    #[cfg(not(feature = "mux_client"))] pub(crate) super::process_impl::Session,
+    #[cfg(feature = "mux_client")] pub(crate) super::mux_client_impl::Session,
+);
 
 // TODO: UserKnownHostsFile for custom known host fingerprint.
 // TODO: Extract process output in Session::check(), Session::connect(), and Session::terminate().
 
 impl Session {
-    fn ctl(&self) -> path::PathBuf {
-        todo!()
-    }
-
-    /// Return the path to the ssh log file.
-    pub fn get_ssh_log_path(&self) -> path::PathBuf {
-        todo!()
-    }
-
     /// Connect to the host at the given `addr` over SSH.
     ///
     /// The format of `destination` is the same as the `destination` argument to `ssh`. It may be
@@ -39,9 +35,10 @@ impl Session {
     /// instead.
     ///
     /// For more options, see [`SessionBuilder`].
-    pub async fn connect<S: AsRef<str>>(destination: S, check: KnownHosts) -> Result<Self> 
-    {
-        todo!()
+    pub async fn connect<S: AsRef<str>>(destination: S, check: KnownHosts) -> Result<Self> {
+        let mut s = SessionBuilder::default();
+        s.known_hosts_check(check);
+        s.connect(destination.as_ref()).await
     }
 
     /// Check the status of the underlying SSH connection.
@@ -50,7 +47,7 @@ impl Session {
     ///
     /// All methods of this struct is not cancellation safe.
     pub async fn check(&self) -> Result<()> {
-        todo!()
+        self.0.check().await
     }
 
     /// Constructs a new [`Command`] for launching the program at path `program` on the remote
@@ -71,7 +68,10 @@ impl Session {
     /// If `program` is not an absolute path, the `PATH` will be searched in an OS-defined way on
     /// the host.
     pub fn command<'a, S: Into<Cow<'a, str>>>(&self, program: S) -> Command<'_> {
-        todo!()
+        Command {
+            session: self,
+            inner: self.0.command(program),
+        }
     }
 
     /// Constructs a new [`Command`] for launching the program at path `program` on the remote
@@ -90,8 +90,11 @@ impl Session {
     ///
     /// If `program` is not an absolute path, the `PATH` will be searched in an OS-defined way on
     /// the host.
-    pub fn raw_command<'a, S: Into<Cow<'a, str>>>(&self, program: S) -> Command<'_> {
-        todo!()
+    pub fn raw_command<S: AsRef<OsStr>>(&self, program: S) -> Command<'_> {
+        Command {
+            session: self,
+            inner: self.0.raw_command(program),
+        }
     }
 
     /// Constructs a new [`Command`] that runs the provided shell command on the remote host.
@@ -134,7 +137,10 @@ impl Session {
     ///   [this article]: https://mywiki.wooledge.org/Arguments
     ///   [`shell-escape`]: https://crates.io/crates/shell-escape
     pub fn shell<S: AsRef<str>>(&self, command: S) -> Command<'_> {
-        todo!()
+        Command {
+            session: self,
+            inner: self.0.shell(command),
+        }
     }
 
     /// Request to open a local/remote port forwarding.
@@ -149,11 +155,21 @@ impl Session {
         listen_socket: &Socket<'_>,
         connect_socket: &Socket<'_>,
     ) -> Result<()> {
-        todo!()
+        self.0
+            .request_port_forward(forward_type, listen_socket, connect_socket)
+            .await
+    }
+
+    /// Prepare to perform file operations on the remote host.
+    ///
+    /// See [`Sftp`] for details on how to interact with the remote files.
+    #[cfg(not(feature = "mux_client"))]
+    pub fn sftp(&self) -> Sftp<'_> {
+        Sftp::new(&self.0)
     }
 
     /// Terminate the remote connection.
-    pub async fn close(mut self) -> Result<()> {
-        todo!()
+    pub async fn close(self) -> Result<()> {
+        self.0.close().await
     }
 }

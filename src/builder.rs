@@ -1,26 +1,20 @@
-use super::{Error, Result, Session};
+use super::{Result, Session};
 
 use std::borrow::Cow;
-use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::Stdio;
 use std::str;
-
-use tempfile::Builder;
-
-use tokio::process;
 
 /// Build a [`Session`] with options.
 #[derive(Debug, Clone)]
 pub struct SessionBuilder {
-    user: Option<String>,
-    port: Option<String>,
-    keyfile: Option<PathBuf>,
-    connect_timeout: Option<String>,
-    server_alive_interval: Option<u64>,
-    known_hosts_check: KnownHosts,
-    control_dir: Option<PathBuf>,
-    config_file: Option<PathBuf>,
+    pub(crate) user: Option<String>,
+    pub(crate) port: Option<String>,
+    pub(crate) keyfile: Option<PathBuf>,
+    pub(crate) connect_timeout: Option<String>,
+    pub(crate) server_alive_interval: Option<u64>,
+    pub(crate) known_hosts_check: KnownHosts,
+    pub(crate) control_dir: Option<PathBuf>,
+    pub(crate) config_file: Option<PathBuf>,
 }
 
 impl Default for SessionBuilder {
@@ -147,82 +141,18 @@ impl SessionBuilder {
         (Cow::Owned(with_overrides), destination)
     }
 
+    #[cfg(not(feature = "mux_client"))]
     pub(crate) async fn just_connect<S: AsRef<str>>(&self, host: S) -> Result<Session> {
-        let destination = host.as_ref();
+        Ok(Session(
+            super::process_impl::builder::just_connect(self, host).await?,
+        ))
+    }
 
-        let defaultdir = Path::new("./");
-        let socketdir = self.control_dir.as_deref().unwrap_or(&defaultdir);
-        let dir = Builder::new()
-            .prefix(".ssh-connection")
-            .tempdir_in(socketdir)
-            .map_err(Error::Master)?;
-
-        let ctl = dir.path().join("master");
-        let log = dir.path().join("log");
-
-        let mut init = process::Command::new("ssh");
-        init.stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .arg("-S")
-            .arg(&ctl)
-            .arg("-M")
-            .arg("-f")
-            .arg("-N")
-            .arg("-o")
-            .arg("ControlPersist=yes")
-            .arg("-o")
-            .arg("BatchMode=yes")
-            .arg("-o")
-            .arg(self.known_hosts_check.as_option())
-            .arg("-E")
-            .arg(&log);
-
-        if let Some(timeout) = &self.connect_timeout {
-            init.arg("-o").arg(format!("ConnectTimeout={}", timeout));
-        }
-
-        if let Some(interval) = &self.server_alive_interval {
-            init.arg("-o")
-                .arg(format!("ServerAliveInterval={}", interval));
-        }
-
-        if let Some(port) = &self.port {
-            init.arg("-p").arg(port);
-        }
-
-        if let Some(user) = &self.user {
-            init.arg("-l").arg(user);
-        }
-
-        if let Some(k) = &self.keyfile {
-            // if the user gives a keyfile, _only_ use that keyfile
-            init.arg("-o").arg("IdentitiesOnly=yes");
-            init.arg("-i").arg(k);
-        }
-
-        if let Some(config_file) = &self.config_file {
-            init.arg("-F").arg(config_file);
-        }
-
-        init.arg(destination);
-
-        // eprintln!("{:?}", init);
-
-        // we spawn and immediately wait, because the process is supposed to fork.
-        // note that we cannot use .output, since it _also_ tries to read all of stdout/stderr.
-        // if the call _didn't_ error, then the backgrounded ssh client will still hold onto those
-        // handles, and it's still running, so those reads will hang indefinitely.
-        let mut child = init.spawn().map_err(Error::Connect)?;
-        let status = child.wait().await.map_err(Error::Connect)?;
-
-        if !status.success() {
-            Err(Error::interpret_ssh_error(
-                str::from_utf8(&fs::read(log).unwrap()).unwrap(),
-            ))
-        } else {
-            todo!()
-        }
+    #[cfg(feature = "mux_client")]
+    pub(crate) async fn just_connect<S: AsRef<str>>(&self, host: S) -> Result<Session> {
+        Ok(Session(
+            super::mux_client_impl::builder::just_connect(self, host).await?,
+        ))
     }
 
     /// Connect to the host at the given `host` over SSH.
@@ -262,7 +192,7 @@ pub enum KnownHosts {
 }
 
 impl KnownHosts {
-    fn as_option(&self) -> &'static str {
+    pub(crate) fn as_option(&self) -> &'static str {
         match *self {
             KnownHosts::Strict => "StrictHostKeyChecking=yes",
             KnownHosts::Add => "StrictHostKeyChecking=accept-new",

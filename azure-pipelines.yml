@@ -56,8 +56,10 @@ jobs:
        displayName: cargo check --no-default-features
      - script: cargo check --all-features
        displayName: cargo check --all-features
-     - script: cargo test --all-features
+     - script: cargo test
        displayName: cargo test
+     - script: cargo test --all-features
+       displayName: cargo test --all-features
      - script: cargo doc --no-deps
        displayName: cargo doc
  # This represents the minimum Rust version supported.
@@ -98,8 +100,13 @@ jobs:
          cat .test-key | ssh-add -
        displayName: Set up ssh-agent
      - template: install-rust.yml@templates
-     - script: cargo test --all-features --test openssh-process --test openssh-mux-client
+     - script: cargo test --test openssh-process
        displayName: cargo test --cfg=ci
+       env:
+         # makes all the ignored tests not ignored
+         RUSTFLAGS: --cfg=ci
+     - script: cargo test --all-features --test openssh-mux-client
+       displayName: cargo test --all-features --cfg=ci
        env:
          # makes all the ignored tests not ignored
          RUSTFLAGS: --cfg=ci

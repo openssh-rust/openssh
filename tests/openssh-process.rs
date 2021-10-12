@@ -1,12 +1,13 @@
+#![cfg(not(feature = "mux_client"))]
+
 use lazy_static::lazy_static;
 use std::io;
 use std::io::Write;
-use std::process::Stdio;
 
 use regex::Regex;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-use openssh::process_impl::*;
+use openssh::*;
 
 // TODO: how do we test the connection actually _failing_ so that the master reports an error?
 
@@ -244,6 +245,7 @@ async fn stdin() {
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .spawn()
+        .await
         .unwrap();
 
     // write something to standard in and send EOF
@@ -438,20 +440,20 @@ async fn bad_remote_command() {
     assert!(matches!(failed, Error::Remote(ref e) if e.kind() == io::ErrorKind::NotFound));
 
     // even if you spawn first
-    let mut child = session.command("no such program").spawn().unwrap();
+    let mut child = session.command("no such program").spawn().await.unwrap();
     let failed = child.wait().await.unwrap_err();
     eprintln!("{:?}", failed);
     assert!(matches!(failed, Error::Remote(ref e) if e.kind() == io::ErrorKind::NotFound));
     child.disconnect().await.unwrap_err();
 
     // of if you want output
-    let child = session.command("no such program").spawn().unwrap();
+    let child = session.command("no such program").spawn().await.unwrap();
     let failed = child.wait_with_output().await.unwrap_err();
     eprintln!("{:?}", failed);
     assert!(matches!(failed, Error::Remote(ref e) if e.kind() == io::ErrorKind::NotFound));
 
     // no matter how hard you _try_
-    let mut child = session.command("no such program").spawn().unwrap();
+    let mut child = session.command("no such program").spawn().await.unwrap();
     std::thread::sleep(std::time::Duration::from_millis(500));
     let failed = child.try_wait().unwrap_err();
     eprintln!("{:?}", failed);
@@ -486,12 +488,13 @@ async fn spawn_and_wait() {
     let session = Session::connect(&addr(), KnownHosts::Accept).await.unwrap();
 
     let t = Instant::now();
-    let sleeping1 = session.command("sleep").arg("1").spawn().unwrap();
+    let sleeping1 = session.command("sleep").arg("1").spawn().await.unwrap();
     let sleeping2 = sleeping1
         .session()
         .command("sleep")
         .arg("2")
         .spawn()
+        .await
         .unwrap();
     sleeping1.wait_with_output().await.unwrap();
     assert!(t.elapsed() > Duration::from_secs(1));
@@ -564,7 +567,7 @@ async fn escaping() {
 async fn process_exit_on_signal() {
     let session = Session::connect(&addr(), KnownHosts::Accept).await.unwrap();
 
-    let mut sleeping = session.command("sleep").arg("5566").spawn().unwrap();
+    let mut sleeping = session.command("sleep").arg("5566").spawn().await.unwrap();
 
     // give it some time to make sure it starts
     tokio::time::sleep(std::time::Duration::from_secs(1)).await;
@@ -599,7 +602,7 @@ async fn process_exit_on_signal() {
 async fn broken_connection() {
     let session = Session::connect(&addr(), KnownHosts::Accept).await.unwrap();
 
-    let sleeping = session.command("sleep").arg("1000").spawn().unwrap();
+    let sleeping = session.command("sleep").arg("1000").spawn().await.unwrap();
 
     // get ID of remote ssh process
     let ppid = session

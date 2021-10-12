@@ -85,8 +85,8 @@
 //!
 //! ```rust,no_run
 //! # #[tokio::main]
-//! # async fn main() -> Result<(), mux_client_impl::Error> {
-//! use mux_client_impl::{Session, KnownHosts};
+//! # async fn main() -> Result<(), openssh::Error> {
+//! use openssh::{Session, KnownHosts};
 //!
 //! let session = Session::connect("me@ssh.example.com", KnownHosts::Strict).await?;
 //! let ls = session.command("ls").output().await?;
@@ -117,10 +117,9 @@ pub use error::Error;
 pub type Result<T, Err = Error> = std::result::Result<T, Err>;
 
 mod fd;
-pub(crate) use fd::*;
 
 mod stdio;
-pub use stdio::{ChildStderr, ChildStdin, ChildStdout, Stdio};
+pub use stdio::Stdio;
 
 mod builder;
 pub use builder::{KnownHosts, SessionBuilder};
@@ -135,13 +134,18 @@ mod child;
 pub use child::RemoteChild;
 
 /// process_impl
+#[cfg(not(feature = "mux_client"))]
 pub mod process_impl;
+
+#[cfg(not(feature = "mux_client"))]
+pub use process_impl::{Mode, RemoteFile, Sftp};
+
+#[cfg(not(feature = "mux_client"))]
+pub use tokio::process::{ChildStderr, ChildStdin, ChildStdout};
 
 /// mux_client_impl
 #[cfg(feature = "mux_client")]
 pub mod mux_client_impl;
 
-#[cfg(test)]
 #[cfg(feature = "mux_client")]
-#[macro_use]
-extern crate assert_matches;
+pub use mux_client_impl::{ChildStderr, ChildStdin, ChildStdout, ForwardType, Socket};

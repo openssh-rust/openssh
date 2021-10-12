@@ -1,5 +1,6 @@
 use super::{ChildStderr, ChildStdin, ChildStdout, Result, Session};
 
+use std::io;
 use std::process::{ExitStatus, Output};
 
 /// Representation of a running or exited remote child process.
@@ -26,7 +27,7 @@ use std::process::{ExitStatus, Output};
 ///
 /// ```rust,no_run
 /// # async fn foo() {
-/// # let child: mux_client_impl::RemoteChild<'static> = unimplemented!();
+/// # let child: openssh::RemoteChild<'static> = unimplemented!();
 /// let stdin = child.stdin().take().unwrap();
 /// let stdout = child.stdout().take().unwrap();
 /// tokio::io::copy(&mut stdout, &mut stdin).await;
@@ -34,7 +35,13 @@ use std::process::{ExitStatus, Output};
 /// ```
 #[derive(Debug)]
 pub struct RemoteChild<'s> {
-    session: &'s Session,
+    pub(crate) session: &'s Session,
+
+    #[cfg(not(feature = "mux_client"))]
+    pub(crate) inner: super::process_impl::RemoteChild,
+
+    #[cfg(feature = "mux_client")]
+    pub(crate) inner: super::mux_client_impl::RemoteChild,
 }
 
 impl<'s> RemoteChild<'s> {
@@ -47,8 +54,8 @@ impl<'s> RemoteChild<'s> {
     ///
     /// Note that disconnecting does _not_ kill the remote process, it merely kills the local
     /// handle to that remote process.
-    pub async fn disconnect(self) -> Result<()> {
-        Ok(())
+    pub async fn disconnect(self) -> io::Result<()> {
+        self.inner.disconnect().await
     }
 
     /// Waits for the remote child to exit completely, returning the status that it exited with.
@@ -60,7 +67,24 @@ impl<'s> RemoteChild<'s> {
     /// avoid deadlock: it ensures that the child does not block waiting for input from the parent,
     /// while the parent waits for the child to exit.
     pub async fn wait(&mut self) -> Result<ExitStatus> {
-        todo!()
+        self.inner.wait().await
+    }
+
+    /// Attempts to collect the exit status of the remote child if it has already exited.
+    ///
+    /// This function will not block the calling thread and will only check to see if the child
+    /// process has exited or not. If the child has exited then on Unix the process ID is reaped.
+    /// This function is guaranteed to repeatedly return a successful exit status so long as the
+    /// child has already exited.
+    ///
+    /// If the child has exited, then `Ok(Some(status))` is returned. If the exit status is not
+    /// available at this time then `Ok(None)` is returned. If an error occurs, then that error is
+    /// returned.
+    ///
+    /// Note that unlike `wait`, this function will not attempt to drop stdin.
+    #[cfg(not(feature = "mux_client"))]
+    pub fn try_wait(&mut self) -> Result<Option<ExitStatus>> {
+        self.inner.try_wait()
     }
 
     /// Simultaneously waits for the remote child to exit and collect all remaining output on the
@@ -74,22 +98,22 @@ impl<'s> RemoteChild<'s> {
     /// output into this `Result<Output>` it is necessary to create new pipes between parent and
     /// child. Use `stdout(Stdio::piped())` or `stderr(Stdio::piped())`, respectively.
     pub async fn wait_with_output(self) -> Result<Output> {
-        todo!()
+        self.inner.wait_with_output().await
     }
 
     /// Access the handle for reading from the remote child's standard input (stdin), if requested.
     pub fn stdin(&mut self) -> &mut Option<ChildStdin> {
-        todo!()
+        self.inner.stdin()
     }
 
     /// Access the handle for reading from the remote child's standard output (stdout), if
     /// requested.
     pub fn stdout(&mut self) -> &mut Option<ChildStdout> {
-        todo!()
+        self.inner.stdout()
     }
 
     /// Access the handle for reading from the remote child's standard error (stderr), if requested.
     pub fn stderr(&mut self) -> &mut Option<ChildStderr> {
-        todo!()
+        self.inner.stderr()
     }
 }
