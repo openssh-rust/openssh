@@ -65,6 +65,7 @@ impl RemoteChild {
     }
 
     pub async fn wait_with_output(mut self) -> Result<Output> {
+        self.stdin().take();
         let status = self.wait().await?;
 
         let mut output = Output {
