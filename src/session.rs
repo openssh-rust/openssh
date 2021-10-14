@@ -163,7 +163,7 @@ impl Session {
     ///
     /// See [`Sftp`] for details on how to interact with the remote files.
     pub fn sftp(&self) -> Sftp<'_> {
-        Sftp::new(&self)
+        Sftp::new(self)
     }
 
     /// Terminate the remote connection.
