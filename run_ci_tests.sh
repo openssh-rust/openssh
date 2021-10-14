@@ -34,7 +34,7 @@ docker run \
     openssh-rs-test-env \
     /openssh-rs/run_tests.sh
 exit_code=$?
-docker rm -f openssh-rs-test-env
+docker rm -f openssh-rs-test-env 2>/dev/null
 
 if [ $exit_code -ne 0 ]; then
     echo Test failed, here\'s the log of sshd:
