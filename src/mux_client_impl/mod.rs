@@ -12,6 +12,8 @@ use std::path;
 use shell_escape::escape;
 use tempfile::TempDir;
 
+use tokio::runtime;
+
 use openssh_mux_client::connection::Connection;
 pub use openssh_mux_client::connection::{ForwardType, Socket};
 
@@ -111,27 +113,17 @@ impl Session {
 
 impl Drop for Session {
     fn drop(&mut self) {
-        use tokio::runtime::{Builder, Handle};
-
         // Keep tempdir alive until the connection is established
         let tempdir = match self.tempdir.take() {
             Some(tempdir) => tempdir,
             None => return,
         };
 
-        let f = || async move {
+        let handle = runtime::Handle::try_current()
+            .expect("Session should be dropped in the tokio runtime that created it");
+
+        handle.spawn(async move {
             let _ = Self::request_server_shutdown(&tempdir).await;
-        };
-
-        if let Ok(handle) = Handle::try_current() {
-            handle.spawn(f());
-        } else {
-            let rt = Builder::new_current_thread() // The new Runtime will use current_thread
-                .enable_all() // Enable IO and timer driver if available
-                .build() // Build and return Result<Runtime>
-                .unwrap();
-
-            rt.block_on(f());
-        }
+        });
     }
 }
