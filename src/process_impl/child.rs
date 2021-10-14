@@ -5,10 +5,16 @@ use tokio::process;
 
 #[derive(Debug)]
 pub struct RemoteChild {
-    pub(crate) channel: Option<process::Child>,
+    channel: Option<process::Child>,
 }
 
 impl RemoteChild {
+    pub(crate) fn new(child: process::Child) -> Self {
+        Self {
+            channel: Some(child),
+        }
+    }
+
     pub async fn disconnect(mut self) -> io::Result<()> {
         if let Some(mut channel) = self.channel.take() {
             // this disconnects, but does not kill the remote process

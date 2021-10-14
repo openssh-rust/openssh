@@ -90,9 +90,7 @@ impl Command {
         // Then launch!
         let child = self.builder.spawn().map_err(Error::Ssh)?;
 
-        Ok(RemoteChild {
-            channel: Some(child),
-        })
+        Ok(RemoteChild::new(child))
     }
 
     pub async fn output(&mut self) -> Result<std::process::Output> {
