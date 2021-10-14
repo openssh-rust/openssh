@@ -133,12 +133,12 @@ pub use command::Command;
 mod child;
 pub use child::RemoteChild;
 
+mod sftp;
+pub use sftp::{Mode, RemoteFile, Sftp};
+
 /// process_impl
 #[cfg(not(feature = "mux_client"))]
 pub mod process_impl;
-
-#[cfg(not(feature = "mux_client"))]
-pub use process_impl::{Mode, RemoteFile, Sftp};
 
 #[cfg(not(feature = "mux_client"))]
 pub use tokio::process::{ChildStderr, ChildStdin, ChildStdout};

@@ -21,9 +21,6 @@ pub use command::Command;
 mod child;
 pub use child::RemoteChild;
 
-mod sftp;
-pub use sftp::{Mode, RemoteFile, Sftp};
-
 #[derive(Debug)]
 pub struct Session {
     ctl: tempfile::TempDir,

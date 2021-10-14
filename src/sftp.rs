@@ -1,9 +1,7 @@
-use super::{Error, Session};
+use super::{Error, RemoteChild, Session, Stdio};
 
-use core::marker::PhantomData;
-
+use core::mem;
 use std::io;
-use std::process::Stdio;
 use std::{
     pin::Pin,
     task::{Context, Poll},
@@ -60,9 +58,8 @@ impl Mode {
 /// the remote file.
 #[derive(Debug)]
 pub struct RemoteFile<'s> {
-    cat: super::RemoteChild,
+    cat: super::RemoteChild<'s>,
     mode: Mode,
-    phantom: PhantomData<&'s Session>,
 }
 
 // TODO: something like std::fs::OpenOptions
@@ -318,7 +315,8 @@ impl<'s> Sftp<'s> {
             .arg(path)
             .stdin(Stdio::piped())
             .stderr(Stdio::piped())
-            .spawn()?;
+            .spawn()
+            .await?;
 
         Ok(RemoteFile::new(cat, Mode::Write))
     }
@@ -372,7 +370,8 @@ impl<'s> Sftp<'s> {
             .arg(path)
             .stdin(Stdio::piped())
             .stderr(Stdio::piped())
-            .spawn()?;
+            .spawn()
+            .await?;
 
         Ok(RemoteFile::new(cat, Mode::Append))
     }
@@ -424,19 +423,16 @@ impl<'s> Sftp<'s> {
             .arg(path)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
-            .spawn()?;
+            .spawn()
+            .await?;
 
         Ok(RemoteFile::new(cat, Mode::Read))
     }
 }
 
-impl RemoteFile<'_> {
-    fn new(cat: super::RemoteChild, mode: Mode) -> Self {
-        RemoteFile {
-            cat,
-            mode,
-            phantom: PhantomData,
-        }
+impl<'s> RemoteFile<'s> {
+    fn new(cat: RemoteChild<'s>, mode: Mode) -> Self {
+        Self { cat, mode }
     }
 
     /// Close the handle to the remote file.
@@ -458,7 +454,7 @@ impl RemoteFile<'_> {
         }
 
         // let us try to cobble together a good error for the user
-        let err = match String::from_utf8(std::mem::take(&mut result.stderr)) {
+        let err = match String::from_utf8(mem::take(&mut result.stderr)) {
             Err(e) => {
                 return Err(Error::Remote(io::Error::new(io::ErrorKind::Other, e)));
             }
@@ -514,7 +510,7 @@ impl tokio::io::AsyncWrite for RemoteFile<'_> {
         mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         buf: &[u8],
-    ) -> Poll<Result<usize, io::Error>> {
+    ) -> Poll<io::Result<usize>> {
         if !self.mode.is_write() {
             return Poll::Ready(Err(io::Error::new(
                 io::ErrorKind::WriteZero,
@@ -524,13 +520,12 @@ impl tokio::io::AsyncWrite for RemoteFile<'_> {
 
         Pin::new(self.cat.stdin().as_mut().unwrap()).poll_write(cx, buf)
     }
-    fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
+
+    fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         Pin::new(self.cat.stdin().as_mut().unwrap()).poll_flush(cx)
     }
-    fn poll_shutdown(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-    ) -> Poll<Result<(), io::Error>> {
+
+    fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         Pin::new(self.cat.stdin().as_mut().unwrap()).poll_shutdown(cx)
     }
 }

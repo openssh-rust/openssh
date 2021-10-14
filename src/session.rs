@@ -1,13 +1,12 @@
-use std::borrow::Cow;
-use std::ffi::OsStr;
-
-#[cfg(not(feature = "mux_client"))]
 use super::Sftp;
 
 #[cfg(feature = "mux_client")]
 use super::{ForwardType, Socket};
 
 use super::{Command, KnownHosts, Result, SessionBuilder};
+
+use std::borrow::Cow;
+use std::ffi::OsStr;
 
 /// A single SSH session to a remote host.
 ///
@@ -163,9 +162,8 @@ impl Session {
     /// Prepare to perform file operations on the remote host.
     ///
     /// See [`Sftp`] for details on how to interact with the remote files.
-    #[cfg(not(feature = "mux_client"))]
     pub fn sftp(&self) -> Sftp<'_> {
-        Sftp::new(&self.0)
+        Sftp::new(&self)
     }
 
     /// Terminate the remote connection.
