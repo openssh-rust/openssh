@@ -419,23 +419,23 @@ async fn sftp() {
 
     // reading a file that does not exist should error on open
     let failed = sftp.read_from("no/such/file").await.unwrap_err();
-    assert_matches!(failed, Error::Remote(ref e) if e.kind() == io::ErrorKind::NotFound);
+    assert_kind!(failed, io::ErrorKind::NotFound);
     // so should file we're not allowed to read
     let failed = sftp.read_from("/etc/shadow").await.unwrap_err();
-    assert_matches!(failed, Error::Remote(ref e) if e.kind() == io::ErrorKind::PermissionDenied);
+    assert_kind!(failed, io::ErrorKind::PermissionDenied);
 
     // writing a file that does not exist should also error on open
     let failed = sftp.write_to("no/such/file").await.unwrap_err();
-    assert_matches!(failed, Error::Remote(ref e) if e.kind() == io::ErrorKind::NotFound);
+    assert_kind!(failed, io::ErrorKind::NotFound);
     // so should file we're not allowed to write
     let failed = sftp.write_to("/rootfile").await.unwrap_err();
-    assert_matches!(failed, Error::Remote(ref e) if e.kind() == io::ErrorKind::PermissionDenied);
+    assert_kind!(failed, io::ErrorKind::PermissionDenied);
 
     // writing to a full disk (or the like) should also error
     let mut w = sftp.write_to("/dev/full").await.unwrap();
     w.write_all(b"hello world").await.unwrap();
     let failed = w.close().await.unwrap_err();
-    assert_matches!(failed, Error::Remote(ref e) if e.kind() == io::ErrorKind::WriteZero);
+    assert_kind!(failed, io::ErrorKind::WriteZero);
 
     session.close().await.unwrap();
 }
