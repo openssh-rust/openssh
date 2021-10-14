@@ -291,6 +291,155 @@ async fn stdin() {
     session.close().await.unwrap();
 }
 
+macro_rules! assert_kind {
+    ($e:expr, $kind:expr) => {
+        let e = $e;
+        let kind = $kind;
+
+        assert_matches!(
+            e,
+            Error::Remote(ref e) if e.kind() == kind,
+            "{:?}",
+            e
+        );
+    }
+}
+
+#[tokio::test]
+#[cfg_attr(not(ci), ignore)]
+async fn sftp_can() {
+    let session = Session::connect(&addr(), KnownHosts::Accept).await.unwrap();
+
+    let mut sftp = session.sftp();
+
+    // first, do some access checks
+    // some things we can do
+    sftp.can(Mode::Write, "test_file").await.unwrap();
+    sftp.can(Mode::Write, ".ssh/test_file").await.unwrap();
+    sftp.can(Mode::Read, ".ssh/authorized_keys").await.unwrap();
+    sftp.can(Mode::Read, "/etc/hostname").await.unwrap();
+    // some things we cannot
+    assert_kind!(
+        sftp.can(Mode::Write, "/etc/passwd").await.unwrap_err(),
+        io::ErrorKind::PermissionDenied
+    );
+    assert_kind!(
+        sftp.can(Mode::Write, "no/such/file").await.unwrap_err(),
+        io::ErrorKind::NotFound
+    );
+    assert_kind!(
+        sftp.can(Mode::Read, "/etc/shadow").await.unwrap_err(),
+        io::ErrorKind::PermissionDenied
+    );
+    assert_kind!(
+        sftp.can(Mode::Read, "/etc/no-such-file").await.unwrap_err(),
+        io::ErrorKind::NotFound
+    );
+    assert_kind!(
+        sftp.can(Mode::Write, "/etc/no-such-file")
+            .await
+            .unwrap_err(),
+        io::ErrorKind::PermissionDenied
+    );
+    assert_kind!(
+        sftp.can(Mode::Write, "/no-such-file").await.unwrap_err(),
+        io::ErrorKind::PermissionDenied
+    );
+    assert_kind!(
+        sftp.can(Mode::Read, "no/such/file").await.unwrap_err(),
+        io::ErrorKind::NotFound
+    );
+    // and something are just weird
+    assert_kind!(
+        sftp.can(Mode::Write, ".ssh").await.unwrap_err(),
+        io::ErrorKind::AlreadyExists
+    );
+    assert_kind!(
+        sftp.can(Mode::Write, "/etc").await.unwrap_err(),
+        io::ErrorKind::AlreadyExists
+    );
+    assert_kind!(
+        sftp.can(Mode::Write, "/").await.unwrap_err(),
+        io::ErrorKind::AlreadyExists
+    );
+    assert_kind!(
+        sftp.can(Mode::Read, "/etc").await.unwrap_err(),
+        io::ErrorKind::Other
+    );
+
+    session.close().await.unwrap();
+}
+
+#[tokio::test]
+#[cfg_attr(not(ci), ignore)]
+async fn sftp() {
+    let session = Session::connect(&addr(), KnownHosts::Accept).await.unwrap();
+
+    let mut sftp = session.sftp();
+
+    // first, open a file for writing
+    let mut w = sftp.write_to("test_file").await.unwrap();
+
+    // reading from a write-only file should error
+    let failed = w.read(&mut [0]).await.unwrap_err();
+    assert_eq!(failed.kind(), io::ErrorKind::UnexpectedEof);
+
+    // write something to the file
+    w.write_all(b"hello").await.unwrap();
+    w.close().await.unwrap();
+
+    // we should still be able to write it
+    sftp.can(Mode::Write, "test_file").await.unwrap();
+    // and now also read it
+    sftp.can(Mode::Read, "test_file").await.unwrap();
+
+    // open the file again for appending
+    let mut w = sftp.append_to("test_file").await.unwrap();
+
+    // reading from an append-only file should also error
+    let failed = w.read(&mut [0]).await.unwrap_err();
+    assert_eq!(failed.kind(), io::ErrorKind::UnexpectedEof);
+
+    // append something to the file
+    w.write_all(b" world").await.unwrap();
+    w.close().await.unwrap();
+
+    // then, open the same file for reading
+    let mut r = sftp.read_from("test_file").await.unwrap();
+
+    // writing to a read-only file should error
+    let failed = r.write(&[0]).await.unwrap_err();
+    assert_eq!(failed.kind(), io::ErrorKind::WriteZero);
+
+    // read back the file
+    let mut contents = String::new();
+    r.read_to_string(&mut contents).await.unwrap();
+    assert_eq!(contents, "hello world");
+    r.close().await.unwrap();
+
+    // reading a file that does not exist should error on open
+    let failed = sftp.read_from("no/such/file").await.unwrap_err();
+    assert_matches!(failed, Error::Remote(ref e) if e.kind() == io::ErrorKind::NotFound);
+    // so should file we're not allowed to read
+    let failed = sftp.read_from("/etc/shadow").await.unwrap_err();
+    assert_matches!(failed, Error::Remote(ref e) if e.kind() == io::ErrorKind::PermissionDenied);
+
+    // writing a file that does not exist should also error on open
+    let failed = sftp.write_to("no/such/file").await.unwrap_err();
+    assert_matches!(failed, Error::Remote(ref e) if e.kind() == io::ErrorKind::NotFound);
+    // so should file we're not allowed to write
+    let failed = sftp.write_to("/rootfile").await.unwrap_err();
+    assert_matches!(failed, Error::Remote(ref e) if e.kind() == io::ErrorKind::PermissionDenied);
+
+    // writing to a full disk (or the like) should also error
+    let mut w = sftp.write_to("/dev/full").await.unwrap();
+    w.write_all(b"hello world").await.unwrap();
+    let failed = w.close().await.unwrap_err();
+    assert_matches!(failed, Error::Remote(ref e) if e.kind() == io::ErrorKind::WriteZero);
+
+    session.close().await.unwrap();
+}
+
 #[tokio::test]
 #[cfg_attr(not(ci), ignore)]
 async fn bad_remote_command() {
