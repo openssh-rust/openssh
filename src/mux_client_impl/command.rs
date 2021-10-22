@@ -82,8 +82,7 @@ impl Command {
                 &session,
                 &[as_raw_fd(&stdin), as_raw_fd(&stdout), as_raw_fd(&stderr)],
             )
-            .await
-            .map_err(|(err, _)| err)?;
+            .await?;
 
         Ok((established_session, child_stdin, child_stdout, child_stderr))
     }

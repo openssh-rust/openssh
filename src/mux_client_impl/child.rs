@@ -48,10 +48,9 @@ impl RemoteChild {
                     SessionStatus::TtyAllocFail(_established_session) => unreachable!(
                         "openssh::mux_client_impl does not use feature tty by any means"
                     ),
-                    SessionStatus::Exited {
-                        conn: _conn,
-                        exit_value,
-                    } => ExitStatusExt::from_raw(exit_value as i32),
+                    SessionStatus::Exited { exit_value } => {
+                        ExitStatusExt::from_raw(exit_value as i32)
+                    }
                 },
                 Err((err, established_session)) => {
                     self.state = Running(established_session);
