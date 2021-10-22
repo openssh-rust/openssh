@@ -148,4 +148,10 @@ pub use tokio::process::{ChildStderr, ChildStdin, ChildStdout};
 pub mod mux_client_impl;
 
 #[cfg(feature = "mux_client")]
-pub use mux_client_impl::{ChildStderr, ChildStdin, ChildStdout, ForwardType, Socket};
+pub use mux_client_impl::{ChildStderr, ChildStdin, ChildStdout};
+
+#[cfg(feature = "mux_client")]
+mod port_forwarding;
+
+#[cfg(feature = "mux_client")]
+pub use port_forwarding::*;

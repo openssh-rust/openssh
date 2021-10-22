@@ -151,11 +151,15 @@ impl Session {
     pub async fn request_port_forward(
         &self,
         forward_type: ForwardType,
-        listen_socket: &Socket<'_>,
-        connect_socket: &Socket<'_>,
+        listen_socket: Socket<'_>,
+        connect_socket: Socket<'_>,
     ) -> Result<()> {
         self.0
-            .request_port_forward(forward_type, listen_socket, connect_socket)
+            .request_port_forward(
+                forward_type.into(),
+                &listen_socket.into(),
+                &connect_socket.into(),
+            )
             .await
     }
 
