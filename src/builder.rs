@@ -162,8 +162,8 @@ impl SessionBuilder {
     pub(crate) async fn just_connect<S: AsRef<str>>(&self, host: S) -> Result<Session, Error> {
         let destination = host.as_ref();
 
-        let defaultdir = Path::new("./").to_path_buf();
-        let socketdir = self.control_dir.as_ref().unwrap_or(&defaultdir);
+        let defaultdir = Path::new("/tmp");
+        let socketdir = self.control_dir.as_deref().unwrap_or(&defaultdir);
         let dir = Builder::new()
             .prefix(".ssh-connection")
             .tempdir_in(socketdir)
