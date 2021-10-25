@@ -8,6 +8,14 @@ use super::{Command, KnownHosts, Result, SessionBuilder};
 use std::borrow::Cow;
 use std::ffi::OsStr;
 
+#[derive(Debug)]
+enum SessionImp {
+    ProcessImpl(super::process_impl::Session),
+
+    #[cfg(feature = "mux_client")]
+    MuxClientImpl(super::mux_client_impl::Session),
+}
+
 /// A single SSH session to a remote host.
 ///
 /// You can use [`command`] to start a new command on the connected machine.
@@ -15,15 +23,21 @@ use std::ffi::OsStr;
 /// When the `Session` is dropped, the connection to the remote host is severed, and any errors
 /// silently ignored. To disconnect and be alerted to errors, use [`close`](Session::close).
 #[derive(Debug)]
-pub struct Session(
-    #[cfg(not(feature = "mux_client"))] pub(crate) super::process_impl::Session,
-    #[cfg(feature = "mux_client")] pub(crate) super::mux_client_impl::Session,
-);
+pub struct Session(SessionImp);
 
 // TODO: UserKnownHostsFile for custom known host fingerprint.
 // TODO: Extract process output in Session::check(), Session::connect(), and Session::terminate().
 
 impl Session {
+    pub(crate) fn new_process_imp(imp: super::process_impl::Session) -> Self {
+        Self(SessionImp::ProcessImpl(imp))
+    }
+
+    #[cfg(feature = "mux_client")]
+    pub(crate) fn new_mux_client_imp(imp: super::mux_client_impl::Session) -> Self {
+        Self(SessionImp::MuxClientImpl(imp))
+    }
+
     /// Connect to the host at the given `addr` over SSH.
     ///
     /// The format of `destination` is the same as the `destination` argument to `ssh`. It may be
@@ -40,13 +54,35 @@ impl Session {
         s.connect(destination.as_ref()).await
     }
 
+    /// Connect to the host at the given `addr` over SSH.
+    ///
+    /// The format of `destination` is the same as the `destination` argument to `ssh`. It may be
+    /// specified as either `[user@]hostname` or a URI of the form `ssh://[user@]hostname[:port]`.
+    ///
+    /// If connecting requires interactive authentication based on `STDIN` (such as reading a
+    /// password), the connection will fail. Consider setting up keypair-based authentication
+    /// instead.
+    ///
+    /// For more options, see [`SessionBuilder`].
+    #[cfg(feature = "mux_client")]
+    pub async fn connect_mux<S: AsRef<str>>(destination: S, check: KnownHosts) -> Result<Self> {
+        let mut s = SessionBuilder::default();
+        s.known_hosts_check(check);
+        s.connect_mux(destination.as_ref()).await
+    }
+
     /// Check the status of the underlying SSH connection.
     ///
     /// # Cancel safety
     ///
     /// All methods of this struct is not cancellation safe.
     pub async fn check(&self) -> Result<()> {
-        self.0.check().await
+        match &self.0 {
+            SessionImp::ProcessImpl(imp) => imp.check().await,
+
+            #[cfg(feature = "mux_client")]
+            SessionImp::MuxClientImpl(imp) => imp.check().await,
+        }
     }
 
     /// Constructs a new [`Command`] for launching the program at path `program` on the remote
@@ -69,7 +105,12 @@ impl Session {
     pub fn command<'a, S: Into<Cow<'a, str>>>(&self, program: S) -> Command<'_> {
         Command {
             session: self,
-            inner: self.0.command(program),
+            imp: match &self.0 {
+                SessionImp::ProcessImpl(imp) => imp.command(program).into(),
+
+                #[cfg(feature = "mux_client")]
+                SessionImp::MuxClientImpl(imp) => imp.command(program).into(),
+            },
         }
     }
 
@@ -92,7 +133,12 @@ impl Session {
     pub fn raw_command<S: AsRef<OsStr>>(&self, program: S) -> Command<'_> {
         Command {
             session: self,
-            inner: self.0.raw_command(program),
+            imp: match &self.0 {
+                SessionImp::ProcessImpl(imp) => imp.raw_command(program).into(),
+
+                #[cfg(feature = "mux_client")]
+                SessionImp::MuxClientImpl(imp) => imp.raw_command(program).into(),
+            },
         }
     }
 
@@ -138,7 +184,12 @@ impl Session {
     pub fn shell<S: AsRef<str>>(&self, command: S) -> Command<'_> {
         Command {
             session: self,
-            inner: self.0.shell(command),
+            imp: match &self.0 {
+                SessionImp::ProcessImpl(imp) => imp.shell(command).into(),
+
+                #[cfg(feature = "mux_client")]
+                SessionImp::MuxClientImpl(imp) => imp.shell(command).into(),
+            },
         }
     }
 
@@ -154,13 +205,19 @@ impl Session {
         listen_socket: Socket<'_>,
         connect_socket: Socket<'_>,
     ) -> Result<()> {
-        self.0
-            .request_port_forward(
-                forward_type.into(),
-                &listen_socket.into(),
-                &connect_socket.into(),
-            )
-            .await
+        match &self.0 {
+            SessionImp::ProcessImpl(_imp) => unimplemented!(),
+
+            #[cfg(feature = "mux_client")]
+            SessionImp::MuxClientImpl(imp) => {
+                imp.request_port_forward(
+                    forward_type.into(),
+                    &listen_socket.into(),
+                    &connect_socket.into(),
+                )
+                .await
+            }
+        }
     }
 
     /// Prepare to perform file operations on the remote host.
@@ -172,6 +229,11 @@ impl Session {
 
     /// Terminate the remote connection.
     pub async fn close(self) -> Result<()> {
-        self.0.close().await
+        match self.0 {
+            SessionImp::ProcessImpl(imp) => imp.close().await,
+
+            #[cfg(feature = "mux_client")]
+            SessionImp::MuxClientImpl(imp) => imp.close().await,
+        }
     }
 }

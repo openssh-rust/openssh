@@ -141,20 +141,6 @@ impl SessionBuilder {
         (Cow::Owned(with_overrides), destination)
     }
 
-    #[cfg(not(feature = "mux_client"))]
-    pub(crate) async fn just_connect<S: AsRef<str>>(&self, host: S) -> Result<Session> {
-        Ok(Session(
-            super::process_impl::builder::just_connect(self, host).await?,
-        ))
-    }
-
-    #[cfg(feature = "mux_client")]
-    pub(crate) async fn just_connect<S: AsRef<str>>(&self, host: S) -> Result<Session> {
-        Ok(Session(
-            super::mux_client_impl::builder::just_connect(self, host).await?,
-        ))
-    }
-
     /// Connect to the host at the given `host` over SSH.
     ///
     /// The format of `destination` is the same as the `destination` argument to `ssh`. It may be
@@ -169,6 +155,36 @@ impl SessionBuilder {
         let destination = destination.as_ref();
         let (builder, destination) = self.resolve(destination);
         builder.just_connect(destination).await
+    }
+
+    pub(crate) async fn just_connect<S: AsRef<str>>(&self, host: S) -> Result<Session> {
+        Ok(Session::new_process_imp(
+            super::process_impl::builder::just_connect(self, host).await?,
+        ))
+    }
+
+    /// Connect to the host at the given `host` over SSH.
+    ///
+    /// The format of `destination` is the same as the `destination` argument to `ssh`. It may be
+    /// specified as either `[user@]hostname` or a URI of the form `ssh://[user@]hostname[:port]`.
+    /// A username or port that is specified in the connection string overrides the one set in the
+    /// builder (but does not change the builder).
+    ///
+    /// If connecting requires interactive authentication based on `STDIN` (such as reading a
+    /// password), the connection will fail. Consider setting up keypair-based authentication
+    /// instead.
+    #[cfg(feature = "mux_client")]
+    pub async fn connect_mux<S: AsRef<str>>(&self, destination: S) -> Result<Session> {
+        let destination = destination.as_ref();
+        let (builder, destination) = self.resolve(destination);
+        builder.just_connect_mux(destination).await
+    }
+
+    #[cfg(feature = "mux_client")]
+    pub(crate) async fn just_connect_mux<S: AsRef<str>>(&self, host: S) -> Result<Session> {
+        Ok(Session::new_mux_client_imp(
+            super::mux_client_impl::builder::just_connect(self, host).await?,
+        ))
     }
 }
 

@@ -1,7 +1,29 @@
-use super::{ChildStderr, ChildStdin, ChildStdout, Result, Session};
+use super::{ChildStderr, ChildStdin, ChildStdout, Error, Result, Session};
 
 use std::io;
 use std::process::{ExitStatus, Output};
+
+use tokio::io::AsyncReadExt;
+
+#[derive(Debug)]
+pub(crate) enum RemoteChildImp {
+    ProcessImpl(super::process_impl::RemoteChild),
+
+    #[cfg(feature = "mux_client")]
+    MuxClientImpl(super::mux_client_impl::RemoteChild),
+}
+impl From<super::process_impl::RemoteChild> for RemoteChildImp {
+    fn from(imp: super::process_impl::RemoteChild) -> Self {
+        RemoteChildImp::ProcessImpl(imp)
+    }
+}
+
+#[cfg(feature = "mux_client")]
+impl From<super::mux_client_impl::RemoteChild> for RemoteChildImp {
+    fn from(imp: super::mux_client_impl::RemoteChild) -> Self {
+        RemoteChildImp::MuxClientImpl(imp)
+    }
+}
 
 /// Representation of a running or exited remote child process.
 ///
@@ -35,16 +57,42 @@ use std::process::{ExitStatus, Output};
 /// ```
 #[derive(Debug)]
 pub struct RemoteChild<'s> {
-    pub(crate) session: &'s Session,
+    session: &'s Session,
+    imp: RemoteChildImp,
 
-    #[cfg(not(feature = "mux_client"))]
-    pub(crate) inner: super::process_impl::RemoteChild,
-
-    #[cfg(feature = "mux_client")]
-    pub(crate) inner: super::mux_client_impl::RemoteChild,
+    stdin: Option<ChildStdin>,
+    stdout: Option<ChildStdout>,
+    stderr: Option<ChildStderr>,
 }
 
 impl<'s> RemoteChild<'s> {
+    pub(crate) fn new(session: &'s Session, mut imp: RemoteChildImp) -> Self {
+        Self {
+            session,
+
+            stdin: match &mut imp {
+                RemoteChildImp::ProcessImpl(imp) => imp.stdin().take().map(|val| val.into()),
+
+                #[cfg(feature = "mux_client")]
+                RemoteChildImp::MuxClientImpl(imp) => imp.stdin().take().map(|val| val.into()),
+            },
+            stdout: match &mut imp {
+                RemoteChildImp::ProcessImpl(imp) => imp.stdout().take().map(|val| val.into()),
+
+                #[cfg(feature = "mux_client")]
+                RemoteChildImp::MuxClientImpl(imp) => imp.stdout().take().map(|val| val.into()),
+            },
+            stderr: match &mut imp {
+                RemoteChildImp::ProcessImpl(imp) => imp.stderr().take().map(|val| val.into()),
+
+                #[cfg(feature = "mux_client")]
+                RemoteChildImp::MuxClientImpl(imp) => imp.stderr().take().map(|val| val.into()),
+            },
+
+            imp,
+        }
+    }
+
     /// Access the SSH session that this remote process was spawned from.
     pub fn session(&self) -> &'s Session {
         self.session
@@ -55,7 +103,12 @@ impl<'s> RemoteChild<'s> {
     /// Note that disconnecting does _not_ kill the remote process, it merely kills the local
     /// handle to that remote process.
     pub async fn disconnect(self) -> io::Result<()> {
-        self.inner.disconnect().await
+        match self.imp {
+            RemoteChildImp::ProcessImpl(imp) => imp.disconnect().await,
+
+            #[cfg(feature = "mux_client")]
+            RemoteChildImp::MuxClientImpl(imp) => imp.disconnect().await,
+        }
     }
 
     /// Waits for the remote child to exit completely, returning the status that it exited with.
@@ -67,7 +120,12 @@ impl<'s> RemoteChild<'s> {
     /// avoid deadlock: it ensures that the child does not block waiting for input from the parent,
     /// while the parent waits for the child to exit.
     pub async fn wait(&mut self) -> Result<ExitStatus> {
-        self.inner.wait().await
+        match &mut self.imp {
+            RemoteChildImp::ProcessImpl(imp) => imp.wait().await,
+
+            #[cfg(feature = "mux_client")]
+            RemoteChildImp::MuxClientImpl(imp) => imp.wait().await,
+        }
     }
 
     /// Attempts to collect the exit status of the remote child if it has already exited.
@@ -82,9 +140,15 @@ impl<'s> RemoteChild<'s> {
     /// returned.
     ///
     /// Note that unlike `wait`, this function will not attempt to drop stdin.
-    #[cfg(not(feature = "mux_client"))]
+    ///
+    /// Also, this function is unimplemented!() for mux_client_impl.
     pub fn try_wait(&mut self) -> Result<Option<ExitStatus>> {
-        self.inner.try_wait()
+        match &mut self.imp {
+            RemoteChildImp::ProcessImpl(imp) => imp.try_wait(),
+
+            #[cfg(feature = "mux_client")]
+            RemoteChildImp::MuxClientImpl(_imp) => unimplemented!(),
+        }
     }
 
     /// Simultaneously waits for the remote child to exit and collect all remaining output on the
@@ -97,23 +161,49 @@ impl<'s> RemoteChild<'s> {
     /// By default, stdin, stdout and stderr are inherited from the parent. In order to capture the
     /// output into this `Result<Output>` it is necessary to create new pipes between parent and
     /// child. Use `stdout(Stdio::piped())` or `stderr(Stdio::piped())`, respectively.
-    pub async fn wait_with_output(self) -> Result<Output> {
-        self.inner.wait_with_output().await
+    pub async fn wait_with_output(mut self) -> Result<Output> {
+        // Close stdin so that if the remote process is reading stdin,
+        // it would return EOF and the remote process can exit.
+        self.stdin().take();
+
+        let status = self.wait().await?;
+
+        let mut output = Output {
+            status,
+            stdout: Vec::new(),
+            stderr: Vec::new(),
+        };
+
+        if let Some(mut child_stdout) = self.stdout {
+            child_stdout
+                .read_to_end(&mut output.stdout)
+                .await
+                .map_err(Error::IOError)?;
+        }
+
+        if let Some(mut child_stderr) = self.stderr {
+            child_stderr
+                .read_to_end(&mut output.stderr)
+                .await
+                .map_err(Error::IOError)?;
+        }
+
+        Ok(output)
     }
 
     /// Access the handle for reading from the remote child's standard input (stdin), if requested.
     pub fn stdin(&mut self) -> &mut Option<ChildStdin> {
-        self.inner.stdin()
+        &mut self.stdin
     }
 
     /// Access the handle for reading from the remote child's standard output (stdout), if
     /// requested.
     pub fn stdout(&mut self) -> &mut Option<ChildStdout> {
-        self.inner.stdout()
+        &mut self.stdout
     }
 
     /// Access the handle for reading from the remote child's standard error (stderr), if requested.
     pub fn stderr(&mut self) -> &mut Option<ChildStderr> {
-        self.inner.stderr()
+        &mut self.stderr
     }
 }

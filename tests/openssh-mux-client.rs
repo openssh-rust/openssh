@@ -34,7 +34,9 @@ fn addr() -> &'static str {
 #[tokio::test]
 #[cfg_attr(not(ci), ignore)]
 async fn it_connects() {
-    let session = Session::connect(&addr(), KnownHosts::Accept).await.unwrap();
+    let session = Session::connect_mux(&addr(), KnownHosts::Accept)
+        .await
+        .unwrap();
     session.check().await.unwrap();
     session.close().await.unwrap();
 }
@@ -47,7 +49,7 @@ async fn control_dir() {
     std::fs::create_dir(dirname).unwrap();
     let session = SessionBuilder::default()
         .control_directory(&dirname)
-        .connect(&addr())
+        .connect_mux(&addr())
         .await
         .unwrap();
     session.check().await.unwrap();
@@ -162,7 +164,7 @@ async fn config_file() {
     let session = SessionBuilder::default()
         .known_hosts_check(KnownHosts::Accept)
         .config_file(&ssh_config_file)
-        .connect("config-file-test") // this host name is resolved by the custom ssh_config.
+        .connect_mux("config-file-test") // this host name is resolved by the custom ssh_config.
         .await
         .unwrap();
     session.check().await.unwrap();
@@ -173,14 +175,20 @@ async fn config_file() {
 #[tokio::test]
 #[cfg_attr(not(ci), ignore)]
 async fn terminate_on_drop() {
-    drop(Session::connect(&addr(), KnownHosts::Add).await.unwrap());
+    drop(
+        Session::connect_mux(&addr(), KnownHosts::Add)
+            .await
+            .unwrap(),
+    );
     // NOTE: how do we test that it actually killed the master here?
 }
 
 #[tokio::test]
 #[cfg_attr(not(ci), ignore)]
 async fn stdout() {
-    let session = Session::connect(&addr(), KnownHosts::Accept).await.unwrap();
+    let session = Session::connect_mux(&addr(), KnownHosts::Accept)
+        .await
+        .unwrap();
 
     let child = session.command("echo").arg("foo").output().await.unwrap();
     assert_eq!(child.stdout, b"foo\n");
@@ -201,7 +209,9 @@ async fn stdout() {
 #[tokio::test]
 #[cfg_attr(not(ci), ignore)]
 async fn shell() {
-    let session = Session::connect(&addr(), KnownHosts::Accept).await.unwrap();
+    let session = Session::connect_mux(&addr(), KnownHosts::Accept)
+        .await
+        .unwrap();
 
     let child = session.shell("echo $USER").output().await.unwrap();
     assert_eq!(child.stdout, b"test-user\n");
@@ -238,7 +248,9 @@ async fn shell() {
 #[tokio::test]
 #[cfg_attr(not(ci), ignore)]
 async fn stderr() {
-    let session = Session::connect(&addr(), KnownHosts::Accept).await.unwrap();
+    let session = Session::connect_mux(&addr(), KnownHosts::Accept)
+        .await
+        .unwrap();
 
     let child = session.command("echo").arg("foo").output().await.unwrap();
     assert!(child.stderr.is_empty());
@@ -259,7 +271,9 @@ async fn stderr() {
 #[tokio::test]
 #[cfg_attr(not(ci), ignore)]
 async fn stdin() {
-    let session = Session::connect(&addr(), KnownHosts::Accept).await.unwrap();
+    let session = Session::connect_mux(&addr(), KnownHosts::Accept)
+        .await
+        .unwrap();
 
     let mut child = session
         .command("cat")
@@ -308,7 +322,9 @@ macro_rules! assert_kind {
 #[tokio::test]
 #[cfg_attr(not(ci), ignore)]
 async fn sftp_can() {
-    let session = Session::connect(&addr(), KnownHosts::Accept).await.unwrap();
+    let session = Session::connect_mux(&addr(), KnownHosts::Accept)
+        .await
+        .unwrap();
 
     let mut sftp = session.sftp();
 
@@ -373,7 +389,9 @@ async fn sftp_can() {
 #[tokio::test]
 #[cfg_attr(not(ci), ignore)]
 async fn sftp() {
-    let session = Session::connect(&addr(), KnownHosts::Accept).await.unwrap();
+    let session = Session::connect_mux(&addr(), KnownHosts::Accept)
+        .await
+        .unwrap();
 
     let mut sftp = session.sftp();
 
@@ -443,7 +461,9 @@ async fn sftp() {
 #[tokio::test]
 #[cfg_attr(not(ci), ignore)]
 async fn bad_remote_command() {
-    let session = Session::connect(&addr(), KnownHosts::Accept).await.unwrap();
+    let session = Session::connect_mux(&addr(), KnownHosts::Accept)
+        .await
+        .unwrap();
 
     // a bad remote command should result in a _local_ error.
     let failed = session.command("no such program").output().await.unwrap();
@@ -477,7 +497,7 @@ async fn connect_timeout() {
     let mut sb = SessionBuilder::default();
     let failed = sb
         .connect_timeout(Duration::from_secs(1))
-        .connect("192.0.0.8")
+        .connect_mux("192.0.0.8")
         .await
         .unwrap_err();
     assert!(t.elapsed() > Duration::from_secs(1));
@@ -491,7 +511,9 @@ async fn connect_timeout() {
 async fn spawn_and_wait() {
     use std::time::{Duration, Instant};
 
-    let session = Session::connect(&addr(), KnownHosts::Accept).await.unwrap();
+    let session = Session::connect_mux(&addr(), KnownHosts::Accept)
+        .await
+        .unwrap();
 
     let t = Instant::now();
     let sleeping1 = session.command("sleep").arg("1").spawn().await.unwrap();
@@ -513,7 +535,9 @@ async fn spawn_and_wait() {
 #[tokio::test]
 #[cfg_attr(not(ci), ignore)]
 async fn escaping() {
-    let session = Session::connect(&addr(), KnownHosts::Accept).await.unwrap();
+    let session = Session::connect_mux(&addr(), KnownHosts::Accept)
+        .await
+        .unwrap();
 
     let status = dbg!(session
         .command("printf")
@@ -571,7 +595,9 @@ async fn escaping() {
 #[tokio::test]
 #[cfg_attr(not(ci), ignore)]
 async fn process_exit_on_signal() {
-    let session = Session::connect(&addr(), KnownHosts::Accept).await.unwrap();
+    let session = Session::connect_mux(&addr(), KnownHosts::Accept)
+        .await
+        .unwrap();
 
     let mut sleeping = session.command("sleep").arg("5566").spawn().await.unwrap();
 
@@ -606,7 +632,7 @@ async fn process_exit_on_signal() {
 
 #[tokio::test]
 async fn cannot_resolve() {
-    match Session::connect("bad-host", KnownHosts::Accept)
+    match Session::connect_mux("bad-host", KnownHosts::Accept)
         .await
         .unwrap_err()
     {
@@ -620,7 +646,7 @@ async fn cannot_resolve() {
 
 #[tokio::test]
 async fn no_route() {
-    match Session::connect("255.255.255.255", KnownHosts::Accept)
+    match Session::connect_mux("255.255.255.255", KnownHosts::Accept)
         .await
         .unwrap_err()
     {
@@ -634,7 +660,7 @@ async fn no_route() {
 
 #[tokio::test]
 async fn connection_refused() {
-    match Session::connect("ssh://127.0.0.1:9", KnownHosts::Accept)
+    match Session::connect_mux("ssh://127.0.0.1:9", KnownHosts::Accept)
         .await
         .unwrap_err()
     {
@@ -655,7 +681,7 @@ async fn auth_failed() {
         String::from("ssh://openssh-tester@login.csail.mit.edu")
     };
 
-    match Session::connect(&addr, KnownHosts::Accept)
+    match Session::connect_mux(&addr, KnownHosts::Accept)
         .await
         .unwrap_err()
     {
@@ -675,7 +701,7 @@ async fn auth_failed() {
 //
 //#[tokio::test]
 //async fn remote_socket_forward() {
-//    let session = Session::connect(&addr(), KnownHosts::Accept).await.unwrap();
+//    let session = Session::connect_mux(&addr(), KnownHosts::Accept).await.unwrap();
 //
 //    let output_listener = TcpListener::bind(("127.0.0.1", 1234)).await.unwrap();
 //
@@ -727,7 +753,7 @@ async fn auth_failed() {
 //
 //#[tokio::test]
 //async fn local_socket_forward() {
-//    let session = Session::connect(&addr(), KnownHosts::Accept).await.unwrap();
+//    let session = Session::connect_mux(&addr(), KnownHosts::Accept).await.unwrap();
 //
 //    eprintln!("Creating remote process");
 //    let cmd = "echo -e '0\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n' | nc -l -p 1433 >/dev/stderr";

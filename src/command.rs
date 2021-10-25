@@ -5,6 +5,26 @@ use super::Stdio;
 use std::ffi::OsStr;
 use std::process;
 
+#[derive(Debug)]
+pub(crate) enum CommandImp {
+    ProcessImpl(super::process_impl::Command),
+
+    #[cfg(feature = "mux_client")]
+    MuxClientImpl(super::mux_client_impl::Command),
+}
+impl From<super::process_impl::Command> for CommandImp {
+    fn from(imp: super::process_impl::Command) -> Self {
+        CommandImp::ProcessImpl(imp)
+    }
+}
+
+#[cfg(feature = "mux_client")]
+impl From<super::mux_client_impl::Command> for CommandImp {
+    fn from(imp: super::mux_client_impl::Command) -> Self {
+        CommandImp::MuxClientImpl(imp)
+    }
+}
+
 /// A remote process builder, providing fine-grained control over how a new remote process should
 /// be spawned.
 ///
@@ -39,12 +59,7 @@ use std::process;
 #[derive(Debug)]
 pub struct Command<'s> {
     pub(crate) session: &'s super::Session,
-
-    #[cfg(not(feature = "mux_client"))]
-    pub(crate) inner: super::process_impl::Command,
-
-    #[cfg(feature = "mux_client")]
-    pub(crate) inner: super::mux_client_impl::Command,
+    pub(crate) imp: CommandImp,
 }
 
 impl<'s> Command<'s> {
@@ -72,7 +87,16 @@ impl<'s> Command<'s> {
     ///
     /// To pass multiple arguments see [`args`](Command::args).
     pub fn arg<S: AsRef<str>>(&mut self, arg: S) -> &mut Self {
-        self.inner.arg(arg);
+        match &mut self.imp {
+            CommandImp::ProcessImpl(imp) => {
+                imp.arg(arg);
+            }
+
+            #[cfg(feature = "mux_client")]
+            CommandImp::MuxClientImpl(imp) => {
+                imp.arg(arg);
+            }
+        };
         self
     }
 
@@ -85,7 +109,16 @@ impl<'s> Command<'s> {
     ///
     /// To pass multiple unescaped arguments see [`raw_args`](Command::raw_args).
     pub fn raw_arg<S: AsRef<OsStr>>(&mut self, arg: S) -> &mut Self {
-        self.inner.raw_arg(arg);
+        match &mut self.imp {
+            CommandImp::ProcessImpl(imp) => {
+                imp.raw_arg(arg);
+            }
+
+            #[cfg(feature = "mux_client")]
+            CommandImp::MuxClientImpl(imp) => {
+                imp.raw_arg(arg);
+            }
+        };
         self
     }
 
@@ -134,7 +167,16 @@ impl<'s> Command<'s> {
     /// [`null`]: struct.Stdio.html#method.null
     /// [`piped`]: struct.Stdio.html#method.piped
     pub fn stdin<T: Into<Stdio>>(&mut self, cfg: T) -> &mut Self {
-        self.inner.stdin(cfg.into());
+        match &mut self.imp {
+            CommandImp::ProcessImpl(imp) => {
+                imp.stdin(cfg.into());
+            }
+
+            #[cfg(feature = "mux_client")]
+            CommandImp::MuxClientImpl(imp) => {
+                imp.stdin(cfg.into());
+            }
+        };
         self
     }
 
@@ -146,7 +188,16 @@ impl<'s> Command<'s> {
     /// [`null`]: struct.Stdio.html#method.null
     /// [`piped`]: struct.Stdio.html#method.piped
     pub fn stdout<T: Into<Stdio>>(&mut self, cfg: T) -> &mut Self {
-        self.inner.stdout(cfg.into());
+        match &mut self.imp {
+            CommandImp::ProcessImpl(imp) => {
+                imp.stdout(cfg.into());
+            }
+
+            #[cfg(feature = "mux_client")]
+            CommandImp::MuxClientImpl(imp) => {
+                imp.stdout(cfg.into());
+            }
+        };
         self
     }
 
@@ -158,7 +209,16 @@ impl<'s> Command<'s> {
     /// [`null`]: struct.Stdio.html#method.null
     /// [`piped`]: struct.Stdio.html#method.piped
     pub fn stderr<T: Into<Stdio>>(&mut self, cfg: T) -> &mut Self {
-        self.inner.stderr(cfg.into());
+        match &mut self.imp {
+            CommandImp::ProcessImpl(imp) => {
+                imp.stderr(cfg.into());
+            }
+
+            #[cfg(feature = "mux_client")]
+            CommandImp::MuxClientImpl(imp) => {
+                imp.stderr(cfg.into());
+            }
+        };
         self
     }
 
@@ -168,15 +228,15 @@ impl<'s> Command<'s> {
     ///
     /// After this function, stdin, stdout and stderr is reset.
     pub async fn spawn(&mut self) -> Result<RemoteChild<'s>> {
-        Ok(RemoteChild {
-            session: self.session,
+        Ok(RemoteChild::new(
+            self.session,
+            match &mut self.imp {
+                CommandImp::ProcessImpl(imp) => imp.spawn()?.into(),
 
-            #[cfg(not(feature = "mux_client"))]
-            inner: self.inner.spawn()?,
-
-            #[cfg(feature = "mux_client")]
-            inner: self.inner.spawn().await?,
-        })
+                #[cfg(feature = "mux_client")]
+                CommandImp::MuxClientImpl(imp) => imp.spawn().await?.into(),
+            },
+        ))
     }
 
     /// Executes the remote command, waiting for it to finish and collecting all of its output.

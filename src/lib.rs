@@ -119,7 +119,7 @@ pub type Result<T, Err = Error> = std::result::Result<T, Err>;
 mod fd;
 
 mod stdio;
-pub use stdio::Stdio;
+pub use stdio::{ChildStderr, ChildStdin, ChildStdout, Stdio};
 
 mod builder;
 pub use builder::{KnownHosts, SessionBuilder};
@@ -137,18 +137,11 @@ mod sftp;
 pub use sftp::{Mode, RemoteFile, Sftp};
 
 /// process_impl
-#[cfg(not(feature = "mux_client"))]
 pub mod process_impl;
-
-#[cfg(not(feature = "mux_client"))]
-pub use tokio::process::{ChildStderr, ChildStdin, ChildStdout};
 
 /// mux_client_impl
 #[cfg(feature = "mux_client")]
 pub mod mux_client_impl;
-
-#[cfg(feature = "mux_client")]
-pub use mux_client_impl::{ChildStderr, ChildStdin, ChildStdout};
 
 #[cfg(feature = "mux_client")]
 mod port_forwarding;
