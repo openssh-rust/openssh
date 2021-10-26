@@ -111,10 +111,8 @@
     unreachable_pub
 )]
 
-mod error;
-pub use error::Error;
-/// Typedef just like std::io::Error
-pub type Result<T, Err = Error> = std::result::Result<T, Err>;
+use std::borrow::Cow;
+use std::ffi::OsStr;
 
 mod fd;
 
@@ -129,6 +127,11 @@ pub use command::Command;
 
 mod child;
 pub use child::RemoteChild;
+
+mod error;
+pub use error::Error;
+/// Typedef just like std::io::Error
+pub type Result<T, Err = Error> = std::result::Result<T, Err>;
 
 mod sftp;
 pub use sftp::{Mode, RemoteFile, Sftp};
@@ -145,9 +148,6 @@ mod port_forwarding;
 
 #[cfg(feature = "mux_client")]
 pub use port_forwarding::*;
-
-use std::borrow::Cow;
-use std::ffi::OsStr;
 
 #[derive(Debug)]
 enum SessionImp {
