@@ -1,4 +1,4 @@
-use super::{Error, Result};
+use super::Error;
 
 use std::io;
 use tokio::process;
@@ -23,7 +23,7 @@ impl RemoteChild {
         Ok(())
     }
 
-    pub async fn wait(&mut self) -> Result<std::process::ExitStatus> {
+    pub async fn wait(&mut self) -> Result<std::process::ExitStatus, Error> {
         match self.channel.as_mut().unwrap().wait().await {
             Err(e) => Err(Error::Remote(e)),
             Ok(w) => match w.code() {
@@ -37,7 +37,7 @@ impl RemoteChild {
         }
     }
 
-    pub fn try_wait(&mut self) -> Result<Option<std::process::ExitStatus>> {
+    pub fn try_wait(&mut self) -> Result<Option<std::process::ExitStatus>, Error> {
         match self.channel.as_mut().unwrap().try_wait() {
             Err(e) => Err(Error::Remote(e)),
             Ok(None) => Ok(None),
@@ -52,7 +52,7 @@ impl RemoteChild {
         }
     }
 
-    pub async fn wait_with_output(mut self) -> Result<std::process::Output> {
+    pub async fn wait_with_output(mut self) -> Result<std::process::Output, Error> {
         match self.channel.take().unwrap().wait_with_output().await {
             Err(e) => Err(Error::Remote(e)),
             Ok(w) => match w.status.code() {

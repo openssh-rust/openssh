@@ -1,5 +1,5 @@
 use super::super::SessionBuilder;
-use super::{Error, Result, Session};
+use super::{Error, Session};
 
 use std::path::Path;
 use std::process::Stdio;
@@ -11,7 +11,7 @@ use tokio::process;
 pub(crate) async fn just_connect<S: AsRef<str>>(
     builder: &SessionBuilder,
     host: S,
-) -> Result<Session> {
+) -> Result<Session, Error> {
     let destination = host.as_ref();
 
     let defaultdir = Path::new("./").to_path_buf();

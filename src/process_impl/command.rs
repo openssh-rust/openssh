@@ -1,5 +1,5 @@
+use super::Error;
 use super::RemoteChild;
-use super::{Error, Result};
 
 use std::borrow::Cow;
 use std::ffi::OsStr;
@@ -76,7 +76,7 @@ impl Command {
         self
     }
 
-    pub fn spawn(&mut self) -> Result<RemoteChild> {
+    pub fn spawn(&mut self) -> Result<RemoteChild, Error> {
         // Make defaults match our defaults.
         if !self.stdin_set {
             self.builder.stdin(Stdio::null());
@@ -93,7 +93,7 @@ impl Command {
         Ok(RemoteChild::new(child))
     }
 
-    pub async fn output(&mut self) -> Result<std::process::Output> {
+    pub async fn output(&mut self) -> Result<std::process::Output, Error> {
         // Make defaults match our defaults.
         if !self.stdin_set {
             self.builder.stdin(Stdio::null());
@@ -116,7 +116,7 @@ impl Command {
         }
     }
 
-    pub async fn status(&mut self) -> Result<std::process::ExitStatus> {
+    pub async fn status(&mut self) -> Result<std::process::ExitStatus, Error> {
         // Make defaults match our defaults.
         if !self.stdin_set {
             self.builder.stdin(Stdio::null());
