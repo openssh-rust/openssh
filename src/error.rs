@@ -1,46 +1,38 @@
+use std::fmt;
 use std::io;
-
-use thiserror::Error;
 
 #[cfg(feature = "mux_client")]
 use openssh_mux_client::connection;
 
 /// Errors that occur when interacting with a remote process.
-#[derive(Debug, Error)]
+#[derive(Debug)]
 pub enum Error {
     /// The master connection failed.
-    #[error("the master connection failed")]
-    Master(#[source] io::Error),
+    Master(io::Error),
 
     /// Failed to establish initial connection to the remote host.
-    #[error("failed to establish initial connection to the remote host")]
-    Connect(#[source] io::Error),
+    Connect(io::Error),
 
     /// failed to establish initial connection to the remote host
-    #[error("failed to establish initial connection to the remote host")]
-    Ssh(#[source] io::Error),
+    Ssh(io::Error),
 
     /// Failed to connect to the ssh multiplex server.
     #[cfg(feature = "mux_client")]
-    #[error("failed to connect to the ssh multiplex server")]
-    SshMux(#[source] connection::Error),
+    SshMux(connection::Error),
 
     /// The remote process failed.
-    #[error("the remote process failed")]
-    Remote(#[source] io::Error),
+    Remote(io::Error),
 
     /// The connection to the remote host was severed.
-    #[error("the connection was terminated")]
     Disconnected,
 
     /// Failed to remove temporary dir.
-    #[error("failed to remove temporary dir")]
-    RemoveTempDir(#[source] io::Error),
+    RemoveTempDir(io::Error),
 
     /// IO Error when creating/reading/writing from ChildStdin, ChildStdout, ChildStderr.
-    #[error("IO Error when creating/reading/writing from ChildStdin, ChildStdout, ChildStderr")]
-    IOError(#[source] io::Error),
+    IOError(io::Error),
 }
+
 #[cfg(feature = "mux_client")]
 impl From<connection::Error> for Error {
     fn from(err: connection::Error) -> Self {
@@ -60,6 +52,43 @@ impl From<connection::Error> for Error {
                 _ => Error::SshMux(err),
             },
             _ => Error::SshMux(err),
+        }
+    }
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match *self {
+            Error::Master(_) => write!(f, "the master connection failed"),
+            Error::Connect(_) => write!(f, "failed to connect to the remote host"),
+            Error::Ssh(_) => write!(f, "the local ssh command could not be executed"),
+            Error::Remote(_) => write!(f, "the remote command could not be executed"),
+            Error::Disconnected => write!(f, "the connection was terminated"),
+            Error::RemoveTempDir(_) => write!(f, "failed to remove temporary directory"),
+            Error::IOError(_) => write!(
+                f,
+                "IO Error when creating/reading/writing from ChildStdin, ChildStdout, ChildStderr"
+            ),
+
+            #[cfg(feature = "mux_client")]
+            Error::SshMux(_) => write!(f, "failed to connect to the ssh multiplex server"),
+        }
+    }
+}
+
+impl std::error::Error for Error {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match *self {
+            Error::Master(ref e)
+            | Error::Connect(ref e)
+            | Error::Ssh(ref e)
+            | Error::Remote(ref e)
+            | Error::RemoveTempDir(ref e)
+            | Error::IOError(ref e) => Some(e),
+            Error::Disconnected => None,
+
+            #[cfg(feature = "mux_client")]
+            Error::SshMux(ref e) => Some(e),
         }
     }
 }
