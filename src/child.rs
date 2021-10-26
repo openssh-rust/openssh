@@ -1,4 +1,4 @@
-use super::{ChildStderr, ChildStdin, ChildStdout, Error, Result, Session};
+use super::{ChildStderr, ChildStdin, ChildStdout, Error, Session};
 
 use std::io;
 use std::process::{ExitStatus, Output};
@@ -119,7 +119,7 @@ impl<'s> RemoteChild<'s> {
     /// The stdin handle to the child process, if any, will be closed before waiting. This helps
     /// avoid deadlock: it ensures that the child does not block waiting for input from the parent,
     /// while the parent waits for the child to exit.
-    pub async fn wait(&mut self) -> Result<ExitStatus> {
+    pub async fn wait(&mut self) -> Result<ExitStatus, Error> {
         match &mut self.imp {
             RemoteChildImp::ProcessImpl(imp) => imp.wait().await,
 
@@ -142,7 +142,7 @@ impl<'s> RemoteChild<'s> {
     /// Note that unlike `wait`, this function will not attempt to drop stdin.
     ///
     /// Also, this function is unimplemented!() for mux_client_impl.
-    pub fn try_wait(&mut self) -> Result<Option<ExitStatus>> {
+    pub fn try_wait(&mut self) -> Result<Option<ExitStatus>, Error> {
         match &mut self.imp {
             RemoteChildImp::ProcessImpl(imp) => imp.try_wait(),
 
@@ -161,7 +161,7 @@ impl<'s> RemoteChild<'s> {
     /// By default, stdin, stdout and stderr are inherited from the parent. In order to capture the
     /// output into this `Result<Output>` it is necessary to create new pipes between parent and
     /// child. Use `stdout(Stdio::piped())` or `stderr(Stdio::piped())`, respectively.
-    pub async fn wait_with_output(mut self) -> Result<Output> {
+    pub async fn wait_with_output(mut self) -> Result<Output, Error> {
         // Close stdin so that if the remote process is reading stdin,
         // it would return EOF and the remote process can exit.
         self.stdin().take();

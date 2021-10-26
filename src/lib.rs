@@ -130,8 +130,6 @@ pub use child::RemoteChild;
 
 mod error;
 pub use error::Error;
-/// Typedef just like std::io::Error
-pub type Result<T, Err = Error> = std::result::Result<T, Err>;
 
 mod sftp;
 pub use sftp::{Mode, RemoteFile, Sftp};
@@ -189,7 +187,7 @@ impl Session {
     /// instead.
     ///
     /// For more options, see [`SessionBuilder`].
-    pub async fn connect<S: AsRef<str>>(destination: S, check: KnownHosts) -> Result<Self> {
+    pub async fn connect<S: AsRef<str>>(destination: S, check: KnownHosts) -> Result<Self, Error> {
         let mut s = SessionBuilder::default();
         s.known_hosts_check(check);
         s.connect(destination.as_ref()).await
@@ -206,7 +204,10 @@ impl Session {
     ///
     /// For more options, see [`SessionBuilder`].
     #[cfg(feature = "mux_client")]
-    pub async fn connect_mux<S: AsRef<str>>(destination: S, check: KnownHosts) -> Result<Self> {
+    pub async fn connect_mux<S: AsRef<str>>(
+        destination: S,
+        check: KnownHosts,
+    ) -> Result<Self, Error> {
         let mut s = SessionBuilder::default();
         s.known_hosts_check(check);
         s.connect_mux(destination.as_ref()).await
@@ -217,7 +218,7 @@ impl Session {
     /// # Cancel safety
     ///
     /// All methods of this struct is not cancellation safe.
-    pub async fn check(&self) -> Result<()> {
+    pub async fn check(&self) -> Result<(), Error> {
         match &self.0 {
             SessionImp::ProcessImpl(imp) => imp.check().await,
 
@@ -345,7 +346,7 @@ impl Session {
         forward_type: ForwardType,
         listen_socket: Socket<'_>,
         connect_socket: Socket<'_>,
-    ) -> Result<()> {
+    ) -> Result<(), Error> {
         match &self.0 {
             SessionImp::ProcessImpl(_imp) => unimplemented!(),
 
@@ -369,7 +370,7 @@ impl Session {
     }
 
     /// Terminate the remote connection.
-    pub async fn close(self) -> Result<()> {
+    pub async fn close(self) -> Result<(), Error> {
         match self.0 {
             SessionImp::ProcessImpl(imp) => imp.close().await,
 

@@ -1,5 +1,5 @@
+use super::Error;
 use super::RemoteChild;
-use super::Result;
 use super::Stdio;
 
 use std::ffi::OsStr;
@@ -227,7 +227,7 @@ impl<'s> Command<'s> {
     /// By default, stdin is empty, and stdout and stderr are discarded.
     ///
     /// After this function, stdin, stdout and stderr is reset.
-    pub async fn spawn(&mut self) -> Result<RemoteChild<'s>> {
+    pub async fn spawn(&mut self) -> Result<RemoteChild<'s>, Error> {
         Ok(RemoteChild::new(
             self.session,
             match &mut self.imp {
@@ -244,7 +244,7 @@ impl<'s> Command<'s> {
     /// By default, stdout and stderr are captured (and used to provide the resulting output).
     /// Stdin is set to `Stdio::null`, and any attempt by the child process to read from
     /// the stdin stream will result in the stream immediately closing.
-    pub async fn output(&mut self) -> Result<process::Output> {
+    pub async fn output(&mut self) -> Result<process::Output, Error> {
         self.stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
@@ -256,7 +256,7 @@ impl<'s> Command<'s> {
     /// Executes the remote command, waiting for it to finish and collecting its exit status.
     ///
     /// By default, stdin is empty, and stdout and stderr are discarded.
-    pub async fn status(&mut self) -> Result<process::ExitStatus> {
+    pub async fn status(&mut self) -> Result<process::ExitStatus, Error> {
         self.spawn().await?.wait().await
     }
 }

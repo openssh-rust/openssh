@@ -1,4 +1,4 @@
-use super::{Result, Session};
+use super::{Error, Session};
 
 use std::borrow::Cow;
 use std::path::{Path, PathBuf};
@@ -151,13 +151,13 @@ impl SessionBuilder {
     /// If connecting requires interactive authentication based on `STDIN` (such as reading a
     /// password), the connection will fail. Consider setting up keypair-based authentication
     /// instead.
-    pub async fn connect<S: AsRef<str>>(&self, destination: S) -> Result<Session> {
+    pub async fn connect<S: AsRef<str>>(&self, destination: S) -> Result<Session, Error> {
         let destination = destination.as_ref();
         let (builder, destination) = self.resolve(destination);
         builder.just_connect(destination).await
     }
 
-    pub(crate) async fn just_connect<S: AsRef<str>>(&self, host: S) -> Result<Session> {
+    pub(crate) async fn just_connect<S: AsRef<str>>(&self, host: S) -> Result<Session, Error> {
         Ok(Session::new_process_imp(
             super::process_impl::builder::just_connect(self, host).await?,
         ))
@@ -174,14 +174,14 @@ impl SessionBuilder {
     /// password), the connection will fail. Consider setting up keypair-based authentication
     /// instead.
     #[cfg(feature = "mux_client")]
-    pub async fn connect_mux<S: AsRef<str>>(&self, destination: S) -> Result<Session> {
+    pub async fn connect_mux<S: AsRef<str>>(&self, destination: S) -> Result<Session, Error> {
         let destination = destination.as_ref();
         let (builder, destination) = self.resolve(destination);
         builder.just_connect_mux(destination).await
     }
 
     #[cfg(feature = "mux_client")]
-    pub(crate) async fn just_connect_mux<S: AsRef<str>>(&self, host: S) -> Result<Session> {
+    pub(crate) async fn just_connect_mux<S: AsRef<str>>(&self, host: S) -> Result<Session, Error> {
         Ok(Session::new_mux_client_imp(
             super::mux_client_impl::builder::just_connect(self, host).await?,
         ))

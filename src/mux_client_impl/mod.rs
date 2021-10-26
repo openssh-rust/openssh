@@ -17,7 +17,8 @@ use tokio::runtime;
 use openssh_mux_client::connection::Connection;
 pub use openssh_mux_client::connection::{ForwardType, Socket};
 
-use super::{Error, Result};
+use super::Error;
+pub(crate) type Result<T, E = Error> = std::result::Result<T, E>;
 
 pub(crate) mod builder;
 
