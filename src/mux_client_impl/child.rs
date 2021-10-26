@@ -1,4 +1,4 @@
-use super::{ChildStderr, ChildStdin, ChildStdout, Error, Result};
+use super::{ChildStderr, ChildStdin, ChildStdout, Error};
 
 use core::mem::replace;
 
@@ -37,7 +37,7 @@ impl RemoteChild {
         Ok(())
     }
 
-    pub async fn wait(&mut self) -> Result<ExitStatus> {
+    pub async fn wait(&mut self) -> Result<ExitStatus, Error> {
         use RemoteChildState::*;
 
         let exit_status = match self.state.take() {
@@ -63,7 +63,7 @@ impl RemoteChild {
         Ok(exit_status)
     }
 
-    pub async fn wait_with_output(mut self) -> Result<Output> {
+    pub async fn wait_with_output(mut self) -> Result<Output, Error> {
         self.stdin().take();
         let status = self.wait().await?;
 

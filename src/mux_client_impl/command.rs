@@ -1,5 +1,5 @@
+use super::Error;
 use super::RemoteChild;
-use super::Result;
 use super::{as_raw_fd, ChildStderr, ChildStdin, ChildStdout, Stdio};
 
 use std::ffi::OsStr;
@@ -63,12 +63,15 @@ impl Command {
     /// After this function, stdin, stdout and stderr is reset.
     async fn spawn_impl(
         &mut self,
-    ) -> Result<(
-        EstablishedSession,
-        Option<ChildStdin>,
-        Option<ChildStdout>,
-        Option<ChildStderr>,
-    )> {
+    ) -> Result<
+        (
+            EstablishedSession,
+            Option<ChildStdin>,
+            Option<ChildStdout>,
+            Option<ChildStderr>,
+        ),
+        Error,
+    > {
         let (stdin, child_stdin) = self.stdin_v.take().into_stdin()?;
         let (stdout, child_stdout) = self.stdout_v.take().into_stdout()?;
         let (stderr, child_stderr) = self.stderr_v.take().into_stderr()?;
@@ -87,7 +90,7 @@ impl Command {
         Ok((established_session, child_stdin, child_stdout, child_stderr))
     }
 
-    pub async fn spawn(&mut self) -> Result<RemoteChild> {
+    pub async fn spawn(&mut self) -> Result<RemoteChild, Error> {
         let (established_session, child_stdin, child_stdout, child_stderr) =
             self.spawn_impl().await?;
 
@@ -99,7 +102,7 @@ impl Command {
         ))
     }
 
-    pub async fn output(&mut self) -> Result<process::Output> {
+    pub async fn output(&mut self) -> Result<process::Output, Error> {
         self.stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
@@ -108,7 +111,7 @@ impl Command {
             .await
     }
 
-    pub async fn status(&mut self) -> Result<process::ExitStatus> {
+    pub async fn status(&mut self) -> Result<process::ExitStatus, Error> {
         self.spawn().await?.wait().await
     }
 }

@@ -18,7 +18,6 @@ use openssh_mux_client::connection::Connection;
 pub use openssh_mux_client::connection::{ForwardType, Socket};
 
 use super::Error;
-pub(crate) type Result<T, E = Error> = std::result::Result<T, E>;
 
 pub(crate) mod builder;
 
@@ -53,7 +52,7 @@ impl Session {
         self.tempdir.as_ref().unwrap().path().join("log")
     }
 
-    pub async fn check(&self) -> Result<()> {
+    pub async fn check(&self) -> Result<(), Error> {
         Connection::connect(&self.ctl())
             .await?
             .send_alive_check()
@@ -82,7 +81,7 @@ impl Session {
         forward_type: ForwardType,
         listen_socket: &Socket<'_>,
         connect_socket: &Socket<'_>,
-    ) -> Result<()> {
+    ) -> Result<(), Error> {
         Connection::connect(&self.ctl())
             .await?
             .request_port_forward(forward_type, listen_socket, connect_socket)
@@ -91,7 +90,7 @@ impl Session {
         Ok(())
     }
 
-    async fn request_server_shutdown(tempdir: &TempDir) -> Result<()> {
+    async fn request_server_shutdown(tempdir: &TempDir) -> Result<(), Error> {
         Connection::connect(&tempdir.path().join("master"))
             .await?
             .request_stop_listening()
@@ -100,7 +99,7 @@ impl Session {
         Ok(())
     }
 
-    pub async fn close(mut self) -> Result<()> {
+    pub async fn close(mut self) -> Result<(), Error> {
         // This also set self.tempdir to None so that Drop::drop would do nothing.
         let tempdir = self.tempdir.take().unwrap();
 

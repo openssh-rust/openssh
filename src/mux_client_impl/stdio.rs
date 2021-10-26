@@ -2,6 +2,7 @@ use super::Error;
 use super::{Fd, Stdio};
 
 use core::pin::Pin;
+use core::result;
 use core::task::{Context, Poll};
 
 use std::io::{IoSlice, Result};
@@ -13,7 +14,7 @@ use tokio_pipe::{pipe, PipeRead, PipeWrite};
 use crate::stdio::StdioImpl;
 
 impl Stdio {
-    pub(crate) fn into_stdin(self) -> super::Result<(Option<Fd>, Option<ChildStdin>)> {
+    pub(crate) fn into_stdin(self) -> result::Result<(Option<Fd>, Option<ChildStdin>), Error> {
         match self.0 {
             StdioImpl::Null => Ok((None, None)),
             StdioImpl::Pipe => {
@@ -24,7 +25,7 @@ impl Stdio {
         }
     }
 
-    pub(crate) fn into_stdout(self) -> super::Result<(Option<Fd>, Option<ChildStdout>)> {
+    pub(crate) fn into_stdout(self) -> result::Result<(Option<Fd>, Option<ChildStdout>), Error> {
         match self.0 {
             StdioImpl::Null => Ok((None, None)),
             StdioImpl::Pipe => {
@@ -35,7 +36,7 @@ impl Stdio {
         }
     }
 
-    pub(crate) fn into_stderr(self) -> super::Result<(Option<Fd>, Option<ChildStderr>)> {
+    pub(crate) fn into_stderr(self) -> result::Result<(Option<Fd>, Option<ChildStderr>), Error> {
         let (fd, stdout) = self.into_stdout()?;
         Ok((fd, stdout.map(|out| ChildStderr(out.0))))
     }

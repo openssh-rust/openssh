@@ -1,4 +1,4 @@
-use super::{Error, Result, Session};
+use super::{Error, Session};
 use crate::SessionBuilder;
 
 use std::fs;
@@ -14,7 +14,7 @@ use tokio::process;
 pub(crate) async fn just_connect<S: AsRef<str>>(
     builder: &SessionBuilder,
     host: S,
-) -> Result<Session> {
+) -> Result<Session, Error> {
     let destination = host.as_ref();
 
     let defaultdir = Path::new("./");
