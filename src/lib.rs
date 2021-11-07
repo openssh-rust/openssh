@@ -155,6 +155,17 @@ enum SessionImp {
     MuxClientImpl(mux_client_impl::Session),
 }
 
+macro_rules! delegate {
+    ($impl:expr, $var:ident, $then:block) => {{
+        match $impl {
+            SessionImp::ProcessImpl($var) => $then,
+
+            #[cfg(feature = "mux_client")]
+            SessionImp::MuxClientImpl($var) => $then,
+        }
+    }};
+}
+
 /// A single SSH session to a remote host.
 ///
 /// You can use [`command`] to start a new command on the connected machine.
@@ -221,12 +232,7 @@ impl Session {
     ///
     /// All methods of this struct is not cancellation safe.
     pub async fn check(&self) -> Result<(), Error> {
-        match &self.0 {
-            SessionImp::ProcessImpl(imp) => imp.check().await,
-
-            #[cfg(feature = "mux_client")]
-            SessionImp::MuxClientImpl(imp) => imp.check().await,
-        }
+        delegate!(&self.0, imp, { imp.check().await })
     }
 
     /// Constructs a new [`Command`] for launching the program at path `program` on the remote
@@ -249,12 +255,7 @@ impl Session {
     pub fn command<'a, S: Into<Cow<'a, str>>>(&self, program: S) -> Command<'_> {
         Command {
             session: self,
-            imp: match &self.0 {
-                SessionImp::ProcessImpl(imp) => imp.command(program).into(),
-
-                #[cfg(feature = "mux_client")]
-                SessionImp::MuxClientImpl(imp) => imp.command(program).into(),
-            },
+            imp: delegate!(&self.0, imp, { imp.command(program).into() }),
         }
     }
 
@@ -277,12 +278,7 @@ impl Session {
     pub fn raw_command<S: AsRef<OsStr>>(&self, program: S) -> Command<'_> {
         Command {
             session: self,
-            imp: match &self.0 {
-                SessionImp::ProcessImpl(imp) => imp.raw_command(program).into(),
-
-                #[cfg(feature = "mux_client")]
-                SessionImp::MuxClientImpl(imp) => imp.raw_command(program).into(),
-            },
+            imp: delegate!(&self.0, imp, { imp.raw_command(program).into() }),
         }
     }
 
@@ -328,12 +324,7 @@ impl Session {
     pub fn shell<S: AsRef<str>>(&self, command: S) -> Command<'_> {
         Command {
             session: self,
-            imp: match &self.0 {
-                SessionImp::ProcessImpl(imp) => imp.shell(command).into(),
-
-                #[cfg(feature = "mux_client")]
-                SessionImp::MuxClientImpl(imp) => imp.shell(command).into(),
-            },
+            imp: delegate!(&self.0, imp, { imp.shell(command).into() }),
         }
     }
 
@@ -373,11 +364,6 @@ impl Session {
 
     /// Terminate the remote connection.
     pub async fn close(self) -> Result<(), Error> {
-        match self.0 {
-            SessionImp::ProcessImpl(imp) => imp.close().await,
-
-            #[cfg(feature = "mux_client")]
-            SessionImp::MuxClientImpl(imp) => imp.close().await,
-        }
+        delegate!(self.0, imp, { imp.close().await })
     }
 }
