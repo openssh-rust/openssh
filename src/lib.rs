@@ -315,7 +315,9 @@ impl Session {
     ///   [this article]: https://mywiki.wooledge.org/Arguments
     ///   [`shell-escape`]: https://crates.io/crates/shell-escape
     pub fn shell<S: AsRef<str>>(&self, command: S) -> Command<'_> {
-        Command::new(self, delegate!(&self.0, imp, { imp.shell(command).into() }))
+        let mut cmd = self.command("sh");
+        cmd.arg("-c").arg(command);
+        cmd
     }
 
     /// Request to open a local/remote port forwarding.
