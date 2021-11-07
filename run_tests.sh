@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -ex
 
 export HOSTNAME=openssh
 export TEST_HOST=ssh://test-user@`dig +short $HOSTNAME`:2222
@@ -17,7 +17,7 @@ eval $(ssh-agent)
 cat .test-key | ssh-add -
 
 echo Run tests
-rm -r control-test config-file-test .ssh-connection*
+rm -rf control-test config-file-test .ssh-connection*
 
 mkdir -p ci-cargo-home
 
