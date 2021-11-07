@@ -227,10 +227,6 @@ impl Session {
     }
 
     /// Check the status of the underlying SSH connection.
-    ///
-    /// # Cancel safety
-    ///
-    /// All methods of this struct is not cancellation safe.
     pub async fn check(&self) -> Result<(), Error> {
         delegate!(&self.0, imp, { imp.check().await })
     }
