@@ -46,10 +46,6 @@ impl Session {
         self.tempdir.as_ref().unwrap().path().join("master")
     }
 
-    pub(crate) fn get_ssh_log_path(&self) -> path::PathBuf {
-        self.tempdir.as_ref().unwrap().path().join("log")
-    }
-
     pub(crate) async fn check(&self) -> Result<(), Error> {
         Connection::connect(&self.ctl())
             .await?
