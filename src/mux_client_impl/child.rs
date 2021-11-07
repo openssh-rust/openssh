@@ -47,7 +47,7 @@ impl RemoteChild {
                         "openssh::mux_client_impl does not use feature tty by any means"
                     ),
                     SessionStatus::Exited { exit_value } => {
-                        ExitStatusExt::from_raw(exit_value as i32)
+                        ExitStatusExt::from_raw((exit_value as i32) << 8)
                     }
                 },
                 Err((err, established_session)) => {
