@@ -8,41 +8,6 @@ fn addr() -> String {
 
 #[tokio::test]
 #[cfg_attr(not(ci), ignore)]
-async fn shell() {
-    let session = Session::connect(&addr(), KnownHosts::Accept).await.unwrap();
-
-    let child = session.shell("echo $USER").output().await.unwrap();
-    assert_eq!(child.stdout, b"test-user\n");
-
-    let child = session
-        .shell(r#"touch "$USER Documents""#)
-        .status()
-        .await
-        .unwrap();
-    assert!(child.success());
-
-    let child = session
-        .shell(r#"rm test-user\ Documents"#)
-        .status()
-        .await
-        .unwrap();
-    assert!(child.success());
-
-    let child = session.shell("echo \\$SHELL").output().await.unwrap();
-    assert_eq!(child.stdout, b"$SHELL\n");
-
-    let child = session
-        .shell(r#"echo $USER | grep -c test"#)
-        .status()
-        .await
-        .unwrap();
-    assert!(child.success());
-
-    session.close().await.unwrap();
-}
-
-#[tokio::test]
-#[cfg_attr(not(ci), ignore)]
 async fn process_exit_on_signal() {
     let session = Session::connect(&addr(), KnownHosts::Accept).await.unwrap();
 

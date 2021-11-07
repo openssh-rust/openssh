@@ -24,45 +24,6 @@ fn addr() -> &'static str {
 
 #[tokio::test]
 #[cfg_attr(not(ci), ignore)]
-async fn shell() {
-    let session = Session::connect_mux(&addr(), KnownHosts::Accept)
-        .await
-        .unwrap();
-
-    let child = session.shell("echo $USER").output().await.unwrap();
-    assert_eq!(child.stdout, b"test-user\n");
-
-    let child = session
-        .shell(r#"touch "$USER Documents""#)
-        .status()
-        .await
-        .unwrap();
-    assert!(child.success());
-
-    let child = session
-        .shell(r#"rm "test-user Documents""#)
-        .output()
-        .await
-        .unwrap();
-    eprintln!("shell: {:#?}", child);
-    assert!(child.status.success());
-
-    let child = session.shell("echo '\\$SHELL'").output().await.unwrap();
-    assert_eq!(str::from_utf8(&child.stdout).unwrap(), "$SHELL\n");
-
-    let child = session
-        .shell(r#"echo $USER | grep -c test"#)
-        .status()
-        .await
-        .unwrap();
-    eprintln!("shell: {:#?}", child);
-    assert!(child.success());
-
-    session.close().await.unwrap();
-}
-
-#[tokio::test]
-#[cfg_attr(not(ci), ignore)]
 async fn process_exit_on_signal() {
     let session = Session::connect_mux(&addr(), KnownHosts::Accept)
         .await
