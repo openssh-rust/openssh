@@ -213,11 +213,10 @@ impl<'s> Command<'s> {
         self
     }
 
-    /// Executes the remote command without waiting for it, returning a handle to it instead.
+    /// Executes the remote command without waiting for it, returning a handle to it
+    /// instead.
     ///
     /// By default, stdin is empty, and stdout and stderr are discarded.
-    ///
-    /// After this function, stdin, stdout and stderr is reset.
     pub async fn spawn(&mut self) -> Result<RemoteChild<'s>, Error> {
         Ok(RemoteChild::new(
             self.session,

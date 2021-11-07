@@ -5,6 +5,7 @@ use core::pin::Pin;
 use core::result;
 use core::task::{Context, Poll};
 
+use std::fs::File;
 use std::io::{IoSlice, Result};
 use std::os::unix::io::{AsRawFd, IntoRawFd, RawFd};
 
@@ -13,30 +14,34 @@ use tokio_pipe::{pipe, PipeRead, PipeWrite};
 
 use crate::stdio::StdioImpl;
 
+fn dup(file: &File) -> result::Result<File, Error> {
+    file.try_clone().map_err(Error::IOError)
+}
+
 impl Stdio {
-    pub(crate) fn into_stdin(self) -> result::Result<(Option<Fd>, Option<ChildStdin>), Error> {
-        match self.0 {
+    pub(crate) fn into_stdin(&self) -> result::Result<(Option<Fd>, Option<ChildStdin>), Error> {
+        match &self.0 {
             StdioImpl::Null => Ok((None, None)),
             StdioImpl::Pipe => {
                 let (read, write) = pipe().map_err(Error::IOError)?;
                 Ok((Some(into_fd(read)), Some(ChildStdin(write))))
             }
-            StdioImpl::Fd(fd) => Ok((Some(fd), None)),
+            StdioImpl::Fd(fd) => Ok((Some(dup(fd)?), None)),
         }
     }
 
-    pub(crate) fn into_stdout(self) -> result::Result<(Option<Fd>, Option<ChildStdout>), Error> {
-        match self.0 {
+    pub(crate) fn into_stdout(&self) -> result::Result<(Option<Fd>, Option<ChildStdout>), Error> {
+        match &self.0 {
             StdioImpl::Null => Ok((None, None)),
             StdioImpl::Pipe => {
                 let (read, write) = pipe().map_err(Error::IOError)?;
                 Ok((Some(into_fd(write)), Some(ChildStdout(read))))
             }
-            StdioImpl::Fd(fd) => Ok((Some(fd), None)),
+            StdioImpl::Fd(fd) => Ok((Some(dup(fd)?), None)),
         }
     }
 
-    pub(crate) fn into_stderr(self) -> result::Result<(Option<Fd>, Option<ChildStderr>), Error> {
+    pub(crate) fn into_stderr(&self) -> result::Result<(Option<Fd>, Option<ChildStderr>), Error> {
         let (fd, stdout) = self.into_stdout()?;
         Ok((fd, stdout.map(|out| ChildStderr(out.0))))
     }

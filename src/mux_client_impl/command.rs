@@ -71,9 +71,9 @@ impl Command {
         ),
         Error,
     > {
-        let (stdin, child_stdin) = self.stdin_v.take().into_stdin()?;
-        let (stdout, child_stdout) = self.stdout_v.take().into_stdout()?;
-        let (stderr, child_stderr) = self.stderr_v.take().into_stderr()?;
+        let (stdin, child_stdin) = self.stdin_v.into_stdin()?;
+        let (stdout, child_stdout) = self.stdout_v.into_stdout()?;
+        let (stderr, child_stderr) = self.stderr_v.into_stderr()?;
 
         // Then launch!
         let session = Session::builder().cmd(&self.cmd).build();

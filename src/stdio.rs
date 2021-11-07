@@ -1,8 +1,5 @@
 use core::mem::ManuallyDrop;
 
-#[cfg(feature = "mux_client")]
-use core::mem::replace;
-
 use core::pin::Pin;
 use core::task::{Context, Poll};
 
@@ -37,12 +34,6 @@ impl Stdio {
     /// Pass /dev/null for child communication
     pub const fn null() -> Self {
         Self(StdioImpl::Null)
-    }
-
-    /// Take the value and replace it with Stdio::null()
-    #[cfg(feature = "mux_client")]
-    pub(crate) fn take(&mut self) -> Self {
-        replace(self, Stdio::null())
     }
 }
 impl<T: IntoRawFd> From<T> for Stdio {
