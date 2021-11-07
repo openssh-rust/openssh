@@ -253,10 +253,10 @@ impl Session {
     /// If `program` is not an absolute path, the `PATH` will be searched in an OS-defined way on
     /// the host.
     pub fn command<'a, S: Into<Cow<'a, str>>>(&self, program: S) -> Command<'_> {
-        Command {
-            session: self,
-            imp: delegate!(&self.0, imp, { imp.command(program).into() }),
-        }
+        Command::new(
+            self,
+            delegate!(&self.0, imp, { imp.command(program).into() }),
+        )
     }
 
     /// Constructs a new [`Command`] for launching the program at path `program` on the remote
@@ -276,10 +276,10 @@ impl Session {
     /// If `program` is not an absolute path, the `PATH` will be searched in an OS-defined way on
     /// the host.
     pub fn raw_command<S: AsRef<OsStr>>(&self, program: S) -> Command<'_> {
-        Command {
-            session: self,
-            imp: delegate!(&self.0, imp, { imp.raw_command(program).into() }),
-        }
+        Command::new(
+            self,
+            delegate!(&self.0, imp, { imp.raw_command(program).into() }),
+        )
     }
 
     /// Constructs a new [`Command`] that runs the provided shell command on the remote host.
@@ -322,10 +322,7 @@ impl Session {
     ///   [this article]: https://mywiki.wooledge.org/Arguments
     ///   [`shell-escape`]: https://crates.io/crates/shell-escape
     pub fn shell<S: AsRef<str>>(&self, command: S) -> Command<'_> {
-        Command {
-            session: self,
-            imp: delegate!(&self.0, imp, { imp.shell(command).into() }),
-        }
+        Command::new(self, delegate!(&self.0, imp, { imp.shell(command).into() }))
     }
 
     /// Request to open a local/remote port forwarding.

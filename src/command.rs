@@ -69,11 +69,15 @@ macro_rules! delegate {
 ///   [`env(1)`]: https://linux.die.net/man/1/env
 #[derive(Debug)]
 pub struct Command<'s> {
-    pub(crate) session: &'s super::Session,
-    pub(crate) imp: CommandImp,
+    session: &'s super::Session,
+    imp: CommandImp,
 }
 
 impl<'s> Command<'s> {
+    pub(crate) fn new(session: &'s super::Session, imp: CommandImp) -> Self {
+        Self { session, imp }
+    }
+
     /// Adds an argument to pass to the remote program.
     ///
     /// Before it is passed to the remote host, `arg` is escaped so that special characters aren't
