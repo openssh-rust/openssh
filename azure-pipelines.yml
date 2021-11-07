@@ -105,16 +105,6 @@ jobs:
        env:
          # makes all the ignored tests not ignored
          RUSTFLAGS: --cfg=ci
-     - script: cargo test --test openssh-process
-       displayName: cargo test --cfg=ci
-       env:
-         # makes all the ignored tests not ignored
-         RUSTFLAGS: --cfg=ci
-     - script: cargo test --all-features --test openssh-mux-client
-       displayName: cargo test --all-features --cfg=ci
-       env:
-         # makes all the ignored tests not ignored
-         RUSTFLAGS: --cfg=ci
      - bash: docker logs $(docker ps | grep openssh-server | awk '{print $1}')
        displayName: ssh container log
        condition: failed()

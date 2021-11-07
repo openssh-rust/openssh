@@ -30,6 +30,4 @@ exec cargo test \
     --target-dir ./ci-target \
     --no-fail-fast \
     --test openssh \
-    --test openssh-process \
-    --test openssh-mux-client \
     -- --test-threads=3 # Use test-threads=3 so that the output is readable
