@@ -4,9 +4,7 @@ use core::mem::replace;
 
 use std::io;
 use std::os::unix::process::ExitStatusExt;
-use std::process::{ExitStatus, Output};
-
-use tokio::io::AsyncReadExt;
+use std::process::ExitStatus;
 
 use openssh_mux_client::connection::{EstablishedSession, SessionStatus};
 
@@ -61,33 +59,6 @@ impl RemoteChild {
 
         self.state = Exited(exit_status);
         Ok(exit_status)
-    }
-
-    pub async fn wait_with_output(mut self) -> Result<Output, Error> {
-        self.stdin().take();
-        let status = self.wait().await?;
-
-        let mut output = Output {
-            status,
-            stdout: Vec::new(),
-            stderr: Vec::new(),
-        };
-
-        if let Some(mut child_stdout) = self.child_stdout {
-            child_stdout
-                .read_to_end(&mut output.stdout)
-                .await
-                .map_err(Error::IOError)?;
-        }
-
-        if let Some(mut child_stderr) = self.child_stderr {
-            child_stderr
-                .read_to_end(&mut output.stderr)
-                .await
-                .map_err(Error::IOError)?;
-        }
-
-        Ok(output)
     }
 
     pub fn stdin(&mut self) -> &mut Option<ChildStdin> {
