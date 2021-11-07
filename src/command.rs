@@ -206,12 +206,7 @@ impl<'s> Command<'s> {
     pub async fn spawn(&mut self) -> Result<RemoteChild<'s>, Error> {
         Ok(RemoteChild::new(
             self.session,
-            match &mut self.imp {
-                CommandImp::ProcessImpl(imp) => imp.spawn()?.into(),
-
-                #[cfg(feature = "mux_client")]
-                CommandImp::MuxClientImpl(imp) => imp.spawn().await?.into(),
-            },
+            delegate!(&mut self.imp, imp, { imp.spawn().await?.into() }),
         ))
     }
 

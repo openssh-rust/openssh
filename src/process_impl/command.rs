@@ -76,7 +76,7 @@ impl Command {
         self
     }
 
-    pub fn spawn(&mut self) -> Result<RemoteChild, Error> {
+    pub async fn spawn(&mut self) -> Result<RemoteChild, Error> {
         // Make defaults match our defaults.
         if !self.stdin_set {
             self.builder.stdin(Stdio::null());
