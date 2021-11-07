@@ -32,7 +32,16 @@ impl RemoteChild {
     }
 
     pub async fn disconnect(self) -> io::Result<()> {
-        Ok(())
+        use RemoteChildState::*;
+
+        match self.state {
+            Intermediate => unreachable!(),
+            Exited(_exit_status) => Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "invalid argument: can't kill an exited process",
+            )),
+            Running(_established_session) => Ok(()),
+        }
     }
 
     pub async fn wait(&mut self) -> Result<ExitStatus, Error> {
