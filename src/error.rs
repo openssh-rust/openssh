@@ -13,7 +13,7 @@ pub enum Error {
     /// Failed to establish initial connection to the remote host.
     Connect(io::Error),
 
-    /// failed to establish initial connection to the remote host
+    /// Failed to establish initial connection to the remote host
     Ssh(io::Error),
 
     /// Failed to connect to the ssh multiplex server.
