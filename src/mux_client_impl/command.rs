@@ -4,7 +4,6 @@ use super::{as_raw_fd, ChildStderr, ChildStdin, ChildStdout, Stdio};
 
 use std::ffi::OsStr;
 use std::path::PathBuf;
-use std::process;
 
 use openssh_mux_client::connection::{Connection, EstablishedSession, Session};
 
@@ -100,18 +99,5 @@ impl Command {
             child_stdout,
             child_stderr,
         ))
-    }
-
-    pub async fn output(&mut self) -> Result<process::Output, Error> {
-        self.stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-            .await?
-            .wait_with_output()
-            .await
-    }
-
-    pub async fn status(&mut self) -> Result<process::ExitStatus, Error> {
-        self.spawn().await?.wait().await
     }
 }
