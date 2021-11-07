@@ -80,7 +80,7 @@ impl RemoteChild {
         }
     }
 
-    pub async fn try_wait(&mut self) -> Result<Option<ExitStatus>, Error> {
+    pub fn try_wait(&mut self) -> Result<Option<ExitStatus>, Error> {
         Ok(None)
     }
 

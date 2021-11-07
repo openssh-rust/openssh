@@ -131,8 +131,8 @@ impl<'s> RemoteChild<'s> {
     /// returned.
     ///
     /// Note that unlike `wait`, this function will not attempt to drop stdin.
-    pub async fn try_wait(&mut self) -> Result<Option<ExitStatus>, Error> {
-        delegate!(&mut self.imp, imp, { imp.try_wait().await })
+    pub fn try_wait(&mut self) -> Result<Option<ExitStatus>, Error> {
+        delegate!(&mut self.imp, imp, { imp.try_wait() })
     }
 
     /// Simultaneously waits for the remote child to exit and collect all remaining output on the

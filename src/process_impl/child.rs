@@ -37,7 +37,7 @@ impl RemoteChild {
         }
     }
 
-    pub async fn try_wait(&mut self) -> Result<Option<std::process::ExitStatus>, Error> {
+    pub fn try_wait(&mut self) -> Result<Option<std::process::ExitStatus>, Error> {
         match self.channel.as_mut().unwrap().try_wait() {
             Err(e) => Err(Error::Remote(e)),
             Ok(None) => Ok(None),
