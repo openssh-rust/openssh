@@ -52,20 +52,6 @@ impl RemoteChild {
         }
     }
 
-    pub async fn wait_with_output(mut self) -> Result<std::process::Output, Error> {
-        match self.channel.take().unwrap().wait_with_output().await {
-            Err(e) => Err(Error::Remote(e)),
-            Ok(w) => match w.status.code() {
-                Some(255) => Err(Error::Disconnected),
-                Some(127) => Err(Error::Remote(io::Error::new(
-                    io::ErrorKind::NotFound,
-                    &*String::from_utf8_lossy(&w.stderr),
-                ))),
-                _ => Ok(w),
-            },
-        }
-    }
-
     pub fn stdin(&mut self) -> &mut Option<process::ChildStdin> {
         &mut self.channel.as_mut().unwrap().stdin
     }
