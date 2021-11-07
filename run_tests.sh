@@ -5,6 +5,8 @@ export TEST_HOST=ssh://test-user@`dig +short $HOSTNAME`:2222
 
 cd $(dirname `realpath $0`)
 
+sleep 1
+
 echo Test ssh connection
 chmod 600 .test-key
 ssh -i .test-key -v -p 2222 -l test-user $HOSTNAME \
