@@ -5,7 +5,6 @@
     unreachable_pub
 )]
 
-use std::borrow::Cow;
 use std::ffi::OsStr;
 use std::io;
 use tokio::io::AsyncReadExt;
@@ -62,10 +61,6 @@ impl Session {
         }
     }
 
-    pub fn command<'a, S: Into<Cow<'a, str>>>(&self, program: S) -> Command {
-        self.raw_command(&*shell_escape::unix::escape(program.into()))
-    }
-
     pub fn raw_command<S: AsRef<OsStr>>(&self, program: S) -> Command {
         // XXX: Should we do a self.check() here first?
 
@@ -85,12 +80,6 @@ impl Session {
             .arg(program);
 
         Command::new(cmd)
-    }
-
-    pub fn shell<S: AsRef<str>>(&self, command: S) -> Command {
-        let mut cmd = self.command("sh");
-        cmd.arg("-c").arg(command);
-        cmd
     }
 
     pub async fn close(mut self) -> Result<(), Error> {
