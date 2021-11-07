@@ -58,7 +58,14 @@ impl RemoteChild {
         };
 
         self.state = Exited(exit_status);
-        Ok(exit_status)
+        if let Some(127) = exit_status.code() {
+            Err(Error::Remote(io::Error::new(
+                io::ErrorKind::NotFound,
+                "remote command not found",
+            )))
+        } else {
+            Ok(exit_status)
+        }
     }
 
     pub fn stdin(&mut self) -> &mut Option<ChildStdin> {
