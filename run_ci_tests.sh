@@ -24,6 +24,13 @@ docker run \
     -e 'PUBLIC_KEY' \
     linuxserver/openssh-server:amd64-latest
 
+function cleanup {
+    docker stop $name
+    docker network rm $name
+}
+
+trap cleanup EXIT
+
 echo Running the test:
 docker run \
     --name openssh-rs-test-env \
@@ -33,16 +40,3 @@ docker run \
     --network $name \
     openssh-rs-test-env \
     /openssh-rs/run_tests.sh
-exit_code=$?
-docker rm -f openssh-rs-test-env 2>/dev/null
-
-if [ $exit_code -ne 0 ]; then
-    echo Test failed, here\'s the log of sshd:
-
-    #docker logs $(docker ps | grep openssh-server | awk '{print $1}')
-fi
-
-docker stop $name
-docker network rm $name
-
-exit $exit_code
