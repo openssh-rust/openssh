@@ -692,7 +692,7 @@ async fn process_exit_on_signal() {
 async fn broken_connection() {
     let session = Session::connect(&addr(), KnownHosts::Accept).await.unwrap();
 
-    let sleeping = session.command("sleep").arg("1000").spawn().unwrap();
+    let sleeping = session.command("sleep").arg("1000").spawn().await.unwrap();
 
     // get ID of remote ssh process
     let ppid = session
