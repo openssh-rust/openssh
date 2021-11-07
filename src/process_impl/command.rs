@@ -10,19 +10,16 @@ use tokio::process;
 #[derive(Debug)]
 pub struct Command {
     builder: process::Command,
-    stdin_set: bool,
-    stdout_set: bool,
-    stderr_set: bool,
 }
 
 impl Command {
-    pub(crate) fn new(prefix: process::Command) -> Self {
-        Self {
-            builder: prefix,
-            stdin_set: false,
-            stdout_set: false,
-            stderr_set: false,
-        }
+    pub(crate) fn new(mut builder: process::Command) -> Self {
+        builder
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null());
+
+        Self { builder }
     }
 }
 
@@ -39,33 +36,20 @@ impl Command {
 
     pub fn stdin<T: Into<Stdio>>(&mut self, cfg: T) -> &mut Self {
         self.builder.stdin(cfg);
-        self.stdin_set = true;
         self
     }
 
     pub fn stdout<T: Into<Stdio>>(&mut self, cfg: T) -> &mut Self {
         self.builder.stdout(cfg);
-        self.stdout_set = true;
         self
     }
 
     pub fn stderr<T: Into<Stdio>>(&mut self, cfg: T) -> &mut Self {
         self.builder.stderr(cfg);
-        self.stderr_set = true;
         self
     }
 
     pub async fn spawn(&mut self) -> Result<RemoteChild, Error> {
-        // Make defaults match our defaults.
-        if !self.stdin_set {
-            self.builder.stdin(Stdio::null());
-        }
-        if !self.stdout_set {
-            self.builder.stdout(Stdio::null());
-        }
-        if !self.stderr_set {
-            self.builder.stderr(Stdio::null());
-        }
         // Then launch!
         let child = self.builder.spawn().map_err(Error::Ssh)?;
 
@@ -73,16 +57,6 @@ impl Command {
     }
 
     pub async fn status(&mut self) -> Result<std::process::ExitStatus, Error> {
-        // Make defaults match our defaults.
-        if !self.stdin_set {
-            self.builder.stdin(Stdio::null());
-        }
-        if !self.stdout_set {
-            self.builder.stdout(Stdio::null());
-        }
-        if !self.stderr_set {
-            self.builder.stderr(Stdio::null());
-        }
         // Then launch!
         let status = self.builder.status().await.map_err(Error::Ssh)?;
         match status.code() {
