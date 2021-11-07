@@ -13,7 +13,7 @@ use tempfile::TempDir;
 use tokio::runtime;
 
 use openssh_mux_client::connection::Connection;
-pub use openssh_mux_client::connection::{ForwardType, Socket};
+pub(crate) use openssh_mux_client::connection::{ForwardType, Socket};
 
 use super::Error;
 
@@ -22,18 +22,18 @@ pub(crate) mod builder;
 use super::fd::*;
 
 mod stdio;
-pub use stdio::{ChildStderr, ChildStdin, ChildStdout};
+pub(crate) use stdio::{ChildStderr, ChildStdin, ChildStdout};
 
 use super::Stdio;
 
 mod command;
-pub use command::Command;
+pub(crate) use command::Command;
 
 mod child;
-pub use child::RemoteChild;
+pub(crate) use child::RemoteChild;
 
 #[derive(Debug)]
-pub struct Session {
+pub(crate) struct Session {
     /// TempDir will automatically removes the temporary dir on drop
     tempdir: Option<TempDir>,
 }
@@ -46,11 +46,11 @@ impl Session {
         self.tempdir.as_ref().unwrap().path().join("master")
     }
 
-    pub fn get_ssh_log_path(&self) -> path::PathBuf {
+    pub(crate) fn get_ssh_log_path(&self) -> path::PathBuf {
         self.tempdir.as_ref().unwrap().path().join("log")
     }
 
-    pub async fn check(&self) -> Result<(), Error> {
+    pub(crate) async fn check(&self) -> Result<(), Error> {
         Connection::connect(&self.ctl())
             .await?
             .send_alive_check()
@@ -59,12 +59,12 @@ impl Session {
         Ok(())
     }
 
-    pub fn raw_command<'a, S: AsRef<OsStr>>(&self, program: S) -> Command {
+    pub(crate) fn raw_command<'a, S: AsRef<OsStr>>(&self, program: S) -> Command {
         let program = program.as_ref().to_string_lossy();
         Command::new(self.ctl(), program.to_string())
     }
 
-    pub async fn request_port_forward(
+    pub(crate) async fn request_port_forward(
         &self,
         forward_type: ForwardType,
         listen_socket: &Socket<'_>,
@@ -87,7 +87,7 @@ impl Session {
         Ok(())
     }
 
-    pub async fn close(mut self) -> Result<(), Error> {
+    pub(crate) async fn close(mut self) -> Result<(), Error> {
         // This also set self.tempdir to None so that Drop::drop would do nothing.
         let tempdir = self.tempdir.take().unwrap();
 
