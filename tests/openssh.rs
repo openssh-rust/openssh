@@ -19,13 +19,25 @@ fn addr() -> &'static str {
         .unwrap_or("ssh://test-user@127.0.0.1:2222")
 }
 
-async fn session_builder_connect(builder: SessionBuilder) -> [Session; 2] {
+#[cfg(not(feature = "mux_client"))]
+async fn session_builder_connect(builder: SessionBuilder, addr: &str) -> [Session; 1] {
+    [builder.connect(addr).await.unwrap()]
+}
+
+#[cfg(feature = "mux_client")]
+async fn session_builder_connect(builder: SessionBuilder, addr: &str) -> [Session; 2] {
     [
-        builder.connect(&addr()).await.unwrap(),
-        builder.connect_mux(&addr()).await.unwrap(),
+        builder.connect(addr).await.unwrap(),
+        builder.connect_mux(addr).await.unwrap(),
     ]
 }
 
+#[cfg(not(feature = "mux_client"))]
+async fn connects() -> [Session; 1] {
+    [Session::connect(&addr(), KnownHosts::Accept).await.unwrap()]
+}
+
+#[cfg(feature = "mux_client")]
 async fn connects() -> [Session; 2] {
     [
         Session::connect(&addr(), KnownHosts::Accept).await.unwrap(),
@@ -35,6 +47,14 @@ async fn connects() -> [Session; 2] {
     ]
 }
 
+#[cfg(not(feature = "mux_client"))]
+async fn connects_err(host: &str) -> [Error; 1] {
+    [Session::connect(host, KnownHosts::Accept)
+        .await
+        .unwrap_err()]
+}
+
+#[cfg(feature = "mux_client")]
 async fn connects_err(host: &str) -> [Error; 2] {
     [
         Session::connect(host, KnownHosts::Accept)
@@ -65,7 +85,7 @@ async fn control_dir() {
     let mut session_builder = SessionBuilder::default();
     session_builder.control_directory(&dirname);
 
-    for session in session_builder_connect(session_builder).await {
+    for session in session_builder_connect(session_builder, addr()).await {
         session.check().await.unwrap();
         let mut iter = std::fs::read_dir(&dirname).unwrap();
         assert!(iter.next().is_some());
@@ -185,15 +205,7 @@ async fn config_file() {
         .config_file(&ssh_config_file);
 
     // this host name is resolved by the custom ssh_config.
-    let sessions = [
-        session_builder.connect("config-file-test").await.unwrap(),
-        session_builder
-            .connect_mux("config-file-test")
-            .await
-            .unwrap(),
-    ];
-
-    for session in sessions {
+    for session in session_builder_connect(session_builder, "config-file-test").await {
         session.check().await.unwrap();
         session.close().await.unwrap();
     }
@@ -205,11 +217,15 @@ async fn config_file() {
 #[cfg_attr(not(ci), ignore)]
 async fn terminate_on_drop() {
     drop(Session::connect(&addr(), KnownHosts::Add).await.unwrap());
-    drop(
-        Session::connect_mux(&addr(), KnownHosts::Add)
-            .await
-            .unwrap(),
-    );
+
+    #[cfg(feature = "mux_client")]
+    {
+        drop(
+            Session::connect_mux(&addr(), KnownHosts::Add)
+                .await
+                .unwrap(),
+        );
+    }
     // NOTE: how do we test that it actually killed the master here?
 }
 
@@ -541,12 +557,15 @@ async fn connect_timeout() {
     assert_matches!(failed, Error::Connect(e) if e.kind() == io::ErrorKind::TimedOut);
 
     // Test mux_client_impl
-    let t = Instant::now();
-    let failed = sb.connect_mux(host).await.unwrap_err();
-    assert!(t.elapsed() > Duration::from_secs(1));
-    assert!(t.elapsed() < Duration::from_secs(2));
-    eprintln!("{:?}", failed);
-    assert_matches!(failed, Error::Connect(e) if e.kind() == io::ErrorKind::TimedOut);
+    #[cfg(feature = "mux_client")]
+    {
+        let t = Instant::now();
+        let failed = sb.connect_mux(host).await.unwrap_err();
+        assert!(t.elapsed() > Duration::from_secs(1));
+        assert!(t.elapsed() < Duration::from_secs(2));
+        eprintln!("{:?}", failed);
+        assert_matches!(failed, Error::Connect(e) if e.kind() == io::ErrorKind::TimedOut);
+    }
 }
 
 #[tokio::test]
