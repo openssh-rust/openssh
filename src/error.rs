@@ -35,7 +35,10 @@ pub enum Error {
 
     /// Remote process is terminated.
     ///
-    /// It is likely it is terminated by signal.
+    /// It is likely to be that the process is terminated by signal.
+    ///
+    /// However, if `process_impl` is used, it can also be that the
+    /// ssh connection to the remote host was servered.
     RemoteProcessTerminated,
 
     /// Failed to remove temporary dir where ssh socket and output is stored.
