@@ -12,16 +12,16 @@ use tokio::process;
 
 use super::Error;
 
-pub mod builder;
+pub(crate) mod builder;
 
 mod command;
-pub use command::Command;
+pub(crate) use command::Command;
 
 mod child;
-pub use child::RemoteChild;
+pub(crate) use child::RemoteChild;
 
 #[derive(Debug)]
-pub struct Session {
+pub(crate) struct Session {
     ctl: tempfile::TempDir,
     addr: String,
     terminated: bool,
@@ -33,7 +33,7 @@ impl Session {
         self.ctl.path().join("master")
     }
 
-    pub async fn check(&self) -> Result<(), Error> {
+    pub(crate) async fn check(&self) -> Result<(), Error> {
         if self.terminated {
             return Err(Error::Disconnected);
         }
@@ -61,7 +61,7 @@ impl Session {
         }
     }
 
-    pub fn raw_command<S: AsRef<OsStr>>(&self, program: S) -> Command {
+    pub(crate) fn raw_command<S: AsRef<OsStr>>(&self, program: S) -> Command {
         // XXX: Should we do a self.check() here first?
 
         // NOTE: we pass -p 9 nine here (the "discard" port) to ensure that ssh does not
@@ -82,7 +82,7 @@ impl Session {
         Command::new(cmd)
     }
 
-    pub async fn close(mut self) -> Result<(), Error> {
+    pub(crate) async fn close(mut self) -> Result<(), Error> {
         self.terminate().await
     }
 
