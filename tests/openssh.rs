@@ -503,7 +503,7 @@ async fn bad_remote_command() {
             .await
             .unwrap_err();
         eprintln!("{:?}", failed);
-        assert!(matches!(failed, Error::Remote(ref e) if e.kind() == io::ErrorKind::NotFound));
+        assert_kind!(failed, io::ErrorKind::NotFound);
 
         // no matter how you run it
         let failed = session
@@ -512,27 +512,27 @@ async fn bad_remote_command() {
             .await
             .unwrap_err();
         eprintln!("{:?}", failed);
-        assert!(matches!(failed, Error::Remote(ref e) if e.kind() == io::ErrorKind::NotFound));
+        assert_kind!(failed, io::ErrorKind::NotFound);
 
         // even if you spawn first
         let mut child = session.command("no such program").spawn().await.unwrap();
         let failed = child.wait().await.unwrap_err();
         eprintln!("{:?}", failed);
-        assert!(matches!(failed, Error::Remote(ref e) if e.kind() == io::ErrorKind::NotFound));
+        assert_kind!(failed, io::ErrorKind::NotFound);
         child.disconnect().await.unwrap_err();
 
         // of if you want output
         let child = session.command("no such program").spawn().await.unwrap();
         let failed = child.wait_with_output().await.unwrap_err();
         eprintln!("{:?}", failed);
-        assert!(matches!(failed, Error::Remote(ref e) if e.kind() == io::ErrorKind::NotFound));
+        assert_kind!(failed, io::ErrorKind::NotFound);
 
         // no matter how hard you _try_
         let mut child = session.command("no such program").spawn().await.unwrap();
         std::thread::sleep(std::time::Duration::from_millis(500));
         let failed = child.try_wait().await.unwrap_err();
         eprintln!("{:?}", failed);
-        assert!(matches!(failed, Error::Remote(ref e) if e.kind() == io::ErrorKind::NotFound));
+        assert_kind!(failed, io::ErrorKind::NotFound);
         child.disconnect().await.unwrap_err();
 
         session.close().await.unwrap();
