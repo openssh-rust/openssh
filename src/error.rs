@@ -72,10 +72,9 @@ impl fmt::Display for Error {
             Error::Remote(_) => write!(f, "the remote command could not be executed"),
             Error::Disconnected => write!(f, "the connection was terminated"),
             Error::RemoveTempDir(_) => write!(f, "failed to remove temporary directory"),
-            Error::IOError(_) => write!(
-                f,
-                "IO Error when creating/reading/writing from ChildStdin, ChildStdout, ChildStderr"
-            ),
+            Error::IOError(_) => {
+                write!(f, "failure while accessing standard I/O of remote process")
+            }
 
             #[cfg(feature = "mux_client")]
             Error::SshMux(_) => write!(f, "failed to connect to the ssh multiplex server"),
