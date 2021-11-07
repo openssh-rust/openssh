@@ -37,27 +37,6 @@ impl Command {
         self
     }
 
-    pub fn args<I, S>(&mut self, args: I) -> &mut Self
-    where
-        I: IntoIterator<Item = S>,
-        S: AsRef<str>,
-    {
-        for arg in args {
-            self.builder
-                .arg(&*shell_escape::unix::escape(Cow::Borrowed(arg.as_ref())));
-        }
-        self
-    }
-
-    pub fn raw_args<I, S>(&mut self, args: I) -> &mut Self
-    where
-        I: IntoIterator<Item = S>,
-        S: AsRef<OsStr>,
-    {
-        self.builder.args(args);
-        self
-    }
-
     pub fn stdin<T: Into<Stdio>>(&mut self, cfg: T) -> &mut Self {
         self.builder.stdin(cfg);
         self.stdin_set = true;
@@ -91,29 +70,6 @@ impl Command {
         let child = self.builder.spawn().map_err(Error::Ssh)?;
 
         Ok(RemoteChild::new(child))
-    }
-
-    pub async fn output(&mut self) -> Result<std::process::Output, Error> {
-        // Make defaults match our defaults.
-        if !self.stdin_set {
-            self.builder.stdin(Stdio::null());
-        }
-        if !self.stdout_set {
-            self.builder.stdout(Stdio::piped());
-        }
-        if !self.stderr_set {
-            self.builder.stderr(Stdio::piped());
-        }
-        // Then launch!
-        let output = self.builder.output().await.map_err(Error::Ssh)?;
-        match output.status.code() {
-            Some(255) => Err(Error::Disconnected),
-            Some(127) => Err(Error::Remote(io::Error::new(
-                io::ErrorKind::NotFound,
-                &*String::from_utf8_lossy(&output.stderr),
-            ))),
-            _ => Ok(output),
-        }
     }
 
     pub async fn status(&mut self) -> Result<std::process::ExitStatus, Error> {
