@@ -133,9 +133,9 @@ impl<'s> RemoteChild<'s> {
     /// Note that unlike `wait`, this function will not attempt to drop stdin.
     ///
     /// Also, this function is unimplemented!() for mux_client_impl.
-    pub fn try_wait(&mut self) -> Result<Option<ExitStatus>, Error> {
+    pub async fn try_wait(&mut self) -> Result<Option<ExitStatus>, Error> {
         match &mut self.imp {
-            RemoteChildImp::ProcessImpl(imp) => imp.try_wait(),
+            RemoteChildImp::ProcessImpl(imp) => imp.try_wait().await,
 
             #[cfg(feature = "mux_client")]
             RemoteChildImp::MuxClientImpl(_imp) => unimplemented!(),
