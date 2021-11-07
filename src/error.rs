@@ -33,7 +33,7 @@ pub enum Error {
     /// this error back.
     Disconnected,
 
-    /// Failed to remove temporary dir.
+    /// Failed to remove temporary dir where ssh socket and output is stored.
     RemoveTempDir(io::Error),
 
     /// IO Error when creating/reading/writing from ChildStdin, ChildStdout, ChildStderr.
@@ -71,7 +71,10 @@ impl fmt::Display for Error {
             Error::Ssh(_) => write!(f, "the local ssh command could not be executed"),
             Error::Remote(_) => write!(f, "the remote command could not be executed"),
             Error::Disconnected => write!(f, "the connection was terminated"),
-            Error::RemoveTempDir(_) => write!(f, "failed to remove temporary directory"),
+            Error::RemoveTempDir(_) => write!(
+                f,
+                "failed to remove temporary directory where ssh socket and output is stored"
+            ),
             Error::IOError(_) => {
                 write!(f, "failure while accessing standard I/O of remote process")
             }
