@@ -12,6 +12,8 @@ use tokio::process;
 
 use super::Error;
 
+use super::{ForwardType, Socket};
+
 pub(crate) mod builder;
 
 mod command;
@@ -80,6 +82,33 @@ impl Session {
             .arg(program);
 
         Command::new(cmd)
+    }
+
+    pub(crate) async fn request_port_forward(
+        &self,
+        forward_type: ForwardType,
+        listen_socket: &Socket<'_>,
+        connect_socket: &Socket<'_>,
+    ) -> Result<(), Error> {
+        let flag = match forward_type {
+            ForwardType::Local => "-L",
+            ForwardType::Remote => "-R",
+        };
+
+        process::Command::new("ssh")
+            .arg("-S")
+            .arg(self.ctl_path())
+            .arg("-o")
+            .arg("BatchMode=yes")
+            .arg("-fNT")
+            .arg(flag)
+            .arg(&format!("{}:{}", listen_socket, connect_socket))
+            .arg(&self.addr)
+            .output()
+            .await
+            .map_err(Error::Ssh)?;
+
+        Ok(())
     }
 
     pub(crate) async fn close(mut self) -> Result<(), Error> {

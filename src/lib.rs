@@ -110,6 +110,7 @@
     rust_2018_idioms,
     unreachable_pub
 )]
+#![allow(clippy::useless_conversion)]
 
 use std::borrow::Cow;
 use std::ffi::OsStr;
@@ -141,10 +142,7 @@ pub mod process_impl;
 #[cfg(feature = "mux_client")]
 pub mod mux_client_impl;
 
-#[cfg(feature = "mux_client")]
 mod port_forwarding;
-
-#[cfg(feature = "mux_client")]
 pub use port_forwarding::*;
 
 #[derive(Debug)]
@@ -323,28 +321,28 @@ impl Session {
     /// Request to open a local/remote port forwarding.
     /// The `Socket` can be either a unix socket or a tcp socket.
     ///
+    /// If `forward_type` == Local, then `listen_socket` on local machine will be
+    /// forwarded to `connect_socket` on remote machine.
+    ///
+    /// Otherwise, `listen_socket` on remote machine will be forarded to `connect_socket`
+    /// on local machine.
+    ///
     /// Currently, there is no way of stopping a port forwarding due to the fact that
     /// openssh multiplex server/master does not support this.
-    #[cfg(feature = "mux_client")]
     pub async fn request_port_forward(
         &self,
         forward_type: ForwardType,
         listen_socket: Socket<'_>,
         connect_socket: Socket<'_>,
     ) -> Result<(), Error> {
-        match &self.0 {
-            SessionImp::ProcessImpl(_imp) => unimplemented!(),
-
-            #[cfg(feature = "mux_client")]
-            SessionImp::MuxClientImpl(imp) => {
-                imp.request_port_forward(
-                    forward_type.into(),
-                    &listen_socket.into(),
-                    &connect_socket.into(),
-                )
-                .await
-            }
-        }
+        delegate!(&self.0, imp, {
+            imp.request_port_forward(
+                forward_type.into(),
+                &listen_socket.into(),
+                &connect_socket.into(),
+            )
+            .await
+        })
     }
 
     /// Prepare to perform file operations on the remote host.
