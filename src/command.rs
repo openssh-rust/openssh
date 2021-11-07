@@ -25,6 +25,17 @@ impl From<super::mux_client_impl::Command> for CommandImp {
     }
 }
 
+macro_rules! delegate {
+    ($impl:expr, $var:ident, $then:block) => {{
+        match $impl {
+            CommandImp::ProcessImpl($var) => $then,
+
+            #[cfg(feature = "mux_client")]
+            CommandImp::MuxClientImpl($var) => $then,
+        }
+    }};
+}
+
 /// A remote process builder, providing fine-grained control over how a new remote process should
 /// be spawned.
 ///
@@ -87,16 +98,9 @@ impl<'s> Command<'s> {
     ///
     /// To pass multiple arguments see [`args`](Command::args).
     pub fn arg<S: AsRef<str>>(&mut self, arg: S) -> &mut Self {
-        match &mut self.imp {
-            CommandImp::ProcessImpl(imp) => {
-                imp.arg(arg);
-            }
-
-            #[cfg(feature = "mux_client")]
-            CommandImp::MuxClientImpl(imp) => {
-                imp.arg(arg);
-            }
-        };
+        delegate!(&mut self.imp, imp, {
+            imp.arg(arg);
+        });
         self
     }
 
@@ -109,16 +113,9 @@ impl<'s> Command<'s> {
     ///
     /// To pass multiple unescaped arguments see [`raw_args`](Command::raw_args).
     pub fn raw_arg<S: AsRef<OsStr>>(&mut self, arg: S) -> &mut Self {
-        match &mut self.imp {
-            CommandImp::ProcessImpl(imp) => {
-                imp.raw_arg(arg);
-            }
-
-            #[cfg(feature = "mux_client")]
-            CommandImp::MuxClientImpl(imp) => {
-                imp.raw_arg(arg);
-            }
-        };
+        delegate!(&mut self.imp, imp, {
+            imp.raw_arg(arg);
+        });
         self
     }
 
@@ -167,16 +164,9 @@ impl<'s> Command<'s> {
     /// [`null`]: struct.Stdio.html#method.null
     /// [`piped`]: struct.Stdio.html#method.piped
     pub fn stdin<T: Into<Stdio>>(&mut self, cfg: T) -> &mut Self {
-        match &mut self.imp {
-            CommandImp::ProcessImpl(imp) => {
-                imp.stdin(cfg.into());
-            }
-
-            #[cfg(feature = "mux_client")]
-            CommandImp::MuxClientImpl(imp) => {
-                imp.stdin(cfg.into());
-            }
-        };
+        delegate!(&mut self.imp, imp, {
+            imp.stdin(cfg.into());
+        });
         self
     }
 
@@ -188,16 +178,9 @@ impl<'s> Command<'s> {
     /// [`null`]: struct.Stdio.html#method.null
     /// [`piped`]: struct.Stdio.html#method.piped
     pub fn stdout<T: Into<Stdio>>(&mut self, cfg: T) -> &mut Self {
-        match &mut self.imp {
-            CommandImp::ProcessImpl(imp) => {
-                imp.stdout(cfg.into());
-            }
-
-            #[cfg(feature = "mux_client")]
-            CommandImp::MuxClientImpl(imp) => {
-                imp.stdout(cfg.into());
-            }
-        };
+        delegate!(&mut self.imp, imp, {
+            imp.stdout(cfg.into());
+        });
         self
     }
 
@@ -209,16 +192,9 @@ impl<'s> Command<'s> {
     /// [`null`]: struct.Stdio.html#method.null
     /// [`piped`]: struct.Stdio.html#method.piped
     pub fn stderr<T: Into<Stdio>>(&mut self, cfg: T) -> &mut Self {
-        match &mut self.imp {
-            CommandImp::ProcessImpl(imp) => {
-                imp.stderr(cfg.into());
-            }
-
-            #[cfg(feature = "mux_client")]
-            CommandImp::MuxClientImpl(imp) => {
-                imp.stderr(cfg.into());
-            }
-        };
+        delegate!(&mut self.imp, imp, {
+            imp.stderr(cfg.into());
+        });
         self
     }
 
