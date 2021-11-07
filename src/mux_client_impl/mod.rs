@@ -5,11 +5,9 @@
     unreachable_pub
 )]
 
-use std::borrow::Cow;
 use std::ffi::OsStr;
 use std::path;
 
-use shell_escape::escape;
 use tempfile::TempDir;
 
 use tokio::runtime;
@@ -61,19 +59,9 @@ impl Session {
         Ok(())
     }
 
-    pub fn command<'a, S: Into<Cow<'a, str>>>(&self, program: S) -> Command {
-        Command::new(self.ctl(), escape(program.into()).into())
-    }
-
     pub fn raw_command<'a, S: AsRef<OsStr>>(&self, program: S) -> Command {
         let program = program.as_ref().to_string_lossy();
         Command::new(self.ctl(), program.to_string())
-    }
-
-    pub fn shell<S: AsRef<str>>(&self, command: S) -> Command {
-        let mut cmd = self.command("sh");
-        cmd.arg("-c").arg(command);
-        cmd
     }
 
     pub async fn request_port_forward(
