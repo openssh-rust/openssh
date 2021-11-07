@@ -63,37 +63,6 @@ async fn shell() {
 
 #[tokio::test]
 #[cfg_attr(not(ci), ignore)]
-async fn bad_remote_command() {
-    let session = Session::connect_mux(&addr(), KnownHosts::Accept)
-        .await
-        .unwrap();
-
-    // a bad remote command should result in a _local_ error.
-    let failed = session.command("no such program").output().await.unwrap();
-    eprintln!("{:?}", failed);
-    assert!(!failed.status.success());
-
-    // no matter how you run it
-    let failed = session.command("no such program").status().await.unwrap();
-    eprintln!("{:?}", failed);
-    assert!(!failed.success());
-
-    // even if you spawn first
-    let mut child = session.command("no such program").spawn().await.unwrap();
-    let failed = child.wait().await.unwrap();
-    eprintln!("{:?}", failed);
-    assert!(!failed.success());
-    child.disconnect().await.unwrap();
-
-    // of if you want output
-    let child = session.command("no such program").spawn().await.unwrap();
-    let failed = child.wait_with_output().await.unwrap();
-    eprintln!("{:?}", failed);
-    assert!(!failed.status.success());
-}
-
-#[tokio::test]
-#[cfg_attr(not(ci), ignore)]
 async fn process_exit_on_signal() {
     let session = Session::connect_mux(&addr(), KnownHosts::Accept)
         .await

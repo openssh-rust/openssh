@@ -1,5 +1,3 @@
-use std::io;
-
 use openssh::*;
 
 // TODO: how do we test the connection actually _failing_ so that the master reports an error?
@@ -39,53 +37,6 @@ async fn shell() {
         .await
         .unwrap();
     assert!(child.success());
-
-    session.close().await.unwrap();
-}
-
-#[tokio::test]
-#[cfg_attr(not(ci), ignore)]
-async fn bad_remote_command() {
-    let session = Session::connect(&addr(), KnownHosts::Accept).await.unwrap();
-
-    // a bad remote command should result in a _local_ error.
-    let failed = session
-        .command("no such program")
-        .output()
-        .await
-        .unwrap_err();
-    eprintln!("{:?}", failed);
-    assert!(matches!(failed, Error::Remote(ref e) if e.kind() == io::ErrorKind::NotFound));
-
-    // no matter how you run it
-    let failed = session
-        .command("no such program")
-        .status()
-        .await
-        .unwrap_err();
-    eprintln!("{:?}", failed);
-    assert!(matches!(failed, Error::Remote(ref e) if e.kind() == io::ErrorKind::NotFound));
-
-    // even if you spawn first
-    let mut child = session.command("no such program").spawn().await.unwrap();
-    let failed = child.wait().await.unwrap_err();
-    eprintln!("{:?}", failed);
-    assert!(matches!(failed, Error::Remote(ref e) if e.kind() == io::ErrorKind::NotFound));
-    child.disconnect().await.unwrap_err();
-
-    // of if you want output
-    let child = session.command("no such program").spawn().await.unwrap();
-    let failed = child.wait_with_output().await.unwrap_err();
-    eprintln!("{:?}", failed);
-    assert!(matches!(failed, Error::Remote(ref e) if e.kind() == io::ErrorKind::NotFound));
-
-    // no matter how hard you _try_
-    let mut child = session.command("no such program").spawn().await.unwrap();
-    std::thread::sleep(std::time::Duration::from_millis(500));
-    let failed = child.try_wait().unwrap_err();
-    eprintln!("{:?}", failed);
-    assert!(matches!(failed, Error::Remote(ref e) if e.kind() == io::ErrorKind::NotFound));
-    child.disconnect().await.unwrap_err();
 
     session.close().await.unwrap();
 }
