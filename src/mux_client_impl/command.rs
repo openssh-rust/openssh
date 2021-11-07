@@ -32,9 +32,9 @@ impl Command {
 
 impl Command {
     pub fn arg<S: AsRef<str>>(&mut self, arg: S) -> &mut Self {
-        self.cmd.push_str(" \"");
+        self.cmd.push_str(" '");
         self.cmd.push_str(arg.as_ref());
-        self.cmd.push('"');
+        self.cmd.push('\'');
         self
     }
 
