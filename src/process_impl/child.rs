@@ -27,7 +27,7 @@ impl RemoteChild {
         match self.channel.as_mut().unwrap().wait().await {
             Err(e) => Err(Error::Remote(e)),
             Ok(w) => match w.code() {
-                Some(255) => Err(Error::Disconnected),
+                Some(255) => Err(Error::RemoteProcessTerminated),
                 Some(127) => Err(Error::Remote(io::Error::new(
                     io::ErrorKind::NotFound,
                     "remote command not found",
@@ -42,7 +42,7 @@ impl RemoteChild {
             Err(e) => Err(Error::Remote(e)),
             Ok(None) => Ok(None),
             Ok(Some(w)) => match w.code() {
-                Some(255) => Err(Error::Disconnected),
+                Some(255) => Err(Error::RemoteProcessTerminated),
                 Some(127) => Err(Error::Remote(io::Error::new(
                     io::ErrorKind::NotFound,
                     "remote command not found",

@@ -35,7 +35,7 @@ async fn process_exit_on_signal() {
     // await that process — this will yield "Disconnected", since the remote process disappeared
     let failed = sleeping.wait().await.unwrap_err();
     eprintln!("{:?}", failed);
-    assert!(matches!(failed, Error::Disconnected));
+    assert!(matches!(failed, Error::RemoteProcessTerminated));
 
     // the connection should still work though
     let _ = session.check().await.unwrap();
