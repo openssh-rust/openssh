@@ -3,7 +3,6 @@ use super::RemoteChild;
 
 use std::borrow::Cow;
 use std::ffi::OsStr;
-use std::io;
 use std::process::Stdio;
 use tokio::process;
 
@@ -54,18 +53,5 @@ impl Command {
         let child = self.builder.spawn().map_err(Error::Ssh)?;
 
         Ok(RemoteChild::new(child))
-    }
-
-    pub async fn status(&mut self) -> Result<std::process::ExitStatus, Error> {
-        // Then launch!
-        let status = self.builder.status().await.map_err(Error::Ssh)?;
-        match status.code() {
-            Some(255) => Err(Error::Disconnected),
-            Some(127) => Err(Error::Remote(io::Error::new(
-                io::ErrorKind::NotFound,
-                "remote command not found",
-            ))),
-            _ => Ok(status),
-        }
     }
 }
