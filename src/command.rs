@@ -71,11 +71,20 @@ macro_rules! delegate {
 pub struct Command<'s> {
     session: &'s super::Session,
     imp: CommandImp,
+
+    stdout_set: bool,
+    stderr_set: bool,
 }
 
 impl<'s> Command<'s> {
     pub(crate) fn new(session: &'s super::Session, imp: CommandImp) -> Self {
-        Self { session, imp }
+        Self {
+            session,
+            imp,
+
+            stdout_set: false,
+            stderr_set: false,
+        }
     }
 
     /// Adds an argument to pass to the remote program.
@@ -185,6 +194,7 @@ impl<'s> Command<'s> {
         delegate!(&mut self.imp, imp, {
             imp.stdout(cfg.into());
         });
+        self.stdout_set = true;
         self
     }
 
@@ -199,6 +209,7 @@ impl<'s> Command<'s> {
         delegate!(&mut self.imp, imp, {
             imp.stderr(cfg.into());
         });
+        self.stderr_set = true;
         self
     }
 
@@ -220,12 +231,14 @@ impl<'s> Command<'s> {
     /// Stdin is set to `Stdio::null`, and any attempt by the child process to read from
     /// the stdin stream will result in the stream immediately closing.
     pub async fn output(&mut self) -> Result<process::Output, Error> {
-        self.stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-            .await?
-            .wait_with_output()
-            .await
+        if !self.stdout_set {
+            self.stdout(Stdio::piped());
+        }
+        if !self.stderr_set {
+            self.stderr(Stdio::piped());
+        }
+
+        self.spawn().await?.wait_with_output().await
     }
 
     /// Executes the remote command, waiting for it to finish and collecting its exit status.
