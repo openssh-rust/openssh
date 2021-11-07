@@ -1,5 +1,3 @@
-#![cfg(not(feature = "mux_client"))]
-
 use lazy_static::lazy_static;
 use std::io;
 use std::io::Write;
