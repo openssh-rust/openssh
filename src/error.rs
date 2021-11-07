@@ -202,6 +202,16 @@ fn error_sanity() {
     assert_eq!(e.kind(), expect.kind());
     assert_eq!(format!("{}", e), format!("{}", expect));
 
+    let e = Error::Ssh(ioe());
+    assert!(!format!("{}", e).is_empty());
+    let e = e
+        .source()
+        .expect("source failed")
+        .downcast_ref::<io::Error>()
+        .expect("source not io");
+    assert_eq!(e.kind(), expect.kind());
+    assert_eq!(format!("{}", e), format!("{}", expect));
+
     let e = Error::Remote(ioe());
     assert!(!format!("{}", e).is_empty());
     let e = e
