@@ -134,12 +134,7 @@ impl<'s> RemoteChild<'s> {
     ///
     /// Also, this function is unimplemented!() for mux_client_impl.
     pub async fn try_wait(&mut self) -> Result<Option<ExitStatus>, Error> {
-        match &mut self.imp {
-            RemoteChildImp::ProcessImpl(imp) => imp.try_wait().await,
-
-            #[cfg(feature = "mux_client")]
-            RemoteChildImp::MuxClientImpl(_imp) => unimplemented!(),
-        }
+        delegate!(&mut self.imp, imp, { imp.try_wait().await })
     }
 
     /// Simultaneously waits for the remote child to exit and collect all remaining output on the

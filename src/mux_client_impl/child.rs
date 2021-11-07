@@ -77,6 +77,10 @@ impl RemoteChild {
         }
     }
 
+    pub async fn try_wait(&mut self) -> Result<Option<ExitStatus>, Error> {
+        self.wait().await.map(|val| Some(val))
+    }
+
     pub fn stdin(&mut self) -> &mut Option<ChildStdin> {
         &mut self.child_stdin
     }
