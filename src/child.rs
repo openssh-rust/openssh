@@ -25,6 +25,17 @@ impl From<super::mux_client_impl::RemoteChild> for RemoteChildImp {
     }
 }
 
+macro_rules! delegate {
+    ($impl:expr, $var:ident, $then:block) => {{
+        match $impl {
+            RemoteChildImp::ProcessImpl($var) => $then,
+
+            #[cfg(feature = "mux_client")]
+            RemoteChildImp::MuxClientImpl($var) => $then,
+        }
+    }};
+}
+
 /// Representation of a running or exited remote child process.
 ///
 /// This structure is used to represent and manage remote child processes. A remote child process
@@ -65,29 +76,19 @@ pub struct RemoteChild<'s> {
     stderr: Option<ChildStderr>,
 }
 
+#[inline(always)]
+fn opt_into<T, U: From<T>>(opt: Option<T>) -> Option<U> {
+    opt.map(|val| val.into())
+}
+
 impl<'s> RemoteChild<'s> {
     pub(crate) fn new(session: &'s Session, mut imp: RemoteChildImp) -> Self {
         Self {
             session,
 
-            stdin: match &mut imp {
-                RemoteChildImp::ProcessImpl(imp) => imp.stdin().take().map(|val| val.into()),
-
-                #[cfg(feature = "mux_client")]
-                RemoteChildImp::MuxClientImpl(imp) => imp.stdin().take().map(|val| val.into()),
-            },
-            stdout: match &mut imp {
-                RemoteChildImp::ProcessImpl(imp) => imp.stdout().take().map(|val| val.into()),
-
-                #[cfg(feature = "mux_client")]
-                RemoteChildImp::MuxClientImpl(imp) => imp.stdout().take().map(|val| val.into()),
-            },
-            stderr: match &mut imp {
-                RemoteChildImp::ProcessImpl(imp) => imp.stderr().take().map(|val| val.into()),
-
-                #[cfg(feature = "mux_client")]
-                RemoteChildImp::MuxClientImpl(imp) => imp.stderr().take().map(|val| val.into()),
-            },
+            stdin: delegate!(&mut imp, imp, { opt_into(imp.stdin().take()) }),
+            stdout: delegate!(&mut imp, imp, { opt_into(imp.stdout().take()) }),
+            stderr: delegate!(&mut imp, imp, { opt_into(imp.stderr().take()) }),
 
             imp,
         }
@@ -103,12 +104,7 @@ impl<'s> RemoteChild<'s> {
     /// Note that disconnecting does _not_ kill the remote process, it merely kills the local
     /// handle to that remote process.
     pub async fn disconnect(self) -> io::Result<()> {
-        match self.imp {
-            RemoteChildImp::ProcessImpl(imp) => imp.disconnect().await,
-
-            #[cfg(feature = "mux_client")]
-            RemoteChildImp::MuxClientImpl(imp) => imp.disconnect().await,
-        }
+        delegate!(self.imp, imp, { imp.disconnect().await })
     }
 
     /// Waits for the remote child to exit completely, returning the status that it exited with.
@@ -120,12 +116,7 @@ impl<'s> RemoteChild<'s> {
     /// avoid deadlock: it ensures that the child does not block waiting for input from the parent,
     /// while the parent waits for the child to exit.
     pub async fn wait(&mut self) -> Result<ExitStatus, Error> {
-        match &mut self.imp {
-            RemoteChildImp::ProcessImpl(imp) => imp.wait().await,
-
-            #[cfg(feature = "mux_client")]
-            RemoteChildImp::MuxClientImpl(imp) => imp.wait().await,
-        }
+        delegate!(&mut self.imp, imp, { imp.wait().await })
     }
 
     /// Attempts to collect the exit status of the remote child if it has already exited.
