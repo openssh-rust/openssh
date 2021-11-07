@@ -33,6 +33,11 @@ pub enum Error {
     /// this error back.
     Disconnected,
 
+    /// Remote process is terminated.
+    ///
+    /// It is likely it is terminated by signal.
+    RemoteProcessTerminated,
+
     /// Failed to remove temporary dir where ssh socket and output is stored.
     RemoveTempDir(io::Error),
 
@@ -79,6 +84,8 @@ impl fmt::Display for Error {
                 write!(f, "failure while accessing standard I/O of remote process")
             }
 
+            Error::RemoteProcessTerminated => write!(f, "Remote process is terminated"),
+
             #[cfg(feature = "mux_client")]
             Error::SshMux(_) => write!(f, "failed to connect to the ssh multiplex server"),
         }
@@ -94,7 +101,8 @@ impl std::error::Error for Error {
             | Error::Remote(ref e)
             | Error::RemoveTempDir(ref e)
             | Error::IOError(ref e) => Some(e),
-            Error::Disconnected => None,
+
+            Error::RemoteProcessTerminated | Error::Disconnected => None,
 
             #[cfg(feature = "mux_client")]
             Error::SshMux(ref e) => Some(e),
