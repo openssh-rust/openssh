@@ -1,5 +1,5 @@
 use super::Error;
-use super::{Fd, Stdio};
+use super::{into_fd, Fd, Stdio};
 
 use core::pin::Pin;
 use core::result;
@@ -19,7 +19,7 @@ impl Stdio {
             StdioImpl::Null => Ok((None, None)),
             StdioImpl::Pipe => {
                 let (read, write) = pipe().map_err(Error::IOError)?;
-                Ok((Some(read.into()), Some(ChildStdin(write))))
+                Ok((Some(into_fd(read)), Some(ChildStdin(write))))
             }
             StdioImpl::Fd(fd) => Ok((Some(fd), None)),
         }
@@ -30,7 +30,7 @@ impl Stdio {
             StdioImpl::Null => Ok((None, None)),
             StdioImpl::Pipe => {
                 let (read, write) = pipe().map_err(Error::IOError)?;
-                Ok((Some(write.into()), Some(ChildStdout(read))))
+                Ok((Some(into_fd(write)), Some(ChildStdout(read))))
             }
             StdioImpl::Fd(fd) => Ok((Some(fd), None)),
         }

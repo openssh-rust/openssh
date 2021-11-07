@@ -1,9 +1,9 @@
-use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
+use std::fs::File;
 
 #[cfg(feature = "mux_client")]
 use std::fs::OpenOptions;
-
-use nix::unistd;
+#[cfg(feature = "mux_client")]
+use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
 
 #[cfg(feature = "mux_client")]
 use once_cell::sync::OnceCell;
@@ -22,33 +22,17 @@ fn get_null_fd() -> RawFd {
     })
 }
 
-#[derive(Debug)]
-pub(crate) struct Fd(RawFd);
-impl Drop for Fd {
-    fn drop(&mut self) {
-        unistd::close(self.0).unwrap();
-    }
-}
-impl AsRawFd for Fd {
-    fn as_raw_fd(&self) -> RawFd {
-        self.0
-    }
-}
-impl<T: IntoRawFd> From<T> for Fd {
-    fn from(val: T) -> Self {
-        Self(IntoRawFd::into_raw_fd(val))
-    }
-}
-impl FromRawFd for Fd {
-    unsafe fn from_raw_fd(fd: RawFd) -> Self {
-        Self(fd)
-    }
+pub(crate) type Fd = File;
+
+#[cfg(feature = "mux_client")]
+pub(crate) fn into_fd<T: IntoRawFd>(val: T) -> Fd {
+    unsafe { Fd::from_raw_fd(val.into_raw_fd()) }
 }
 
 #[cfg(feature = "mux_client")]
 pub(crate) fn as_raw_fd(fd: &Option<Fd>) -> RawFd {
     match fd {
-        Some(fd) => fd.0,
+        Some(fd) => AsRawFd::as_raw_fd(fd),
         None => get_null_fd(),
     }
 }

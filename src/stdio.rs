@@ -47,12 +47,12 @@ impl Stdio {
 }
 impl<T: IntoRawFd> From<T> for Stdio {
     fn from(val: T) -> Self {
-        Self(StdioImpl::Fd(val.into()))
+        unsafe { Stdio::from_raw_fd(val.into_raw_fd()) }
     }
 }
 impl FromRawFd for Stdio {
     unsafe fn from_raw_fd(fd: RawFd) -> Self {
-        Self(StdioImpl::Fd(fd.into()))
+        Self(StdioImpl::Fd(Fd::from_raw_fd(fd)))
     }
 }
 impl From<Stdio> for process::Stdio {
