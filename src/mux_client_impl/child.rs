@@ -6,7 +6,7 @@ use std::io;
 use std::os::unix::process::ExitStatusExt;
 use std::process::ExitStatus;
 
-use openssh_mux_client::connection::{EstablishedSession, SessionStatus};
+use openssh_mux_client::connection::{EstablishedSession, SessionStatus, UNEXPECTEDEOF};
 
 #[derive(Debug)]
 pub struct RemoteChild {
@@ -47,17 +47,15 @@ impl RemoteChild {
     pub async fn wait(&mut self) -> Result<ExitStatus, Error> {
         use RemoteChildState::*;
 
-        let exit_status = match self.state.take() {
+        let exit_value = match self.state.take() {
             Intermediate => unreachable!(),
-            Exited(exit_status) => exit_status,
+            Exited(exit_value) => exit_value,
             Running(established_session) => match established_session.wait().await {
                 Ok(session_status) => match session_status {
                     SessionStatus::TtyAllocFail(_established_session) => unreachable!(
                         "openssh::mux_client_impl does not use feature tty by any means"
                     ),
-                    SessionStatus::Exited { exit_value } => {
-                        ExitStatusExt::from_raw((exit_value as i32) << 8)
-                    }
+                    SessionStatus::Exited { exit_value } => exit_value,
                 },
                 Err((err, established_session)) => {
                     self.state = Running(established_session);
@@ -66,8 +64,13 @@ impl RemoteChild {
             },
         };
 
-        self.state = Exited(exit_status);
-        if let Some(127) = exit_status.code() {
+        self.state = Exited(exit_value);
+
+        let exit_status: ExitStatus = ExitStatusExt::from_raw((exit_value as i32) << 8);
+
+        if exit_value == UNEXPECTEDEOF {
+            Err(Error::RemoteProcessTerminated)
+        } else if let Some(127) = exit_status.code() {
             Err(Error::Remote(io::Error::new(
                 io::ErrorKind::NotFound,
                 "remote command not found",
@@ -97,7 +100,7 @@ impl RemoteChild {
 #[derive(Debug)]
 enum RemoteChildState {
     Running(EstablishedSession),
-    Exited(ExitStatus),
+    Exited(u32),
 
     /// Intermediate state means the function wait is being called.
     Intermediate,
