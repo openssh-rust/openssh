@@ -131,8 +131,6 @@ impl<'s> RemoteChild<'s> {
     /// returned.
     ///
     /// Note that unlike `wait`, this function will not attempt to drop stdin.
-    ///
-    /// Also, this function is unimplemented!() for mux_client_impl.
     pub async fn try_wait(&mut self) -> Result<Option<ExitStatus>, Error> {
         delegate!(&mut self.imp, imp, { imp.try_wait().await })
     }
