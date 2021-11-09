@@ -1,6 +1,5 @@
-use super::{Error, RemoteChild, Session, Stdio};
+use super::{Error, Session, Stdio};
 
-use core::mem;
 use std::io;
 use std::{
     pin::Pin,
@@ -318,7 +317,10 @@ impl<'s> Sftp<'s> {
             .spawn()
             .await?;
 
-        Ok(RemoteFile::new(cat, Mode::Write))
+        Ok(RemoteFile {
+            cat,
+            mode: Mode::Write,
+        })
     }
 
     /// Open the remote file at `path` for appending.
@@ -373,7 +375,10 @@ impl<'s> Sftp<'s> {
             .spawn()
             .await?;
 
-        Ok(RemoteFile::new(cat, Mode::Append))
+        Ok(RemoteFile {
+            cat,
+            mode: Mode::Append,
+        })
     }
 
     /// Open the remote file at `path` for reading.
@@ -426,15 +431,14 @@ impl<'s> Sftp<'s> {
             .spawn()
             .await?;
 
-        Ok(RemoteFile::new(cat, Mode::Read))
+        Ok(RemoteFile {
+            cat,
+            mode: Mode::Read,
+        })
     }
 }
 
-impl<'s> RemoteFile<'s> {
-    fn new(cat: RemoteChild<'s>, mode: Mode) -> Self {
-        Self { cat, mode }
-    }
-
+impl RemoteFile<'_> {
     /// Close the handle to the remote file.
     ///
     /// If the remote file was opened for reading, this will also call
@@ -454,10 +458,12 @@ impl<'s> RemoteFile<'s> {
         }
 
         // let us try to cobble together a good error for the user
-        let err = String::from_utf8(mem::take(&mut result.stderr))
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))
-            .map_err(Error::Remote)?;
-        let err = err.trim();
+        let err = match String::from_utf8(std::mem::take(&mut result.stderr)) {
+            Err(e) => {
+                return Err(Error::Remote(io::Error::new(io::ErrorKind::Other, e)));
+            }
+            Ok(s) => s,
+        };
 
         if let Some(1) | None = result.status.code() {
             // looking at cat's source at the time of writing:
@@ -474,15 +480,18 @@ impl<'s> RemoteFile<'s> {
 
         // search for "die" or EXIT_FAILURE in the cat source code:
         // https://github.com/coreutils/coreutils/blob/master/src/cat.c
-        let err = if err.ends_with(": No such file or directory") {
+        #[allow(clippy::collapsible_if)]
+        Err(Error::Remote(if self.mode.is_write() {
+            if err.ends_with(": No such file or directory") {
+                io::Error::new(io::ErrorKind::NotFound, err)
+            } else {
+                io::Error::new(io::ErrorKind::WriteZero, err)
+            }
+        } else if err.ends_with(": No such file or directory") {
             io::Error::new(io::ErrorKind::NotFound, err)
-        } else if self.mode.is_write() {
-            io::Error::new(io::ErrorKind::WriteZero, err)
         } else {
             io::Error::new(io::ErrorKind::UnexpectedEof, err)
-        };
-
-        Err(Error::Remote(err))
+        }))
     }
 }
 
