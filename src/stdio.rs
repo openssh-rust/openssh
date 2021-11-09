@@ -1,3 +1,5 @@
+use super::Error;
+
 use core::mem::ManuallyDrop;
 
 use core::pin::Pin;
@@ -8,7 +10,7 @@ use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
 
 use std::process;
 
-use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, ReadBuf};
 
 use crate::fd::Fd;
 
@@ -189,6 +191,18 @@ macro_rules! impl_reader {
         impl From<super::mux_client_impl::$type> for $type {
             fn from(imp: super::mux_client_impl::$type) -> Self {
                 Self($imp_type::MuxClientImpl(imp))
+            }
+        }
+
+        impl $type {
+            pub(crate) async fn read_all(
+                &mut self,
+                output: &mut Vec<u8>,
+            ) -> std::result::Result<(), Error> {
+                AsyncReadExt::read_to_end(self, output)
+                    .await
+                    .map_err(Error::IOError)?;
+                Ok(())
             }
         }
 

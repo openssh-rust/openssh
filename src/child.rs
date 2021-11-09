@@ -3,8 +3,6 @@ use super::{ChildStderr, ChildStdin, ChildStdout, Error, Session};
 use std::io;
 use std::process::{ExitStatus, Output};
 
-use tokio::io::AsyncReadExt;
-
 #[derive(Debug)]
 pub(crate) enum RemoteChildImp {
     ProcessImpl(super::process_impl::RemoteChild),
@@ -159,17 +157,11 @@ impl<'s> RemoteChild<'s> {
         };
 
         if let Some(mut child_stdout) = self.stdout {
-            child_stdout
-                .read_to_end(&mut output.stdout)
-                .await
-                .map_err(Error::IOError)?;
+            child_stdout.read_all(&mut output.stdout).await?;
         }
 
         if let Some(mut child_stderr) = self.stderr {
-            child_stderr
-                .read_to_end(&mut output.stderr)
-                .await
-                .map_err(Error::IOError)?;
+            child_stderr.read_all(&mut output.stderr).await?;
         }
 
         Ok(output)
