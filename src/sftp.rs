@@ -497,7 +497,7 @@ impl tokio::io::AsyncRead for RemoteFile<'_> {
         mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         buf: &mut tokio::io::ReadBuf<'_>,
-    ) -> Poll<Result<(), io::Error>> {
+    ) -> Poll<io::Result<()>> {
         if self.mode.is_write() {
             return Poll::Ready(Err(io::Error::new(
                 io::ErrorKind::UnexpectedEof,
