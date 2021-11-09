@@ -464,6 +464,7 @@ impl RemoteFile<'_> {
             }
             Ok(s) => s,
         };
+        let err = err.trim();
 
         if let Some(1) = result.status.code() {
             // looking at cat's source at the time of writing:
