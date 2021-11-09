@@ -19,7 +19,8 @@ use super::Error;
 
 pub(crate) mod builder;
 
-use super::fd::*;
+mod fd;
+use fd::*;
 
 mod stdio;
 pub(crate) use stdio::{ChildStderr, ChildStdin, ChildStdout};

@@ -1,5 +1,5 @@
 use super::Error;
-use super::{into_fd, Fd, Stdio};
+use super::{into_fd, Stdio};
 
 use core::pin::Pin;
 use core::result;
@@ -19,7 +19,7 @@ fn dup(file: &File) -> result::Result<File, Error> {
 }
 
 impl Stdio {
-    pub(crate) fn into_stdin(&self) -> result::Result<(Option<Fd>, Option<ChildStdin>), Error> {
+    pub(crate) fn into_stdin(&self) -> result::Result<(Option<File>, Option<ChildStdin>), Error> {
         match &self.0 {
             StdioImpl::Null => Ok((None, None)),
             StdioImpl::Pipe => {
@@ -30,7 +30,7 @@ impl Stdio {
         }
     }
 
-    pub(crate) fn into_stdout(&self) -> result::Result<(Option<Fd>, Option<ChildStdout>), Error> {
+    pub(crate) fn into_stdout(&self) -> result::Result<(Option<File>, Option<ChildStdout>), Error> {
         match &self.0 {
             StdioImpl::Null => Ok((None, None)),
             StdioImpl::Pipe => {
@@ -41,7 +41,7 @@ impl Stdio {
         }
     }
 
-    pub(crate) fn into_stderr(&self) -> result::Result<(Option<Fd>, Option<ChildStderr>), Error> {
+    pub(crate) fn into_stderr(&self) -> result::Result<(Option<File>, Option<ChildStderr>), Error> {
         let (fd, stdout) = self.into_stdout()?;
         Ok((fd, stdout.map(|out| ChildStderr(out.0))))
     }

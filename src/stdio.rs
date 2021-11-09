@@ -5,14 +5,13 @@ use core::mem::ManuallyDrop;
 use core::pin::Pin;
 use core::task::{Context, Poll};
 
+use std::fs::File;
 use std::io::{self, IoSlice};
 use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
 
 use std::process;
 
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, ReadBuf};
-
-use crate::fd::Fd;
 
 #[derive(Debug)]
 pub(crate) enum StdioImpl {
@@ -21,7 +20,7 @@ pub(crate) enum StdioImpl {
     /// Read/Write to a newly created pipe
     Pipe,
     /// Read/Write to custom fd
-    Fd(Fd),
+    Fd(File),
 }
 
 /// Similar to std::process::Stdio
@@ -45,7 +44,7 @@ impl<T: IntoRawFd> From<T> for Stdio {
 }
 impl FromRawFd for Stdio {
     unsafe fn from_raw_fd(fd: RawFd) -> Self {
-        Self(StdioImpl::Fd(Fd::from_raw_fd(fd)))
+        Self(StdioImpl::Fd(File::from_raw_fd(fd)))
     }
 }
 impl From<Stdio> for process::Stdio {
