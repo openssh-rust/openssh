@@ -6,7 +6,7 @@ use std::io;
 use std::os::unix::process::ExitStatusExt;
 use std::process::ExitStatus;
 
-use openssh_mux_client::connection::{EstablishedSession, SessionStatus, UNEXPECTEDEOF};
+use openssh_mux_client::connection::{EstablishedSession, SessionStatus};
 
 #[derive(Debug)]
 pub struct RemoteChild {
@@ -66,17 +66,19 @@ impl RemoteChild {
 
         self.state = Exited(exit_value);
 
-        let exit_status: ExitStatus = ExitStatusExt::from_raw((exit_value as i32) << 8);
+        if let Some(val) = exit_value {
+            let exit_status: ExitStatus = ExitStatusExt::from_raw((val as i32) << 8);
 
-        if exit_value == UNEXPECTEDEOF {
-            Err(Error::RemoteProcessTerminated)
-        } else if let Some(127) = exit_status.code() {
-            Err(Error::Remote(io::Error::new(
-                io::ErrorKind::NotFound,
-                "remote command not found",
-            )))
+            if let Some(127) = exit_status.code() {
+                Err(Error::Remote(io::Error::new(
+                    io::ErrorKind::NotFound,
+                    "remote command not found",
+                )))
+            } else {
+                Ok(exit_status)
+            }
         } else {
-            Ok(exit_status)
+            Err(Error::RemoteProcessTerminated)
         }
     }
 
@@ -100,7 +102,7 @@ impl RemoteChild {
 #[derive(Debug)]
 enum RemoteChildState {
     Running(EstablishedSession),
-    Exited(u32),
+    Exited(Option<u32>),
 
     /// Intermediate state means the function wait is being called.
     Intermediate,
