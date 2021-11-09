@@ -67,15 +67,13 @@ impl RemoteChild {
         self.state = Exited(exit_value);
 
         if let Some(val) = exit_value {
-            let exit_status: ExitStatus = ExitStatusExt::from_raw((val as i32) << 8);
-
-            if let Some(127) = exit_status.code() {
+            if val == 127 {
                 Err(Error::Remote(io::Error::new(
                     io::ErrorKind::NotFound,
                     "remote command not found",
                 )))
             } else {
-                Ok(exit_status)
+                Ok(ExitStatusExt::from_raw((val as i32) << 8))
             }
         } else {
             Err(Error::RemoteProcessTerminated)
