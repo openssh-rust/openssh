@@ -1,8 +1,6 @@
+use lazy_static::lazy_static;
 use std::io;
 use std::io::Write;
-use std::str;
-
-use once_cell::sync::OnceCell;
 
 use regex::Regex;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -11,11 +9,8 @@ use openssh::*;
 
 // TODO: how do we test the connection actually _failing_ so that the master reports an error?
 
-fn addr() -> &'static str {
-    static ADDR: OnceCell<Option<String>> = OnceCell::new();
-    ADDR.get_or_init(|| std::env::var("TEST_HOST").ok())
-        .as_deref()
-        .unwrap_or("ssh://test-user@127.0.0.1:2222")
+fn addr() -> String {
+    std::env::var("TEST_HOST").unwrap_or("ssh://test-user@127.0.0.1:2222".to_string())
 }
 
 #[cfg(not(feature = "mux_client"))]
@@ -84,7 +79,7 @@ async fn control_dir() {
     let mut session_builder = SessionBuilder::default();
     session_builder.control_directory(&dirname);
 
-    for session in session_builder_connect(session_builder, addr()).await {
+    for session in session_builder_connect(session_builder, &addr()).await {
         session.check().await.unwrap();
         let mut iter = std::fs::read_dir(&dirname).unwrap();
         assert!(iter.next().is_some());
@@ -103,16 +98,14 @@ struct ProtoUserHostPort<'a> {
 }
 
 fn parse_user_host_port<'a>(s: &'a str) -> Option<ProtoUserHostPort> {
-    static SSH_REGEX: OnceCell<Regex> = OnceCell::new();
-
-    let ssh_regex = SSH_REGEX.get_or_init(|| {
-        Regex::new(
-            r#"(?x)^((?P<proto>[[:alpha:]]+)://)?((?P<user>.*?)@)?(?P<host>.*?)(:(?P<port>\d+))?$"#,
+    lazy_static! {
+        static ref SSH_REGEX: Regex = Regex::new(
+            r"(?x)^((?P<proto>[[:alpha:]]+)://)?((?P<user>.*?)@)?(?P<host>.*?)(:(?P<port>\d+))?$"
         )
-        .unwrap()
-    });
+        .unwrap();
+    }
 
-    ssh_regex.captures(s).and_then(|cap| {
+    SSH_REGEX.captures(s).and_then(|cap| {
         Some(ProtoUserHostPort {
             proto: cap.name("proto").and_then(|m| Some(m.as_str())),
             user: cap.name("user").and_then(|m| Some(m.as_str())),
@@ -272,7 +265,7 @@ async fn shell() {
         assert!(child.status.success());
 
         let child = session.shell("echo \\$SHELL").output().await.unwrap();
-        assert_eq!(str::from_utf8(&child.stdout).unwrap(), "$SHELL\n");
+        assert_eq!(child.stdout, b"$SHELL\n");
 
         let child = session
             .shell(r#"echo $USER | grep -c test"#)
