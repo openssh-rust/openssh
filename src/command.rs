@@ -72,6 +72,7 @@ pub struct Command<'s> {
     session: &'s super::Session,
     imp: CommandImp,
 
+    stdin_set: bool,
     stdout_set: bool,
     stderr_set: bool,
 }
@@ -82,6 +83,7 @@ impl<'s> Command<'s> {
             session,
             imp,
 
+            stdin_set: false,
             stdout_set: false,
             stderr_set: false,
         }
@@ -180,6 +182,7 @@ impl<'s> Command<'s> {
         delegate!(&mut self.imp, imp, {
             imp.stdin(cfg.into());
         });
+        self.stdin_set = true;
         self
     }
 
@@ -226,10 +229,12 @@ impl<'s> Command<'s> {
 
     /// Executes the remote command, waiting for it to finish and collecting all of its output.
     ///
-    /// By default, stdout and stderr are captured (and used to provide the resulting output).
-    /// Stdin is set to `Stdio::null`, and any attempt by the child process to read from
-    /// the stdin stream will result in the stream immediately closing.
+    /// By default, stdout and stderr are captured (and used to provide the resulting
+    /// output) and stdin is set to `Stdio::null()`.
     pub async fn output(&mut self) -> Result<process::Output, Error> {
+        if !self.stdin_set {
+            self.stdin(Stdio::null());
+        }
         if !self.stdout_set {
             self.stdout(Stdio::piped());
         }
