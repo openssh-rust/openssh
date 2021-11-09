@@ -12,6 +12,21 @@
 //! First of all, all remote commands are executed in the context of a single ssh
 //! [session](Session). Authentication happens once when the session is
 //! [established](Session::connect), and subsequent command invocations re-use the same connection.
+//!
+//! This library provides two way to connect to the [`ControlMaster`]:
+//!
+//! One is to spawn a new process (process_impl), the other is to connect to the control socket
+//! directly (mux_client_impl).
+//!
+//! The former parses the stdout/stderr of the ssh control master to retrieve the error
+//! for any failed operations, while the later retrieves the error from the control socket
+//! directly.
+//!
+//! Thus, the error handling in the later is more robust.
+//!
+//! Also, the former requires one process to be spawn for every connection while the later only
+//! needs to create one socket, so the later has better performance and consumes less resource.
+//!
 //! Behind the scenes, the crate uses ssh's [`ControlMaster`] feature to multiplex the channels for
 //! the different remote commands. Because of this, each remote command is tied to the lifetime of
 //! the [`Session`] that spawned them. When the session is [closed](Session::close), the connection
