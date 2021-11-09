@@ -56,8 +56,6 @@ jobs:
        displayName: cargo check --no-default-features
      - script: cargo check --all-features
        displayName: cargo check --all-features
-     - script: cargo test
-       displayName: cargo test
      - script: cargo test --all-features
        displayName: cargo test --all-features
      - script: cargo doc --no-deps
