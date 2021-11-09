@@ -465,14 +465,10 @@ impl RemoteFile<'_> {
             Ok(s) => s,
         };
 
-        if let Some(1) | None = result.status.code() {
+        if let Some(1) = result.status.code() {
             // looking at cat's source at the time of writing:
             // https://github.com/coreutils/coreutils/blob/730876d067f24380ccec1bdd1f179a664f11aa2f/src/cat.c
             // cat always returns with EXIT_FAILURE, which is 1 on all POSIX platforms.
-
-            // None can happen when the mux_client_impl is used, since the ssh
-            // multiplex server can cut the connection without returning any
-            // status code.
         } else {
             // something really weird happened.
             return Err(Error::Remote(io::Error::new(io::ErrorKind::Other, err)));
