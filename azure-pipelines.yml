@@ -57,7 +57,7 @@ jobs:
      - script: cargo check --all-features
        displayName: cargo check --all-features
      - script: cargo test --all-features
-       displayName: cargo test --all-features
+       displayName: cargo test
      - script: cargo doc --no-deps
        displayName: cargo doc
  # This represents the minimum Rust version supported.
