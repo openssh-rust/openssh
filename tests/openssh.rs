@@ -2,7 +2,6 @@ use std::io;
 use std::io::Write;
 use std::str;
 
-use assert_matches::assert_matches;
 use once_cell::sync::OnceCell;
 
 use regex::Regex;
@@ -346,11 +345,9 @@ async fn stdin() {
 macro_rules! assert_kind {
     ($e:expr, $kind:expr) => {
         let e = $e;
-        let kind = $kind;
 
-        assert_matches!(
-            e,
-            Error::Remote(ref e) if e.kind() == kind,
+        assert!(
+            matches!(e, Error::Remote(ref e) if e.kind() == $kind),
             "{:?}",
             e
         );
@@ -560,7 +557,7 @@ async fn connect_timeout() {
     assert!(t.elapsed() > Duration::from_secs(1));
     assert!(t.elapsed() < Duration::from_secs(2));
     eprintln!("{:?}", failed);
-    assert_matches!(failed, Error::Connect(e) if e.kind() == io::ErrorKind::TimedOut);
+    assert!(matches!(failed, Error::Connect(ref e) if e.kind() == io::ErrorKind::TimedOut));
 
     // Test mux_client_impl
     #[cfg(feature = "mux_client")]
@@ -570,7 +567,7 @@ async fn connect_timeout() {
         assert!(t.elapsed() > Duration::from_secs(1));
         assert!(t.elapsed() < Duration::from_secs(2));
         eprintln!("{:?}", failed);
-        assert_matches!(failed, Error::Connect(e) if e.kind() == io::ErrorKind::TimedOut);
+        assert!(matches!(failed, Error::Connect(ref e) if e.kind() == io::ErrorKind::TimedOut));
     }
 }
 
@@ -685,7 +682,7 @@ async fn process_exit_on_signal() {
         eprintln!("process_exit_on_signal: Waiting for sleeping to exit");
         let failed = sleeping.wait().await.unwrap_err();
         eprintln!("process_exit_on_signal: {:?}", failed);
-        assert_matches!(failed, Error::RemoteProcessTerminated);
+        assert!(matches!(failed, Error::RemoteProcessTerminated));
 
         // the connection should still work though
         let _ = session.check().await.unwrap();
