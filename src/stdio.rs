@@ -5,7 +5,7 @@ use core::mem::ManuallyDrop;
 use core::pin::Pin;
 use core::task::{Context, Poll};
 
-use std::io::{IoSlice, Result};
+use std::io::{self, IoSlice};
 use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
 
 use std::process;
@@ -97,7 +97,11 @@ impl AsRawFd for ChildStdin {
 }
 
 impl AsyncWrite for ChildStdin {
-    fn poll_write(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<Result<usize>> {
+    fn poll_write(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &[u8],
+    ) -> Poll<Result<usize, io::Error>> {
         let inner = unsafe { Pin::into_inner_unchecked(self) };
         match &mut inner.0 {
             ChildStdinImp::ProcessImpl(imp) => {
@@ -111,7 +115,7 @@ impl AsyncWrite for ChildStdin {
         }
     }
 
-    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<()>> {
+    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
         let inner = unsafe { Pin::into_inner_unchecked(self) };
         match &mut inner.0 {
             ChildStdinImp::ProcessImpl(imp) => {
@@ -125,7 +129,7 @@ impl AsyncWrite for ChildStdin {
         }
     }
 
-    fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<()>> {
+    fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
         let inner = unsafe { Pin::into_inner_unchecked(self) };
         match &mut inner.0 {
             ChildStdinImp::ProcessImpl(imp) => {
@@ -143,7 +147,7 @@ impl AsyncWrite for ChildStdin {
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         bufs: &[IoSlice<'_>],
-    ) -> Poll<Result<usize>> {
+    ) -> Poll<Result<usize, io::Error>> {
         let inner = unsafe { Pin::into_inner_unchecked(self) };
         match &mut inner.0 {
             ChildStdinImp::ProcessImpl(imp) => {
@@ -195,10 +199,7 @@ macro_rules! impl_reader {
         }
 
         impl $type {
-            pub(crate) async fn read_all(
-                &mut self,
-                output: &mut Vec<u8>,
-            ) -> std::result::Result<(), Error> {
+            pub(crate) async fn read_all(&mut self, output: &mut Vec<u8>) -> Result<(), Error> {
                 AsyncReadExt::read_to_end(self, output)
                     .await
                     .map_err(Error::IOError)?;
@@ -222,7 +223,7 @@ macro_rules! impl_reader {
                 self: Pin<&mut Self>,
                 cx: &mut Context<'_>,
                 buf: &mut ReadBuf<'_>,
-            ) -> Poll<Result<()>> {
+            ) -> Poll<Result<(), io::Error>> {
                 let inner = unsafe { Pin::into_inner_unchecked(self) };
                 match &mut inner.0 {
                     $imp_type::ProcessImpl(imp) => {
