@@ -491,7 +491,7 @@ impl tokio::io::AsyncRead for RemoteFile<'_> {
         mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         buf: &mut tokio::io::ReadBuf<'_>,
-    ) -> Poll<io::Result<()>> {
+    ) -> Poll<Result<(), io::Error>> {
         if self.mode.is_write() {
             return Poll::Ready(Err(io::Error::new(
                 io::ErrorKind::UnexpectedEof,
@@ -508,7 +508,7 @@ impl tokio::io::AsyncWrite for RemoteFile<'_> {
         mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         buf: &[u8],
-    ) -> Poll<io::Result<usize>> {
+    ) -> Poll<Result<usize, io::Error>> {
         if !self.mode.is_write() {
             return Poll::Ready(Err(io::Error::new(
                 io::ErrorKind::WriteZero,
@@ -519,11 +519,14 @@ impl tokio::io::AsyncWrite for RemoteFile<'_> {
         Pin::new(self.cat.stdin().as_mut().unwrap()).poll_write(cx, buf)
     }
 
-    fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+    fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
         Pin::new(self.cat.stdin().as_mut().unwrap()).poll_flush(cx)
     }
 
-    fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+    fn poll_shutdown(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<Result<(), io::Error>> {
         Pin::new(self.cat.stdin().as_mut().unwrap()).poll_shutdown(cx)
     }
 }
