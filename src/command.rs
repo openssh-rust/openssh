@@ -242,11 +242,7 @@ impl<'s> Command<'s> {
             self.stderr(Stdio::piped());
         }
 
-        self.stdin(Stdio::null())
-            .spawn()
-            .await?
-            .wait_with_output()
-            .await
+        self.spawn().await?.wait_with_output().await
     }
 
     /// Executes the remote command, waiting for it to finish and collecting its exit status.
