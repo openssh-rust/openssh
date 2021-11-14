@@ -758,7 +758,7 @@ async fn broken_connection() {
 
 #[tokio::test]
 async fn cannot_resolve() {
-    for err in connects_err("bat-host").await {
+    for err in connects_err("bad-host").await {
         match err {
             Error::Connect(e) => {
                 eprintln!("{:?}", e);
