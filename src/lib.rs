@@ -140,7 +140,6 @@
     rust_2018_idioms,
     unreachable_pub
 )]
-#![allow(clippy::useless_conversion)]
 
 use std::borrow::Cow;
 use std::ffi::OsStr;
