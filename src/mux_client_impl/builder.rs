@@ -3,11 +3,8 @@ use crate::SessionBuilder;
 
 use std::fs;
 use std::io;
-use std::path::Path;
 use std::process::Stdio;
 use std::str;
-
-use tempfile::Builder;
 
 use tokio::process;
 
@@ -17,12 +14,7 @@ pub(crate) async fn just_connect<S: AsRef<str>>(
 ) -> Result<Session, Error> {
     let destination = host.as_ref();
 
-    let defaultdir = Path::new("./");
-    let socketdir = builder.control_dir.as_deref().unwrap_or(defaultdir);
-    let dir = Builder::new()
-        .prefix(".ssh-connection")
-        .tempdir_in(socketdir)
-        .map_err(Error::Master)?;
+    let dir = builder.build_tempdir()?;
 
     let ctl = dir.path().join("master");
     let log = dir.path().join("log");

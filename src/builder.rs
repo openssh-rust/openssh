@@ -4,6 +4,8 @@ use std::borrow::Cow;
 use std::path::{Path, PathBuf};
 use std::str;
 
+use tempfile::{Builder, TempDir};
+
 /// Build a [`Session`] with options.
 #[derive(Debug, Clone)]
 pub struct SessionBuilder {
@@ -139,6 +141,15 @@ impl SessionBuilder {
         }
 
         (Cow::Owned(with_overrides), destination)
+    }
+
+    pub(crate) fn build_tempdir(&self) -> Result<TempDir, Error> {
+        let defaultdir = Path::new("./");
+        let socketdir = self.control_dir.as_deref().unwrap_or(defaultdir);
+        Builder::new()
+            .prefix(".ssh-connection")
+            .tempdir_in(socketdir)
+            .map_err(Error::Master)
     }
 
     /// Connect to the host at the given `host` over SSH using process_impl, which will

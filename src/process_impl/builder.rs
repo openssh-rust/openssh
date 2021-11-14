@@ -1,10 +1,8 @@
 use super::super::SessionBuilder;
 use super::{Error, Session};
 
-use std::path::Path;
 use std::process::Stdio;
 
-use tempfile::Builder;
 use tokio::io::AsyncReadExt;
 use tokio::process;
 
@@ -14,12 +12,8 @@ pub(crate) async fn just_connect<S: AsRef<str>>(
 ) -> Result<Session, Error> {
     let destination = host.as_ref();
 
-    let defaultdir = Path::new("./").to_path_buf();
-    let socketdir = builder.control_dir.as_ref().unwrap_or(&defaultdir);
-    let dir = Builder::new()
-        .prefix(".ssh-connection")
-        .tempdir_in(socketdir)
-        .map_err(Error::Master)?;
+    let dir = builder.build_tempdir()?;
+
     let mut init = process::Command::new("ssh");
 
     init.stdin(Stdio::null())
