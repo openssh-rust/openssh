@@ -60,7 +60,6 @@ impl Command {
         self
     }
 
-    /// After this function, stdin, stdout and stderr is reset.
     async fn spawn_impl(
         &mut self,
     ) -> Result<
@@ -76,7 +75,6 @@ impl Command {
         let (stdout, child_stdout) = self.stdout_v.into_stdout()?;
         let (stderr, child_stderr) = self.stderr_v.into_stderr()?;
 
-        // Then launch!
         let session = Session::builder().cmd(&self.cmd).build();
 
         let established_session = Connection::connect(&self.ctl)
