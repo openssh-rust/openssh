@@ -84,7 +84,7 @@ enum ChildStdinImp {
 pub struct ChildStdin(#[pin] ChildStdinImp);
 
 impl ChildStdin {
-    fn project_enum(self: Pin<&mut Self>) -> ChildStdinImpProj {
+    fn project_enum(self: Pin<&mut Self>) -> ChildStdinImpProj<'_> {
         self.project().0.project()
     }
 }
