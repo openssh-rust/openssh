@@ -69,7 +69,7 @@ impl Command {
             .await?
             .open_new_session(
                 &session,
-                &[as_raw_fd(&stdin), as_raw_fd(&stdout), as_raw_fd(&stderr)],
+                &[as_raw_fd(&stdin)?, as_raw_fd(&stdout)?, as_raw_fd(&stderr)?],
             )
             .await?;
 
