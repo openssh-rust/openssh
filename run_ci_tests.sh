@@ -2,8 +2,8 @@
 
 cd $(dirname `realpath $0`)
 
-export RUSTFLAGS=--cfg=ci
-cargo build --all-features
+export RUSTFLAGS='--cfg=ci'
+cargo build --all-features --tests
 
 # Start the container
 export PUBLIC_KEY='ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGzHvK2pKtSlZXP9tPYOOBb/xn0IiC9iLMS355AYUPC7'
