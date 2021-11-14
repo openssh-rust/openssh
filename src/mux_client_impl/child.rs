@@ -9,7 +9,7 @@ use std::process::ExitStatus;
 use openssh_mux_client::connection::{EstablishedSession, SessionStatus};
 
 #[derive(Debug)]
-pub struct RemoteChild {
+pub(crate) struct RemoteChild {
     state: RemoteChildState,
     child_stdin: Option<ChildStdin>,
     child_stdout: Option<ChildStdout>,
@@ -31,7 +31,7 @@ impl RemoteChild {
         }
     }
 
-    pub async fn disconnect(self) -> io::Result<()> {
+    pub(crate) async fn disconnect(self) -> io::Result<()> {
         use RemoteChildState::*;
 
         match self.state {
@@ -45,7 +45,7 @@ impl RemoteChild {
         }
     }
 
-    pub async fn wait(&mut self) -> Result<ExitStatus, Error> {
+    pub(crate) async fn wait(&mut self) -> Result<ExitStatus, Error> {
         use RemoteChildState::*;
 
         let exit_value = match self.state.take() {
@@ -81,19 +81,19 @@ impl RemoteChild {
         }
     }
 
-    pub fn try_wait(&mut self) -> Result<Option<ExitStatus>, Error> {
+    pub(crate) fn try_wait(&mut self) -> Result<Option<ExitStatus>, Error> {
         Ok(None)
     }
 
-    pub fn stdin(&mut self) -> &mut Option<ChildStdin> {
+    pub(crate) fn stdin(&mut self) -> &mut Option<ChildStdin> {
         &mut self.child_stdin
     }
 
-    pub fn stdout(&mut self) -> &mut Option<ChildStdout> {
+    pub(crate) fn stdout(&mut self) -> &mut Option<ChildStdout> {
         &mut self.child_stdout
     }
 
-    pub fn stderr(&mut self) -> &mut Option<ChildStderr> {
+    pub(crate) fn stderr(&mut self) -> &mut Option<ChildStderr> {
         &mut self.child_stderr
     }
 }

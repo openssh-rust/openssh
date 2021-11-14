@@ -8,7 +8,7 @@ use std::path::PathBuf;
 use openssh_mux_client::connection::{Connection, Session};
 
 #[derive(Debug)]
-pub struct Command {
+pub(crate) struct Command {
     cmd: String,
     ctl: PathBuf,
 
@@ -28,10 +28,8 @@ impl Command {
             stderr_v: Stdio::null(),
         }
     }
-}
 
-impl Command {
-    pub fn arg<S: AsRef<str>>(&mut self, arg: S) -> &mut Self {
+    pub(crate) fn arg<S: AsRef<str>>(&mut self, arg: S) -> &mut Self {
         self.cmd.push_str(" '");
         // TODO: Escape all `'` in `arg`
         self.cmd.push_str(arg.as_ref());
@@ -39,28 +37,28 @@ impl Command {
         self
     }
 
-    pub fn raw_arg<S: AsRef<OsStr>>(&mut self, arg: S) -> &mut Self {
+    pub(crate) fn raw_arg<S: AsRef<OsStr>>(&mut self, arg: S) -> &mut Self {
         self.cmd.push(' ');
         self.cmd.push_str(&arg.as_ref().to_string_lossy());
         self
     }
 
-    pub fn stdin<T: Into<Stdio>>(&mut self, cfg: T) -> &mut Self {
+    pub(crate) fn stdin<T: Into<Stdio>>(&mut self, cfg: T) -> &mut Self {
         self.stdin_v = cfg.into();
         self
     }
 
-    pub fn stdout<T: Into<Stdio>>(&mut self, cfg: T) -> &mut Self {
+    pub(crate) fn stdout<T: Into<Stdio>>(&mut self, cfg: T) -> &mut Self {
         self.stdout_v = cfg.into();
         self
     }
 
-    pub fn stderr<T: Into<Stdio>>(&mut self, cfg: T) -> &mut Self {
+    pub(crate) fn stderr<T: Into<Stdio>>(&mut self, cfg: T) -> &mut Self {
         self.stderr_v = cfg.into();
         self
     }
 
-    pub async fn spawn(&mut self) -> Result<RemoteChild, Error> {
+    pub(crate) async fn spawn(&mut self) -> Result<RemoteChild, Error> {
         let (stdin, child_stdin) = self.stdin_v.into_stdin()?;
         let (stdout, child_stdout) = self.stdout_v.into_stdout()?;
         let (stderr, child_stderr) = self.stderr_v.into_stderr()?;
