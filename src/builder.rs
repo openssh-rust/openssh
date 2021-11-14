@@ -11,14 +11,14 @@ use tokio::process;
 /// Build a [`Session`] with options.
 #[derive(Debug, Clone)]
 pub struct SessionBuilder {
-    pub(crate) user: Option<String>,
-    pub(crate) port: Option<String>,
-    pub(crate) keyfile: Option<PathBuf>,
-    pub(crate) connect_timeout: Option<String>,
-    pub(crate) server_alive_interval: Option<u64>,
-    pub(crate) known_hosts_check: KnownHosts,
-    pub(crate) control_dir: Option<PathBuf>,
-    pub(crate) config_file: Option<PathBuf>,
+    user: Option<String>,
+    port: Option<String>,
+    keyfile: Option<PathBuf>,
+    connect_timeout: Option<String>,
+    server_alive_interval: Option<u64>,
+    known_hosts_check: KnownHosts,
+    control_dir: Option<PathBuf>,
+    config_file: Option<PathBuf>,
 }
 
 impl Default for SessionBuilder {
@@ -299,7 +299,7 @@ pub enum KnownHosts {
 }
 
 impl KnownHosts {
-    pub(crate) fn as_option(&self) -> &'static str {
+    fn as_option(&self) -> &'static str {
         match *self {
             KnownHosts::Strict => "StrictHostKeyChecking=yes",
             KnownHosts::Add => "StrictHostKeyChecking=accept-new",
