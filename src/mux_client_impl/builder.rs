@@ -18,7 +18,7 @@ pub(crate) async fn just_connect<S: AsRef<str>>(
     let destination = host.as_ref();
 
     let defaultdir = Path::new("./");
-    let socketdir = builder.control_dir.as_deref().unwrap_or(&defaultdir);
+    let socketdir = builder.control_dir.as_deref().unwrap_or(defaultdir);
     let dir = Builder::new()
         .prefix(".ssh-connection")
         .tempdir_in(socketdir)
