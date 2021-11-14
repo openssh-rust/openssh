@@ -60,17 +60,7 @@ impl Command {
         self
     }
 
-    async fn spawn_impl(
-        &mut self,
-    ) -> Result<
-        (
-            EstablishedSession,
-            Option<ChildStdin>,
-            Option<ChildStdout>,
-            Option<ChildStderr>,
-        ),
-        Error,
-    > {
+    pub async fn spawn(&mut self) -> Result<RemoteChild, Error> {
         let (stdin, child_stdin) = self.stdin_v.into_stdin()?;
         let (stdout, child_stdout) = self.stdout_v.into_stdout()?;
         let (stderr, child_stderr) = self.stderr_v.into_stderr()?;
@@ -84,13 +74,6 @@ impl Command {
                 &[as_raw_fd(&stdin), as_raw_fd(&stdout), as_raw_fd(&stderr)],
             )
             .await?;
-
-        Ok((established_session, child_stdin, child_stdout, child_stderr))
-    }
-
-    pub async fn spawn(&mut self) -> Result<RemoteChild, Error> {
-        let (established_session, child_stdin, child_stdout, child_stderr) =
-            self.spawn_impl().await?;
 
         Ok(RemoteChild::new(
             established_session,
