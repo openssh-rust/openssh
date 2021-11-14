@@ -7,7 +7,7 @@ use std::process::Stdio;
 use tokio::process;
 
 #[derive(Debug)]
-pub struct Command {
+pub(crate) struct Command {
     builder: process::Command,
 }
 
@@ -23,32 +23,32 @@ impl Command {
 }
 
 impl Command {
-    pub fn arg<S: AsRef<str>>(&mut self, arg: S) -> &mut Self {
+    pub(crate) fn arg<S: AsRef<str>>(&mut self, arg: S) -> &mut Self {
         self.raw_arg(&*shell_escape::unix::escape(Cow::Borrowed(arg.as_ref())));
         self
     }
 
-    pub fn raw_arg<S: AsRef<OsStr>>(&mut self, arg: S) -> &mut Self {
+    pub(crate) fn raw_arg<S: AsRef<OsStr>>(&mut self, arg: S) -> &mut Self {
         self.builder.arg(arg);
         self
     }
 
-    pub fn stdin<T: Into<Stdio>>(&mut self, cfg: T) -> &mut Self {
+    pub(crate) fn stdin<T: Into<Stdio>>(&mut self, cfg: T) -> &mut Self {
         self.builder.stdin(cfg);
         self
     }
 
-    pub fn stdout<T: Into<Stdio>>(&mut self, cfg: T) -> &mut Self {
+    pub(crate) fn stdout<T: Into<Stdio>>(&mut self, cfg: T) -> &mut Self {
         self.builder.stdout(cfg);
         self
     }
 
-    pub fn stderr<T: Into<Stdio>>(&mut self, cfg: T) -> &mut Self {
+    pub(crate) fn stderr<T: Into<Stdio>>(&mut self, cfg: T) -> &mut Self {
         self.builder.stderr(cfg);
         self
     }
 
-    pub async fn spawn(&mut self) -> Result<RemoteChild, Error> {
+    pub(crate) async fn spawn(&mut self) -> Result<RemoteChild, Error> {
         let child = self.builder.spawn().map_err(Error::Ssh)?;
 
         Ok(RemoteChild::new(child))
