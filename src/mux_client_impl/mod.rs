@@ -49,7 +49,7 @@ impl Session {
         Ok(())
     }
 
-    pub(crate) fn raw_command<'a, S: AsRef<OsStr>>(&self, program: S) -> Command {
+    pub(crate) fn raw_command<S: AsRef<OsStr>>(&self, program: S) -> Command {
         let program = program.as_ref().to_string_lossy();
         Command::new(self.ctl(), program.to_string())
     }
