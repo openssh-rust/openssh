@@ -18,21 +18,20 @@ docker run \
     -e PUBLIC_KEY \
     linuxserver/openssh-server:amd64-latest
 
-# Wait for docker mod to be installed and sshd starts up
-cargo check --all-features
-cargo clippy --all-features
-RUSTFLAGS='--cfg=ci' cargo build --all-features --tests
-
-sleep 10
-
 function cleanup {
     docker stop $name
 
     # Revert modification to ~/.ssh/known_hosts
     ssh-keygen -R "[127.0.0.1]:2222"
 }
-
 trap cleanup EXIT
+
+# Wait for docker mod to be installed and sshd starts up
+cargo check --all-features
+cargo clippy --all-features
+RUSTFLAGS='--cfg=ci' cargo build --all-features --tests
+
+sleep 10
 
 echo Running the test:
 ./run_tests.sh
