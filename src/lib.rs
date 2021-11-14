@@ -338,7 +338,7 @@ impl Session {
     /// forwarded to `connect_socket` on remote machine.
     ///
     /// Otherwise, `listen_socket` on the remote machine will be forwarded to `connect_socket`
-    /// on local machine.
+    /// on the local machine.
     ///
     /// Currently, there is no way of stopping a port forwarding due to the fact that
     /// openssh multiplex server/master does not support this.
