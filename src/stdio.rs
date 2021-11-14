@@ -10,6 +10,8 @@ use std::process;
 
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, ReadBuf};
 
+use pin_project::pin_project;
+
 macro_rules! delegate {
     ($impl:expr, $var:ident, $then:block) => {{
         match $impl {
@@ -67,17 +69,25 @@ impl From<Stdio> for process::Stdio {
     }
 }
 
+#[pin_project(project = ChildStdinImpProj)]
 #[derive(Debug)]
 enum ChildStdinImp {
-    ProcessImpl(tokio::process::ChildStdin),
+    ProcessImpl(#[pin] tokio::process::ChildStdin),
 
     #[cfg(feature = "mux_client")]
-    MuxClientImpl(super::mux_client_impl::ChildStdin),
+    MuxClientImpl(#[pin] super::mux_client_impl::ChildStdin),
 }
 
 /// Input for the remote child.
+#[pin_project]
 #[derive(Debug)]
-pub struct ChildStdin(ChildStdinImp);
+pub struct ChildStdin(#[pin] ChildStdinImp);
+
+impl ChildStdin {
+    fn project_enum(self: Pin<&mut Self>) -> ChildStdinImpProj {
+        self.project().0.project()
+    }
+}
 
 impl From<tokio::process::ChildStdin> for ChildStdin {
     fn from(imp: tokio::process::ChildStdin) -> Self {
@@ -106,29 +116,26 @@ impl AsyncWrite for ChildStdin {
         cx: &mut Context<'_>,
         buf: &[u8],
     ) -> Poll<Result<usize, io::Error>> {
-        use ChildStdinImp::*;
+        use ChildStdinImpProj::*;
 
-        let inner = unsafe { Pin::into_inner_unchecked(self) };
-        delegate!(&mut inner.0, imp, {
-            AsyncWrite::poll_write(unsafe { Pin::new_unchecked(imp) }, cx, buf)
+        delegate!(self.project_enum(), imp, {
+            AsyncWrite::poll_write(imp, cx, buf)
         })
     }
 
     fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
-        use ChildStdinImp::*;
+        use ChildStdinImpProj::*;
 
-        let inner = unsafe { Pin::into_inner_unchecked(self) };
-        delegate!(&mut inner.0, imp, {
-            AsyncWrite::poll_flush(unsafe { Pin::new_unchecked(imp) }, cx)
+        delegate!(self.project_enum(), imp, {
+            AsyncWrite::poll_flush(imp, cx)
         })
     }
 
     fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
-        use ChildStdinImp::*;
+        use ChildStdinImpProj::*;
 
-        let inner = unsafe { Pin::into_inner_unchecked(self) };
-        delegate!(&mut inner.0, imp, {
-            AsyncWrite::poll_shutdown(unsafe { Pin::new_unchecked(imp) }, cx)
+        delegate!(self.project_enum(), imp, {
+            AsyncWrite::poll_shutdown(imp, cx)
         })
     }
 
@@ -137,11 +144,10 @@ impl AsyncWrite for ChildStdin {
         cx: &mut Context<'_>,
         bufs: &[IoSlice<'_>],
     ) -> Poll<Result<usize, io::Error>> {
-        use ChildStdinImp::*;
+        use ChildStdinImpProj::*;
 
-        let inner = unsafe { Pin::into_inner_unchecked(self) };
-        delegate!(&mut inner.0, imp, {
-            AsyncWrite::poll_write_vectored(unsafe { Pin::new_unchecked(imp) }, cx, bufs)
+        delegate!(self.project_enum(), imp, {
+            AsyncWrite::poll_write_vectored(imp, cx, bufs)
         })
     }
 
@@ -153,18 +159,20 @@ impl AsyncWrite for ChildStdin {
 }
 
 macro_rules! impl_reader {
-    ( $type:ident, $imp_type:ident ) => {
+    ( $type:ident, $imp_type:ident, $imp_proj_type:ident ) => {
+        #[pin_project(project = $imp_proj_type)]
         #[derive(Debug)]
         enum $imp_type {
-            ProcessImpl(tokio::process::$type),
+            ProcessImpl(#[pin] tokio::process::$type),
 
             #[cfg(feature = "mux_client")]
-            MuxClientImpl(super::mux_client_impl::$type),
+            MuxClientImpl(#[pin] super::mux_client_impl::$type),
         }
 
         /// Wrapper type for tokio::process and mux_client_impl
+        #[pin_project]
         #[derive(Debug)]
-        pub struct $type($imp_type);
+        pub struct $type(#[pin] $imp_type);
 
         impl From<tokio::process::$type> for $type {
             fn from(imp: tokio::process::$type) -> Self {
@@ -202,16 +210,15 @@ macro_rules! impl_reader {
                 cx: &mut Context<'_>,
                 buf: &mut ReadBuf<'_>,
             ) -> Poll<Result<(), io::Error>> {
-                use $imp_type::*;
+                use $imp_proj_type::*;
 
-                let inner = unsafe { Pin::into_inner_unchecked(self) };
-                delegate!(&mut inner.0, imp, {
-                    AsyncRead::poll_read(unsafe { Pin::new_unchecked(imp) }, cx, buf)
+                delegate!(self.project().0.project(), imp, {
+                    AsyncRead::poll_read(imp, cx, buf)
                 })
             }
         }
     };
 }
 
-impl_reader!(ChildStdout, ChildStdoutImp);
-impl_reader!(ChildStderr, ChildStderrImp);
+impl_reader!(ChildStdout, ChildStdoutImp, ChildStdoutImpProj);
+impl_reader!(ChildStderr, ChildStderrImp, ChildStderrImpProj);
