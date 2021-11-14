@@ -163,11 +163,11 @@ mod sftp;
 pub use sftp::{Mode, RemoteFile, Sftp};
 
 /// process_impl
-pub mod process_impl;
+pub(crate) mod process_impl;
 
 /// mux_client_impl
 #[cfg(feature = "mux_client")]
-pub mod mux_client_impl;
+pub(crate) mod mux_client_impl;
 
 mod port_forwarding;
 pub use port_forwarding::*;
