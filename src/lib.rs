@@ -15,8 +15,23 @@
 //!
 //! This library provides two way to connect to the [`ControlMaster`]:
 //!
-//! One is to spawn a new process (process_impl), the other is to connect to the control socket
-//! directly (mux_client_impl).
+//! One is to spawn a new process, the other is to connect to
+//! the control socket directly.
+//!
+//! The process implementation executes remote commands by invoking
+//! the ssh command locally with arguments that make the invocation
+//! reuse the connections set up by the control master.
+//!
+//! This maximizes compatibility with OpenSSH, but loses out on some fidelity
+//! in information about execution since only the exit code and the output of
+//! the ssh command is available to inspect.
+//!
+//! The native mux implementation on the other hand connects directly to
+//! the ssh control master and executes commands and retrieves the exit codes and
+//! the output of the remote process over its native protocol.
+//!
+//! This gives better access to error information at the cost of introducing
+//! more non-OpenSSH code into the call path.
 //!
 //! The former parses the stdout/stderr of the ssh control master to retrieve the error
 //! for any failed operations, while the later retrieves the error from the control socket
