@@ -18,12 +18,16 @@ fn dup(file: &File) -> result::Result<File, Error> {
     file.try_clone().map_err(Error::ChildIo)
 }
 
+fn create_pipe() -> result::Result<(PipeRead, PipeWrite), Error> {
+    pipe().map_err(Error::ChildIo)
+}
+
 impl Stdio {
     pub(crate) fn into_stdin(&self) -> result::Result<(Option<File>, Option<ChildStdin>), Error> {
         match &self.0 {
             StdioImpl::Null => Ok((None, None)),
             StdioImpl::Pipe => {
-                let (read, write) = pipe().map_err(Error::ChildIo)?;
+                let (read, write) = create_pipe()?;
                 Ok((Some(into_fd(read)), Some(ChildStdin(write))))
             }
             StdioImpl::Fd(fd) => Ok((Some(dup(fd)?), None)),
@@ -34,7 +38,7 @@ impl Stdio {
         match &self.0 {
             StdioImpl::Null => Ok((None, None)),
             StdioImpl::Pipe => {
-                let (read, write) = pipe().map_err(Error::ChildIo)?;
+                let (read, write) = create_pipe()?;
                 Ok((Some(into_fd(write)), Some(ChildStdout(read))))
             }
             StdioImpl::Fd(fd) => Ok((Some(dup(fd)?), None)),
