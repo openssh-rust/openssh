@@ -88,7 +88,7 @@ impl Session {
             ForwardType::Remote => "-R",
         };
 
-        process::Command::new("ssh")
+        let port_forwarding = process::Command::new("ssh")
             .arg("-S")
             .arg(self.ctl_path())
             .arg("-o")
@@ -101,7 +101,18 @@ impl Session {
             .await
             .map_err(Error::Ssh)?;
 
-        Ok(())
+        if let Some(master_error) = self.take_master_error().await {
+            return Err(master_error);
+        }
+
+        if port_forwarding.status.success() {
+            Ok(())
+        } else {
+            let exit_err = String::from_utf8_lossy(&port_forwarding.stderr);
+            let err = exit_err.trim();
+
+            Err(Error::Ssh(io::Error::new(io::ErrorKind::Other, err)))
+        }
     }
 
     pub(crate) async fn close(mut self) -> Result<(), Error> {
