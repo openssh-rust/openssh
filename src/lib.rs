@@ -219,6 +219,8 @@ impl Session {
     /// Connect to the host at the given `host` over SSH using mux_client_impl, which
     /// will create a new socket connection for each `Child` created.
     ///
+    /// **PLEASE READ THE CRATE-LEVEL DOCUMENTATION FOR DETAILS**.
+    ///
     /// The format of `destination` is the same as the `destination` argument to `ssh`. It may be
     /// specified as either `[user@]hostname` or a URI of the form `ssh://[user@]hostname[:port]`.
     ///
