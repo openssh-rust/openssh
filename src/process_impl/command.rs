@@ -49,7 +49,6 @@ impl Command {
     }
 
     pub async fn spawn(&mut self) -> Result<RemoteChild, Error> {
-        // Then launch!
         let child = self.builder.spawn().map_err(Error::Ssh)?;
 
         Ok(RemoteChild::new(child))
