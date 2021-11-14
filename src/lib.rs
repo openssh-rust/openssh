@@ -337,7 +337,7 @@ impl Session {
     /// If `forward_type` == Local, then `listen_socket` on local machine will be
     /// forwarded to `connect_socket` on remote machine.
     ///
-    /// Otherwise, `listen_socket` on remote machine will be forarded to `connect_socket`
+    /// Otherwise, `listen_socket` on the remote machine will be forwarded to `connect_socket`
     /// on local machine.
     ///
     /// Currently, there is no way of stopping a port forwarding due to the fact that
