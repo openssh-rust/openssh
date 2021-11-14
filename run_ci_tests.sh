@@ -18,10 +18,12 @@ docker run \
     -e PUBLIC_KEY \
     linuxserver/openssh-server:amd64-latest
 
+# Wait for docker mod to be installed and sshd starts up
+cargo check --all-features
+cargo clippy --all-features
 RUSTFLAGS='--cfg=ci' cargo build --all-features --tests
 
-# Wait for docker mod to be installed and sshd starts up
-sleep 25
+sleep 10
 
 function cleanup {
     docker stop $name
