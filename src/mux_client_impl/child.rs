@@ -52,9 +52,9 @@ impl RemoteChild {
             Exited(exit_value) => exit_value,
             Running(established_session) => match established_session.wait().await {
                 Ok(session_status) => match session_status {
-                    SessionStatus::TtyAllocFail(_established_session) => unreachable!(
-                        "mux_client_impl never allocates a tty"
-                    ),
+                    SessionStatus::TtyAllocFail(_established_session) => {
+                        unreachable!("mux_client_impl never allocates a tty")
+                    }
                     SessionStatus::Exited { exit_value } => exit_value,
                 },
                 Err((err, established_session)) => {

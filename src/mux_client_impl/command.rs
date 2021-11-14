@@ -33,6 +33,7 @@ impl Command {
 impl Command {
     pub fn arg<S: AsRef<str>>(&mut self, arg: S) -> &mut Self {
         self.cmd.push_str(" '");
+        // TODO: Escape all `'` in `arg`
         self.cmd.push_str(arg.as_ref());
         self.cmd.push('\'');
         self
