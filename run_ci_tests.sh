@@ -7,6 +7,7 @@ cargo build --all-features --tests
 
 # Start the container
 export PUBLIC_KEY='ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGzHvK2pKtSlZXP9tPYOOBb/xn0IiC9iLMS355AYUPC7'
+export DOCKER_MODS='linuxserver/mods:openssh-server-ssh-tunnel'
 
 name=openssh
 
@@ -16,8 +17,12 @@ docker run \
     -d \
     -p 127.0.0.1:2222:2222 \
     -e 'USER_NAME=test-user' \
-    -e 'PUBLIC_KEY' \
+    -e DOCKER_MODS \
+    -e PUBLIC_KEY \
     linuxserver/openssh-server:amd64-latest
+
+# Wait for docker mod to be installed and sshd starts up
+sleep 30
 
 function cleanup {
     docker stop $name
