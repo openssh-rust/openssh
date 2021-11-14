@@ -16,7 +16,7 @@ fn create_pipe() -> Result<(PipeRead, PipeWrite), Error> {
 }
 
 impl Stdio {
-    pub(crate) fn into_stdin(&self) -> Result<(Option<File>, Option<ChildStdin>), Error> {
+    pub(crate) fn get_stdin(&self) -> Result<(Option<File>, Option<ChildStdin>), Error> {
         match &self.0 {
             StdioImpl::Null => Ok((None, None)),
             StdioImpl::Pipe => {
@@ -27,7 +27,7 @@ impl Stdio {
         }
     }
 
-    pub(crate) fn into_stdout(&self) -> Result<(Option<File>, Option<ChildStdout>), Error> {
+    pub(crate) fn get_stdout(&self) -> Result<(Option<File>, Option<ChildStdout>), Error> {
         match &self.0 {
             StdioImpl::Null => Ok((None, None)),
             StdioImpl::Pipe => {
@@ -38,8 +38,8 @@ impl Stdio {
         }
     }
 
-    pub(crate) fn into_stderr(&self) -> Result<(Option<File>, Option<ChildStderr>), Error> {
-        let (fd, stdout) = self.into_stdout()?;
+    pub(crate) fn get_stderr(&self) -> Result<(Option<File>, Option<ChildStderr>), Error> {
+        let (fd, stdout) = self.get_stdout()?;
         Ok((fd, stdout))
     }
 }
