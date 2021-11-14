@@ -1,10 +1,3 @@
-#![allow(
-    missing_docs,
-    missing_debug_implementations,
-    rustdoc::broken_intra_doc_links,
-    unreachable_pub
-)]
-
 use std::ffi::OsStr;
 use std::io;
 use tokio::io::AsyncReadExt;
