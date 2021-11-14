@@ -70,7 +70,7 @@ jobs:
    steps:
      - template: install-rust.yml@templates
        parameters:
-         rust: 1.52.1 # bytes requires 1.39, mem::take requires 1.40, tokio 0.3 requires 1.45, openssh_mux_client requires 1.52.1
+         rust: 1.52.1 # tokio 1.0 requires 1.45, openssh_mux_client requires 1.52.1
      - script: cargo check
        displayName: cargo check
      - script: cargo check --no-default-features
