@@ -162,12 +162,10 @@ pub use error::Error;
 mod sftp;
 pub use sftp::{Mode, RemoteFile, Sftp};
 
-/// process_impl
 pub(crate) mod process_impl;
 
-/// mux_client_impl
-#[cfg(feature = "mux_client")]
-pub(crate) mod mux_client_impl;
+#[cfg(feature = "native_mux")]
+pub(crate) mod native_mux_impl;
 
 mod port_forwarding;
 pub use port_forwarding::*;
@@ -176,8 +174,8 @@ pub use port_forwarding::*;
 enum SessionImp {
     ProcessImpl(process_impl::Session),
 
-    #[cfg(feature = "mux_client")]
-    MuxClientImpl(mux_client_impl::Session),
+    #[cfg(feature = "native_mux")]
+    MuxClientImpl(native_mux_impl::Session),
 }
 
 macro_rules! delegate {
@@ -185,7 +183,7 @@ macro_rules! delegate {
         match $impl {
             SessionImp::ProcessImpl($var) => $then,
 
-            #[cfg(feature = "mux_client")]
+            #[cfg(feature = "native_mux")]
             SessionImp::MuxClientImpl($var) => $then,
         }
     }};
@@ -208,8 +206,8 @@ impl Session {
         Self(SessionImp::ProcessImpl(imp))
     }
 
-    #[cfg(feature = "mux_client")]
-    pub(crate) fn new_mux_client_imp(imp: mux_client_impl::Session) -> Self {
+    #[cfg(feature = "native_mux")]
+    pub(crate) fn new_native_mux_imp(imp: native_mux_impl::Session) -> Self {
         Self(SessionImp::MuxClientImpl(imp))
     }
 
@@ -230,7 +228,7 @@ impl Session {
         s.connect(destination.as_ref()).await
     }
 
-    /// Connect to the host at the given `host` over SSH using mux_client_impl, which
+    /// Connect to the host at the given `host` over SSH using native_mux_impl, which
     /// will create a new socket connection for each `Child` created.
     ///
     /// **PLEASE READ THE CRATE-LEVEL DOCUMENTATION FOR DETAILS**.
@@ -243,7 +241,7 @@ impl Session {
     /// instead.
     ///
     /// For more options, see [`SessionBuilder`].
-    #[cfg(feature = "mux_client")]
+    #[cfg(feature = "native_mux")]
     pub async fn connect_mux<S: AsRef<str>>(
         destination: S,
         check: KnownHosts,

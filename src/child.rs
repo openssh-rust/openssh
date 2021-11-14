@@ -7,8 +7,8 @@ use std::process::{ExitStatus, Output};
 pub(crate) enum RemoteChildImp {
     ProcessImpl(super::process_impl::RemoteChild),
 
-    #[cfg(feature = "mux_client")]
-    MuxClientImpl(super::mux_client_impl::RemoteChild),
+    #[cfg(feature = "native_mux")]
+    MuxClientImpl(super::native_mux_impl::RemoteChild),
 }
 impl From<super::process_impl::RemoteChild> for RemoteChildImp {
     fn from(imp: super::process_impl::RemoteChild) -> Self {
@@ -16,9 +16,9 @@ impl From<super::process_impl::RemoteChild> for RemoteChildImp {
     }
 }
 
-#[cfg(feature = "mux_client")]
-impl From<super::mux_client_impl::RemoteChild> for RemoteChildImp {
-    fn from(imp: super::mux_client_impl::RemoteChild) -> Self {
+#[cfg(feature = "native_mux")]
+impl From<super::native_mux_impl::RemoteChild> for RemoteChildImp {
+    fn from(imp: super::native_mux_impl::RemoteChild) -> Self {
         RemoteChildImp::MuxClientImpl(imp)
     }
 }
@@ -28,7 +28,7 @@ macro_rules! delegate {
         match $impl {
             RemoteChildImp::ProcessImpl($var) => $then,
 
-            #[cfg(feature = "mux_client")]
+            #[cfg(feature = "native_mux")]
             RemoteChildImp::MuxClientImpl($var) => $then,
         }
     }};

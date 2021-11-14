@@ -18,7 +18,7 @@ codecov = { repository = "jonhoo/openssh-rs", branch = "master", service = "gith
 maintenance = { status = "experimental" }
 
 [features]
-mux_client = ["tokio/rt", "once_cell", "tokio-pipe", "openssh-mux-client"]
+native_mut = ["tokio/rt", "once_cell", "tokio-pipe", "openssh-mux-client"]
 
 [dependencies]
 tempfile = "3.1.0"

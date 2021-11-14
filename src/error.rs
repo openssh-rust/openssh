@@ -1,8 +1,8 @@
 use std::fmt;
 use std::io;
 
-#[cfg(feature = "mux_client")]
-use openssh_mux_client::connection;
+#[cfg(feature = "native_mux")]
+use openssh_native_mux::connection;
 
 /// Errors that occur when interacting with a remote process.
 #[derive(Debug)]
@@ -18,7 +18,7 @@ pub enum Error {
     Ssh(io::Error),
 
     /// Failed to connect to the ssh multiplex server.
-    #[cfg(feature = "mux_client")]
+    #[cfg(feature = "native_mux")]
     SshMux(connection::Error),
 
     /// The remote process failed.
@@ -49,7 +49,7 @@ pub enum Error {
     ChildIo(io::Error),
 }
 
-#[cfg(feature = "mux_client")]
+#[cfg(feature = "native_mux")]
 impl From<connection::Error> for Error {
     fn from(err: connection::Error) -> Self {
         use io::ErrorKind;
@@ -90,7 +90,7 @@ impl fmt::Display for Error {
 
             Error::RemoteProcessTerminated => write!(f, "Remote process is terminated"),
 
-            #[cfg(feature = "mux_client")]
+            #[cfg(feature = "native_mux")]
             Error::SshMux(_) => write!(f, "failed to connect to the ssh multiplex server"),
         }
     }
@@ -108,7 +108,7 @@ impl std::error::Error for Error {
 
             Error::RemoteProcessTerminated | Error::Disconnected => None,
 
-            #[cfg(feature = "mux_client")]
+            #[cfg(feature = "native_mux")]
             Error::SshMux(ref e) => Some(e),
         }
     }

@@ -17,7 +17,7 @@ macro_rules! delegate {
         match $impl {
             ProcessImpl($var) => $then,
 
-            #[cfg(feature = "mux_client")]
+            #[cfg(feature = "native_mux")]
             MuxClientImpl($var) => $then,
         }
     }};
@@ -74,8 +74,8 @@ impl From<Stdio> for process::Stdio {
 enum ChildStdinImp {
     ProcessImpl(#[pin] tokio::process::ChildStdin),
 
-    #[cfg(feature = "mux_client")]
-    MuxClientImpl(#[pin] super::mux_client_impl::ChildStdin),
+    #[cfg(feature = "native_mux")]
+    MuxClientImpl(#[pin] super::native_mux_impl::ChildStdin),
 }
 
 /// Input for the remote child.
@@ -95,9 +95,9 @@ impl From<tokio::process::ChildStdin> for ChildStdin {
     }
 }
 
-#[cfg(feature = "mux_client")]
-impl From<super::mux_client_impl::ChildStdin> for ChildStdin {
-    fn from(imp: super::mux_client_impl::ChildStdin) -> Self {
+#[cfg(feature = "native_mux")]
+impl From<super::native_mux_impl::ChildStdin> for ChildStdin {
+    fn from(imp: super::native_mux_impl::ChildStdin) -> Self {
         Self(ChildStdinImp::MuxClientImpl(imp))
     }
 }
@@ -165,11 +165,11 @@ macro_rules! impl_reader {
         enum $imp_type {
             ProcessImpl(#[pin] tokio::process::$type),
 
-            #[cfg(feature = "mux_client")]
-            MuxClientImpl(#[pin] super::mux_client_impl::$type),
+            #[cfg(feature = "native_mux")]
+            MuxClientImpl(#[pin] super::native_mux_impl::$type),
         }
 
-        /// Wrapper type for tokio::process and mux_client_impl
+        /// Wrapper type for tokio::process and native_mux_impl
         #[pin_project]
         #[derive(Debug)]
         pub struct $type(#[pin] $imp_type);
@@ -180,9 +180,9 @@ macro_rules! impl_reader {
             }
         }
 
-        #[cfg(feature = "mux_client")]
-        impl From<super::mux_client_impl::$type> for $type {
-            fn from(imp: super::mux_client_impl::$type) -> Self {
+        #[cfg(feature = "native_mux")]
+        impl From<super::native_mux_impl::$type> for $type {
+            fn from(imp: super::native_mux_impl::$type) -> Self {
                 Self($imp_type::MuxClientImpl(imp))
             }
         }

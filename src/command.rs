@@ -9,8 +9,8 @@ use std::process;
 pub(crate) enum CommandImp {
     ProcessImpl(super::process_impl::Command),
 
-    #[cfg(feature = "mux_client")]
-    MuxClientImpl(super::mux_client_impl::Command),
+    #[cfg(feature = "native_mux")]
+    MuxClientImpl(super::native_mux_impl::Command),
 }
 impl From<super::process_impl::Command> for CommandImp {
     fn from(imp: super::process_impl::Command) -> Self {
@@ -18,9 +18,9 @@ impl From<super::process_impl::Command> for CommandImp {
     }
 }
 
-#[cfg(feature = "mux_client")]
-impl From<super::mux_client_impl::Command> for CommandImp {
-    fn from(imp: super::mux_client_impl::Command) -> Self {
+#[cfg(feature = "native_mux")]
+impl From<super::native_mux_impl::Command> for CommandImp {
+    fn from(imp: super::native_mux_impl::Command) -> Self {
         CommandImp::MuxClientImpl(imp)
     }
 }
@@ -30,7 +30,7 @@ macro_rules! delegate {
         match $impl {
             CommandImp::ProcessImpl($var) => $then,
 
-            #[cfg(feature = "mux_client")]
+            #[cfg(feature = "native_mux")]
             CommandImp::MuxClientImpl($var) => $then,
         }
     }};
