@@ -65,7 +65,7 @@ impl Command {
 
         let stdios = [as_raw_fd(&stdin)?, as_raw_fd(&stdout)?, as_raw_fd(&stderr)?];
 
-        let session = Session::builder().cmd(&self.cmd).build();
+        let session = Session::builder().cmd((&self.cmd).into()).build();
 
         let established_session = Connection::connect(&self.ctl)
             .await?

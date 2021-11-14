@@ -50,8 +50,11 @@ impl<'a> From<Socket<'a>> for mux_client_impl::Socket<'a> {
         use mux_client_impl::Socket::*;
 
         match socket {
-            Socket::UnixSocket { path } => UnixSocket { path },
-            Socket::TcpSocket { port, host } => TcpSocket { port, host },
+            Socket::UnixSocket { path } => UnixSocket { path: path.into() },
+            Socket::TcpSocket { port, host } => TcpSocket {
+                port,
+                host: host.into(),
+            },
         }
     }
 }
