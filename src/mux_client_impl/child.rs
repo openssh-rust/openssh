@@ -40,6 +40,7 @@ impl RemoteChild {
                 io::ErrorKind::InvalidInput,
                 "invalid argument: can't kill an exited process",
             )),
+            // this disconnects, but does not kill the remote process
             Running(_established_session) => Ok(()),
         }
     }
