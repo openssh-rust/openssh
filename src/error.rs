@@ -6,6 +6,7 @@ use openssh_mux_client::connection;
 
 /// Errors that occur when interacting with a remote process.
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum Error {
     /// The master connection failed.
     Master(io::Error),
