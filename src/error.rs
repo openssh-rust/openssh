@@ -43,7 +43,7 @@ pub enum Error {
     RemoteProcessTerminated,
 
     /// Failed to remove temporary dir where ssh socket and output is stored.
-    RemoveTempDir(io::Error),
+    Cleanup(io::Error),
 
     /// IO Error when creating/reading/writing from ChildStdin, ChildStdout, ChildStderr.
     ChildIo(io::Error),
@@ -80,7 +80,7 @@ impl fmt::Display for Error {
             Error::Ssh(_) => write!(f, "the local ssh command could not be executed"),
             Error::Remote(_) => write!(f, "the remote command could not be executed"),
             Error::Disconnected => write!(f, "the connection was terminated"),
-            Error::RemoveTempDir(_) => write!(
+            Error::Cleanup(_) => write!(
                 f,
                 "failed to remove temporary directory where ssh socket and output is stored"
             ),
@@ -103,7 +103,7 @@ impl std::error::Error for Error {
             | Error::Connect(ref e)
             | Error::Ssh(ref e)
             | Error::Remote(ref e)
-            | Error::RemoveTempDir(ref e)
+            | Error::Cleanup(ref e)
             | Error::ChildIo(ref e) => Some(e),
 
             Error::RemoteProcessTerminated | Error::Disconnected => None,

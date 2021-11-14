@@ -90,7 +90,7 @@ impl Session {
 
         Self::request_server_shutdown(&tempdir).await?;
 
-        tempdir.close().map_err(Error::RemoveTempDir)?;
+        tempdir.close().map_err(Error::Cleanup)?;
 
         Ok(())
     }
