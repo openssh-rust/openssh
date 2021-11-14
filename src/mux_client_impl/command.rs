@@ -1,11 +1,11 @@
 use super::Error;
 use super::RemoteChild;
-use super::{as_raw_fd, ChildStderr, ChildStdin, ChildStdout, Stdio};
+use super::{as_raw_fd, Stdio};
 
 use std::ffi::OsStr;
 use std::path::PathBuf;
 
-use openssh_mux_client::connection::{Connection, EstablishedSession, Session};
+use openssh_mux_client::connection::{Connection, Session};
 
 #[derive(Debug)]
 pub struct Command {
