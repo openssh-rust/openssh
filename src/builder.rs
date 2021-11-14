@@ -2,9 +2,11 @@ use super::{Error, Session};
 
 use std::borrow::Cow;
 use std::path::{Path, PathBuf};
+use std::process::{ExitStatus, Stdio};
 use std::str;
 
 use tempfile::{Builder, TempDir};
+use tokio::process;
 
 /// Build a [`Session`] with options.
 #[derive(Debug, Clone)]
@@ -150,6 +152,80 @@ impl SessionBuilder {
             .prefix(".ssh-connection")
             .tempdir_in(socketdir)
             .map_err(Error::Master)
+    }
+
+    pub(crate) async fn launch_mux_master(
+        &self,
+        destination: &str,
+        dir: &TempDir,
+        log: Option<&Path>,
+    ) -> Result<(process::Child, ExitStatus), Error> {
+        let mut init = process::Command::new("ssh");
+
+        init.stdin(Stdio::null())
+            .arg("-S")
+            .arg(dir.path().join("master"))
+            .arg("-M")
+            .arg("-f")
+            .arg("-N")
+            .arg("-o")
+            .arg("ControlPersist=yes")
+            .arg("-o")
+            .arg("BatchMode=yes")
+            .arg("-o")
+            .arg(self.known_hosts_check.as_option());
+
+        if let Some(log) = log {
+            init.stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .arg("-E")
+                .arg(&log);
+        } else {
+            init.stdout(Stdio::piped()).stderr(Stdio::piped());
+        }
+
+        if let Some(timeout) = &self.connect_timeout {
+            init.arg("-o").arg(format!("ConnectTimeout={}", timeout));
+        }
+
+        if let Some(interval) = &self.server_alive_interval {
+            init.arg("-o")
+                .arg(format!("ServerAliveInterval={}", interval));
+        }
+
+        if let Some(port) = &self.port {
+            init.arg("-p").arg(port);
+        }
+
+        if let Some(user) = &self.user {
+            init.arg("-l").arg(user);
+        }
+
+        if let Some(k) = &self.keyfile {
+            // if the user gives a keyfile, _only_ use that keyfile
+            init.arg("-o").arg("IdentitiesOnly=yes");
+            init.arg("-i").arg(k);
+        }
+
+        if let Some(config_file) = &self.config_file {
+            init.arg("-F").arg(config_file);
+        }
+
+        init.arg(destination);
+
+        // eprintln!("{:?}", init);
+
+        // we spawn and immediately wait, because the process is supposed to fork.
+        // note that we cannot use .output, since it _also_ tries to read all of
+        // stdout/stderr.
+        // if the call _didn't_ error, then the backgrounded ssh client will still hold
+        // onto those handles, and it's still running, so those reads will hang
+        // indefinitely.
+
+        let mut child = init.spawn().map_err(Error::Connect)?;
+        let status = child.wait().await.map_err(Error::Connect)?;
+
+        Ok((child, status))
     }
 
     /// Connect to the host at the given `host` over SSH using process_impl, which will
