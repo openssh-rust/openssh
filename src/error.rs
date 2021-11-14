@@ -46,7 +46,7 @@ pub enum Error {
     RemoveTempDir(io::Error),
 
     /// IO Error when creating/reading/writing from ChildStdin, ChildStdout, ChildStderr.
-    IOError(io::Error),
+    ChildIo(io::Error),
 }
 
 #[cfg(feature = "mux_client")]
@@ -84,7 +84,7 @@ impl fmt::Display for Error {
                 f,
                 "failed to remove temporary directory where ssh socket and output is stored"
             ),
-            Error::IOError(_) => {
+            Error::ChildIo(_) => {
                 write!(f, "failure while accessing standard I/O of remote process")
             }
 
@@ -104,7 +104,7 @@ impl std::error::Error for Error {
             | Error::Ssh(ref e)
             | Error::Remote(ref e)
             | Error::RemoveTempDir(ref e)
-            | Error::IOError(ref e) => Some(e),
+            | Error::ChildIo(ref e) => Some(e),
 
             Error::RemoteProcessTerminated | Error::Disconnected => None,
 

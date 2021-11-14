@@ -199,7 +199,7 @@ macro_rules! impl_reader {
             pub(crate) async fn read_all(&mut self, output: &mut Vec<u8>) -> Result<(), Error> {
                 AsyncReadExt::read_to_end(self, output)
                     .await
-                    .map_err(Error::IOError)?;
+                    .map_err(Error::ChildIo)?;
                 Ok(())
             }
         }

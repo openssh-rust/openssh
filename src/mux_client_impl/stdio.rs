@@ -15,7 +15,7 @@ use tokio_pipe::{pipe, PipeRead, PipeWrite};
 use crate::stdio::StdioImpl;
 
 fn dup(file: &File) -> result::Result<File, Error> {
-    file.try_clone().map_err(Error::IOError)
+    file.try_clone().map_err(Error::ChildIo)
 }
 
 impl Stdio {
@@ -23,7 +23,7 @@ impl Stdio {
         match &self.0 {
             StdioImpl::Null => Ok((None, None)),
             StdioImpl::Pipe => {
-                let (read, write) = pipe().map_err(Error::IOError)?;
+                let (read, write) = pipe().map_err(Error::ChildIo)?;
                 Ok((Some(into_fd(read)), Some(ChildStdin(write))))
             }
             StdioImpl::Fd(fd) => Ok((Some(dup(fd)?), None)),
@@ -34,7 +34,7 @@ impl Stdio {
         match &self.0 {
             StdioImpl::Null => Ok((None, None)),
             StdioImpl::Pipe => {
-                let (read, write) = pipe().map_err(Error::IOError)?;
+                let (read, write) = pipe().map_err(Error::ChildIo)?;
                 Ok((Some(into_fd(write)), Some(ChildStdout(read))))
             }
             StdioImpl::Fd(fd) => Ok((Some(dup(fd)?), None)),
