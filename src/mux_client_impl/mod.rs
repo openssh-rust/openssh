@@ -97,11 +97,10 @@ impl Drop for Session {
             None => return,
         };
 
-        let handle = runtime::Handle::try_current()
-            .expect("Session should be dropped in the tokio runtime that created it");
-
-        handle.spawn(async move {
-            let _ = Self::request_server_shutdown(&tempdir).await;
-        });
+        if let Ok(handle) = runtime::Handle::try_current() {
+            handle.spawn(async move {
+                let _ = Self::request_server_shutdown(&tempdir).await;
+            });
+        }
     }
 }
