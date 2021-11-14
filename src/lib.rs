@@ -175,7 +175,7 @@ enum SessionImp {
     ProcessImpl(process_impl::Session),
 
     #[cfg(feature = "native_mux")]
-    MuxClientImpl(native_mux_impl::Session),
+    NativeMuxImpl(native_mux_impl::Session),
 }
 
 macro_rules! delegate {
@@ -184,7 +184,7 @@ macro_rules! delegate {
             SessionImp::ProcessImpl($var) => $then,
 
             #[cfg(feature = "native_mux")]
-            SessionImp::MuxClientImpl($var) => $then,
+            SessionImp::NativeMuxImpl($var) => $then,
         }
     }};
 }
@@ -208,7 +208,7 @@ impl Session {
 
     #[cfg(feature = "native_mux")]
     pub(crate) fn new_native_mux_imp(imp: native_mux_impl::Session) -> Self {
-        Self(SessionImp::MuxClientImpl(imp))
+        Self(SessionImp::NativeMuxImpl(imp))
     }
 
     /// Connect to the host at the given `host` over SSH using process_impl, which will

@@ -10,7 +10,7 @@ pub(crate) enum CommandImp {
     ProcessImpl(super::process_impl::Command),
 
     #[cfg(feature = "native_mux")]
-    MuxClientImpl(super::native_mux_impl::Command),
+    NativeMuxImpl(super::native_mux_impl::Command),
 }
 impl From<super::process_impl::Command> for CommandImp {
     fn from(imp: super::process_impl::Command) -> Self {
@@ -21,7 +21,7 @@ impl From<super::process_impl::Command> for CommandImp {
 #[cfg(feature = "native_mux")]
 impl From<super::native_mux_impl::Command> for CommandImp {
     fn from(imp: super::native_mux_impl::Command) -> Self {
-        CommandImp::MuxClientImpl(imp)
+        CommandImp::NativeMuxImpl(imp)
     }
 }
 
@@ -31,7 +31,7 @@ macro_rules! delegate {
             CommandImp::ProcessImpl($var) => $then,
 
             #[cfg(feature = "native_mux")]
-            CommandImp::MuxClientImpl($var) => $then,
+            CommandImp::NativeMuxImpl($var) => $then,
         }
     }};
 }
