@@ -11,6 +11,17 @@ use std::process;
 
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, ReadBuf};
 
+macro_rules! delegate {
+    ($impl:expr, $var:ident, $then:block) => {{
+        match $impl {
+            ProcessImpl($var) => $then,
+
+            #[cfg(feature = "mux_client")]
+            MuxClientImpl($var) => $then,
+        }
+    }};
+}
+
 #[derive(Debug)]
 pub(crate) enum StdioImpl {
     /// Read/Write to /dev/null
@@ -86,12 +97,9 @@ impl From<super::mux_client_impl::ChildStdin> for ChildStdin {
 
 impl AsRawFd for ChildStdin {
     fn as_raw_fd(&self) -> RawFd {
-        match &self.0 {
-            ChildStdinImp::ProcessImpl(imp) => AsRawFd::as_raw_fd(imp),
+        use ChildStdinImp::*;
 
-            #[cfg(feature = "mux_client")]
-            ChildStdinImp::MuxClientImpl(imp) => AsRawFd::as_raw_fd(imp),
-        }
+        delegate!(&self.0, imp, { AsRawFd::as_raw_fd(imp) })
     }
 }
 
@@ -101,45 +109,30 @@ impl AsyncWrite for ChildStdin {
         cx: &mut Context<'_>,
         buf: &[u8],
     ) -> Poll<Result<usize, io::Error>> {
-        let inner = unsafe { Pin::into_inner_unchecked(self) };
-        match &mut inner.0 {
-            ChildStdinImp::ProcessImpl(imp) => {
-                AsyncWrite::poll_write(unsafe { Pin::new_unchecked(imp) }, cx, buf)
-            }
+        use ChildStdinImp::*;
 
-            #[cfg(feature = "mux_client")]
-            ChildStdinImp::MuxClientImpl(imp) => {
-                AsyncWrite::poll_write(unsafe { Pin::new_unchecked(imp) }, cx, buf)
-            }
-        }
+        let inner = unsafe { Pin::into_inner_unchecked(self) };
+        delegate!(&mut inner.0, imp, {
+            AsyncWrite::poll_write(unsafe { Pin::new_unchecked(imp) }, cx, buf)
+        })
     }
 
     fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
-        let inner = unsafe { Pin::into_inner_unchecked(self) };
-        match &mut inner.0 {
-            ChildStdinImp::ProcessImpl(imp) => {
-                AsyncWrite::poll_flush(unsafe { Pin::new_unchecked(imp) }, cx)
-            }
+        use ChildStdinImp::*;
 
-            #[cfg(feature = "mux_client")]
-            ChildStdinImp::MuxClientImpl(imp) => {
-                AsyncWrite::poll_flush(unsafe { Pin::new_unchecked(imp) }, cx)
-            }
-        }
+        let inner = unsafe { Pin::into_inner_unchecked(self) };
+        delegate!(&mut inner.0, imp, {
+            AsyncWrite::poll_flush(unsafe { Pin::new_unchecked(imp) }, cx)
+        })
     }
 
     fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
-        let inner = unsafe { Pin::into_inner_unchecked(self) };
-        match &mut inner.0 {
-            ChildStdinImp::ProcessImpl(imp) => {
-                AsyncWrite::poll_shutdown(unsafe { Pin::new_unchecked(imp) }, cx)
-            }
+        use ChildStdinImp::*;
 
-            #[cfg(feature = "mux_client")]
-            ChildStdinImp::MuxClientImpl(imp) => {
-                AsyncWrite::poll_shutdown(unsafe { Pin::new_unchecked(imp) }, cx)
-            }
-        }
+        let inner = unsafe { Pin::into_inner_unchecked(self) };
+        delegate!(&mut inner.0, imp, {
+            AsyncWrite::poll_shutdown(unsafe { Pin::new_unchecked(imp) }, cx)
+        })
     }
 
     fn poll_write_vectored(
@@ -147,26 +140,18 @@ impl AsyncWrite for ChildStdin {
         cx: &mut Context<'_>,
         bufs: &[IoSlice<'_>],
     ) -> Poll<Result<usize, io::Error>> {
-        let inner = unsafe { Pin::into_inner_unchecked(self) };
-        match &mut inner.0 {
-            ChildStdinImp::ProcessImpl(imp) => {
-                AsyncWrite::poll_write_vectored(unsafe { Pin::new_unchecked(imp) }, cx, bufs)
-            }
+        use ChildStdinImp::*;
 
-            #[cfg(feature = "mux_client")]
-            ChildStdinImp::MuxClientImpl(imp) => {
-                AsyncWrite::poll_write_vectored(unsafe { Pin::new_unchecked(imp) }, cx, bufs)
-            }
-        }
+        let inner = unsafe { Pin::into_inner_unchecked(self) };
+        delegate!(&mut inner.0, imp, {
+            AsyncWrite::poll_write_vectored(unsafe { Pin::new_unchecked(imp) }, cx, bufs)
+        })
     }
 
     fn is_write_vectored(&self) -> bool {
-        match &self.0 {
-            ChildStdinImp::ProcessImpl(imp) => AsyncWrite::is_write_vectored(imp),
+        use ChildStdinImp::*;
 
-            #[cfg(feature = "mux_client")]
-            ChildStdinImp::MuxClientImpl(imp) => AsyncWrite::is_write_vectored(imp),
-        }
+        delegate!(&self.0, imp, { AsyncWrite::is_write_vectored(imp) })
     }
 }
 
@@ -208,12 +193,9 @@ macro_rules! impl_reader {
 
         impl AsRawFd for $type {
             fn as_raw_fd(&self) -> RawFd {
-                match &self.0 {
-                    $imp_type::ProcessImpl(imp) => AsRawFd::as_raw_fd(imp),
+                use $imp_type::*;
 
-                    #[cfg(feature = "mux_client")]
-                    $imp_type::MuxClientImpl(imp) => AsRawFd::as_raw_fd(imp),
-                }
+                delegate!(&self.0, imp, { AsRawFd::as_raw_fd(imp) })
             }
         }
 
@@ -223,17 +205,12 @@ macro_rules! impl_reader {
                 cx: &mut Context<'_>,
                 buf: &mut ReadBuf<'_>,
             ) -> Poll<Result<(), io::Error>> {
-                let inner = unsafe { Pin::into_inner_unchecked(self) };
-                match &mut inner.0 {
-                    $imp_type::ProcessImpl(imp) => {
-                        AsyncRead::poll_read(unsafe { Pin::new_unchecked(imp) }, cx, buf)
-                    }
+                use $imp_type::*;
 
-                    #[cfg(feature = "mux_client")]
-                    $imp_type::MuxClientImpl(imp) => {
-                        AsyncRead::poll_read(unsafe { Pin::new_unchecked(imp) }, cx, buf)
-                    }
-                }
+                let inner = unsafe { Pin::into_inner_unchecked(self) };
+                delegate!(&mut inner.0, imp, {
+                    AsyncRead::poll_read(unsafe { Pin::new_unchecked(imp) }, cx, buf)
+                })
             }
         }
     };
