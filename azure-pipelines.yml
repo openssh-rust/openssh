@@ -19,7 +19,7 @@ jobs:
            - clippy
      - script: cargo fmt -- --check
        displayName: cargo fmt --check
-     - script: cargo clippy -- -D warnings -A unknown-lints
+     - script: cargo clippy --all-features -- -D warnings -A unknown-lints
        displayName: cargo clippy -- -D warnings
  - job: main
    # here, we do not run the tests that require an SSH server, since that
