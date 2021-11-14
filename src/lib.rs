@@ -364,6 +364,7 @@ impl Session {
         listen_socket: Socket<'_>,
         connect_socket: Socket<'_>,
     ) -> Result<(), Error> {
+        #![allow(clippy::useless_conversion)]
         delegate!(&self.0, imp, {
             imp.request_port_forward(
                 forward_type.into(),
