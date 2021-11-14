@@ -1,8 +1,11 @@
-use core::fmt;
-use core::num::NonZeroU32;
-
 #[cfg(feature = "mux_client")]
 use super::mux_client_impl;
+
+use core::fmt;
+
+use std::borrow::Cow;
+use std::net::SocketAddr;
+use std::path::Path;
 
 /// Type of forwarding
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
@@ -27,21 +30,16 @@ impl From<ForwardType> for mux_client_impl::ForwardType {
 }
 
 /// TCP/Unix socket
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub enum Socket<'a> {
     /// Unix socket.
     UnixSocket {
         /// Filesystem path
-        path: &'a str,
+        path: Cow<'a, Path>,
     },
 
     /// Tcp socket.
-    TcpSocket {
-        /// Port for tcp socket
-        port: NonZeroU32,
-        /// Hostname, can be any valid ip or hostname.
-        host: &'a str,
-    },
+    TcpSocket(SocketAddr),
 }
 
 #[cfg(feature = "mux_client")]
@@ -50,21 +48,22 @@ impl<'a> From<Socket<'a>> for mux_client_impl::Socket<'a> {
         use mux_client_impl::Socket::*;
 
         match socket {
-            Socket::UnixSocket { path } => UnixSocket { path: path.into() },
-            Socket::TcpSocket { port, host } => TcpSocket {
-                port,
-                host: host.into(),
+            Socket::UnixSocket { path } => UnixSocket { path },
+            Socket::TcpSocket(socket) => TcpSocket {
+                port: socket.port() as u32,
+                host: socket.ip().to_string().into(),
             },
         }
     }
 }
 
 impl<'a> fmt::Display for Socket<'a> {
-    // This trait requires `fmt` with this exact signature.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Socket::UnixSocket { path } => write!(f, "{}", path),
-            Socket::TcpSocket { host, port } => write!(f, "{}:{}", host, port),
+            Socket::UnixSocket { path } => {
+                write!(f, "{}", path.to_string_lossy())
+            }
+            Socket::TcpSocket(socket) => write!(f, "{}", socket),
         }
     }
 }
