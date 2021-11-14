@@ -21,16 +21,18 @@ pub(crate) enum StdioImpl {
     Fd(File),
 }
 
-/// Similar to std::process::Stdio
+/// Describes what to do with a standard I/O stream for a remote child process
+/// when passed to the stdin, stdout, and stderr methods of Command.
 #[derive(Debug)]
 pub struct Stdio(pub(crate) StdioImpl);
 impl Stdio {
-    /// Create a pipe for child communication
+    /// A new pipe should be arranged to connect the parent and remote child processes.
     pub const fn piped() -> Self {
         Self(StdioImpl::Pipe)
     }
 
-    /// Pass /dev/null for child communication
+    /// This stream will be ignored.
+    /// This is the equivalent of attaching the stream to /dev/null.
     pub const fn null() -> Self {
         Self(StdioImpl::Null)
     }
