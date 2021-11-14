@@ -1,8 +1,6 @@
 use super::Error;
 use super::{into_fd, Stdio};
 
-use core::result;
-
 use std::fs::File;
 
 use tokio_pipe::{pipe, PipeRead, PipeWrite};
