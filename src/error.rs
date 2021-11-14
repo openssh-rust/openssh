@@ -14,7 +14,7 @@ pub enum Error {
     /// Failed to establish initial connection to the remote host.
     Connect(io::Error),
 
-    /// Failed to establish initial connection to the remote host
+    /// Failed to run the `ssh` command locally.
     Ssh(io::Error),
 
     /// Failed to connect to the ssh multiplex server.
