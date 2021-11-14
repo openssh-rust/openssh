@@ -1,6 +1,5 @@
 use super::Error;
 
-use core::mem::ManuallyDrop;
 use core::pin::Pin;
 use core::task::{Context, Poll};
 
@@ -63,9 +62,7 @@ impl From<Stdio> for process::Stdio {
         match stdio.0 {
             StdioImpl::Null => process::Stdio::null(),
             StdioImpl::Pipe => process::Stdio::piped(),
-            StdioImpl::Fd(fd) => unsafe {
-                process::Stdio::from_raw_fd(ManuallyDrop::new(fd).as_raw_fd())
-            },
+            StdioImpl::Fd(fd) => unsafe { process::Stdio::from_raw_fd(IntoRawFd::into_raw_fd(fd)) },
         }
     }
 }
