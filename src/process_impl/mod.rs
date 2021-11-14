@@ -105,44 +105,6 @@ impl Session {
     }
 
     pub(crate) async fn close(mut self) -> Result<(), Error> {
-        self.terminate().await
-    }
-
-    async fn take_master_error(&self) -> Option<Error> {
-        let (_stdout, mut stderr) = self.master.lock().unwrap().take()?;
-
-        let mut err = String::new();
-        if let Err(e) = stderr.read_to_string(&mut err).await {
-            return Some(Error::Master(e));
-        }
-        let stderr = err.trim();
-
-        if stderr.is_empty() {
-            return None;
-        }
-
-        let kind = if stderr.contains("Connection to") && stderr.contains("closed by remote host") {
-            io::ErrorKind::ConnectionAborted
-        } else {
-            io::ErrorKind::Other
-        };
-
-        Some(Error::Master(io::Error::new(kind, stderr)))
-    }
-
-    fn new_terminate_cmd(&self) -> process::Command {
-        let mut cmd = process::Command::new("ssh");
-        cmd.arg("-s")
-            .arg(self.ctl_path())
-            .arg("-o")
-            .arg("batchmode=yes")
-            .arg("-o")
-            .arg("exit")
-            .arg(&self.addr);
-        cmd
-    }
-
-    async fn terminate(&mut self) -> Result<(), Error> {
         if !self.terminated {
             let exit = self
                 .new_terminate_cmd()
@@ -180,6 +142,40 @@ impl Session {
         }
 
         Ok(())
+    }
+
+    async fn take_master_error(&self) -> Option<Error> {
+        let (_stdout, mut stderr) = self.master.lock().unwrap().take()?;
+
+        let mut err = String::new();
+        if let Err(e) = stderr.read_to_string(&mut err).await {
+            return Some(Error::Master(e));
+        }
+        let stderr = err.trim();
+
+        if stderr.is_empty() {
+            return None;
+        }
+
+        let kind = if stderr.contains("Connection to") && stderr.contains("closed by remote host") {
+            io::ErrorKind::ConnectionAborted
+        } else {
+            io::ErrorKind::Other
+        };
+
+        Some(Error::Master(io::Error::new(kind, stderr)))
+    }
+
+    fn new_terminate_cmd(&self) -> process::Command {
+        let mut cmd = process::Command::new("ssh");
+        cmd.arg("-s")
+            .arg(self.ctl_path())
+            .arg("-o")
+            .arg("batchmode=yes")
+            .arg("-o")
+            .arg("exit")
+            .arg(&self.addr);
+        cmd
     }
 }
 
