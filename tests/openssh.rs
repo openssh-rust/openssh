@@ -712,7 +712,7 @@ async fn broken_connection() {
         .await
         .unwrap_err();
     eprintln!("{:?}", killed);
-    assert!(matches!(killed, Error::Disconnected));
+    assert!(matches!(killed, Error::RemoteProcessTerminated));
 
     // this fails because the master connection is gone
     let failed = session
@@ -722,7 +722,7 @@ async fn broken_connection() {
         .await
         .unwrap_err();
     eprintln!("{:?}", failed);
-    assert!(matches!(failed, Error::Disconnected));
+    assert!(matches!(failed, Error::RemoteProcessTerminated));
 
     // so does this
     let failed = session
@@ -732,23 +732,16 @@ async fn broken_connection() {
         .await
         .unwrap_err();
     eprintln!("{:?}", failed);
-    assert!(matches!(failed, Error::Disconnected));
+    assert!(matches!(failed, Error::RemoteProcessTerminated));
 
     // the spawned child we're waiting for must also have failed
     let failed = sleeping.wait_with_output().await.unwrap_err();
     eprintln!("{:?}", failed);
-    assert!(matches!(failed, Error::Disconnected));
+    assert!(matches!(failed, Error::RemoteProcessTerminated));
 
     // check should obviously fail
     let failed = session.check().await.unwrap_err();
-    if let Error::Master(ref ioe) = failed {
-        if ioe.kind() != io::ErrorKind::ConnectionAborted {
-            eprintln!("{:?}", ioe);
-            assert_eq!(ioe.kind(), io::ErrorKind::ConnectionAborted);
-        }
-    } else {
-        unreachable!("{:?}", failed);
-    }
+    assert!(matches!(failed, Error::Disconnected));
 
     // what should close do in this instance?
     // probably not return an error, since the connection _is_ closed.
