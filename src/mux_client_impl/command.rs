@@ -63,14 +63,13 @@ impl Command {
         let (stdout, child_stdout) = self.stdout_v.into_stdout()?;
         let (stderr, child_stderr) = self.stderr_v.into_stderr()?;
 
+        let stdios = [as_raw_fd(&stdin)?, as_raw_fd(&stdout)?, as_raw_fd(&stderr)?];
+
         let session = Session::builder().cmd(&self.cmd).build();
 
         let established_session = Connection::connect(&self.ctl)
             .await?
-            .open_new_session(
-                &session,
-                &[as_raw_fd(&stdin)?, as_raw_fd(&stdout)?, as_raw_fd(&stderr)?],
-            )
+            .open_new_session(&session, &stdios)
             .await?;
 
         Ok(RemoteChild::new(
