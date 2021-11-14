@@ -21,10 +21,15 @@ rm -rf control-test config-file-test .ssh-connection*
 export RUSTFLAGS='--cfg=ci'
 
 echo Running test
-exec cargo test \
+cargo test \
     --all-features \
     --no-fail-fast \
     --test openssh \
     -- --test-threads=3 # Use test-threads=3 so that the output is readable
+exit_code=$?
+
+ssh-agent -k
+
+exit $exit_code
 
 # exec cargo tarpaulin --forward --all-features
