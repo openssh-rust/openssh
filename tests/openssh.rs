@@ -682,7 +682,6 @@ async fn process_exit_on_signal() {
     }
 }
 
-#[cfg(not(feature = "mux_client"))]
 #[tokio::test]
 #[cfg_attr(not(ci), ignore)]
 async fn broken_connection() {
