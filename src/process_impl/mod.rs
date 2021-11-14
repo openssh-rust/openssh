@@ -130,16 +130,22 @@ impl Session {
         Some(Error::Master(io::Error::new(kind, stderr)))
     }
 
+    fn new_terminate_cmd(&self) -> process::Command {
+        let mut cmd = process::Command::new("ssh");
+        cmd.arg("-s")
+            .arg(self.ctl_path())
+            .arg("-o")
+            .arg("batchmode=yes")
+            .arg("-o")
+            .arg("exit")
+            .arg(&self.addr);
+        cmd
+    }
+
     async fn terminate(&mut self) -> Result<(), Error> {
         if !self.terminated {
-            let exit = process::Command::new("ssh")
-                .arg("-S")
-                .arg(self.ctl_path())
-                .arg("-o")
-                .arg("BatchMode=yes")
-                .arg("-O")
-                .arg("exit")
-                .arg(&self.addr)
+            let exit = self
+                .new_terminate_cmd()
                 .output()
                 .await
                 .map_err(Error::Ssh)?;
@@ -180,14 +186,8 @@ impl Session {
 impl Drop for Session {
     fn drop(&mut self) {
         if !self.terminated {
-            let _ = std::process::Command::new("ssh")
-                .arg("-S")
-                .arg(self.ctl_path())
-                .arg("-o")
-                .arg("BatchMode=yes")
-                .arg("-O")
-                .arg("exit")
-                .arg(&self.addr)
+            let _ = self
+                .new_terminate_cmd()
                 .stdout(std::process::Stdio::null())
                 .stderr(std::process::Stdio::null())
                 .status();
