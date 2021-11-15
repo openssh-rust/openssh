@@ -4,7 +4,8 @@ use super::native_mux_impl;
 use core::fmt;
 
 use std::borrow::Cow;
-use std::net::SocketAddr;
+use std::io;
+use std::net::{SocketAddr, ToSocketAddrs};
 use std::path::Path;
 
 /// Type of forwarding
@@ -40,6 +41,18 @@ pub enum Socket<'a> {
 
     /// Tcp socket.
     TcpSocket(SocketAddr),
+}
+impl Socket<'_> {
+    /// Create a new TcpSocket
+    pub fn new<T: ToSocketAddrs>(addr: &T) -> Result<Self, io::Error> {
+        let mut it = addr.to_socket_addrs()?;
+
+        let addr = it
+            .next()
+            .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "Iterator is empty"))?;
+
+        Ok(Socket::TcpSocket(addr))
+    }
 }
 
 #[cfg(feature = "native-mux")]
