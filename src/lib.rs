@@ -1,4 +1,4 @@
-//! Scriptable SSH through OpenSSH.
+//! Scriptable SSH through OpenSSH (**only works on unix**).
 //!
 //! This crate wraps the OpenSSH remote login client (`ssh` on most machines), and provides
 //! a convenient mechanism for running commands on remote hosts. Since all commands are executed
@@ -140,6 +140,9 @@
     rust_2018_idioms,
     unreachable_pub
 )]
+
+#[cfg(not(unix))]
+compile_error!("This crate can only be used on unix");
 
 use std::borrow::Cow;
 use std::ffi::OsStr;
