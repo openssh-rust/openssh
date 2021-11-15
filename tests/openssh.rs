@@ -519,7 +519,7 @@ async fn bad_remote_command() {
         let failed = child.wait().await.unwrap_err();
         eprintln!("{:?}", failed);
         assert_kind!(failed, io::ErrorKind::NotFound);
-        child.disconnect().await.unwrap_err();
+        child.disconnect().await.unwrap();
 
         // of if you want output
         let child = session.command("no such program").spawn().await.unwrap();
@@ -539,7 +539,7 @@ async fn bad_remote_command() {
         let failed = res.unwrap_err();
         eprintln!("{:?}", failed);
         assert_kind!(failed, io::ErrorKind::NotFound);
-        child.disconnect().await.unwrap_err();
+        child.disconnect().await.unwrap();
 
         session.close().await.unwrap();
     }

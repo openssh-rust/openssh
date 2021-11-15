@@ -6,19 +6,23 @@ use tokio::process;
 #[derive(Debug)]
 pub(crate) struct RemoteChild {
     channel: Option<process::Child>,
+    done: bool,
 }
 
 impl RemoteChild {
     pub(crate) fn new(child: process::Child) -> Self {
         Self {
             channel: Some(child),
+            done: false,
         }
     }
 
     pub(crate) async fn disconnect(mut self) -> io::Result<()> {
         if let Some(mut channel) = self.channel.take() {
-            // this disconnects, but does not kill the remote process
-            channel.kill().await?;
+            if !self.done {
+                // this disconnects, but does not kill the remote process
+                channel.kill().await?;
+            }
         }
         Ok(())
     }
@@ -26,14 +30,18 @@ impl RemoteChild {
     pub(crate) async fn wait(&mut self) -> Result<std::process::ExitStatus, Error> {
         match self.channel.as_mut().unwrap().wait().await {
             Err(e) => Err(Error::Remote(e)),
-            Ok(w) => match w.code() {
-                Some(255) => Err(Error::RemoteProcessTerminated),
-                Some(127) => Err(Error::Remote(io::Error::new(
-                    io::ErrorKind::NotFound,
-                    "remote command not found",
-                ))),
-                _ => Ok(w),
-            },
+            Ok(w) => {
+                self.done = true;
+
+                match w.code() {
+                    Some(255) => Err(Error::RemoteProcessTerminated),
+                    Some(127) => Err(Error::Remote(io::Error::new(
+                        io::ErrorKind::NotFound,
+                        "remote command not found",
+                    ))),
+                    _ => Ok(w),
+                }
+            }
         }
     }
 
@@ -41,14 +49,18 @@ impl RemoteChild {
         match self.channel.as_mut().unwrap().try_wait() {
             Err(e) => Err(Error::Remote(e)),
             Ok(None) => Ok(None),
-            Ok(Some(w)) => match w.code() {
-                Some(255) => Err(Error::RemoteProcessTerminated),
-                Some(127) => Err(Error::Remote(io::Error::new(
-                    io::ErrorKind::NotFound,
-                    "remote command not found",
-                ))),
-                _ => Ok(Some(w)),
-            },
+            Ok(Some(w)) => {
+                self.done = true;
+
+                match w.code() {
+                    Some(255) => Err(Error::RemoteProcessTerminated),
+                    Some(127) => Err(Error::Remote(io::Error::new(
+                        io::ErrorKind::NotFound,
+                        "remote command not found",
+                    ))),
+                    _ => Ok(Some(w)),
+                }
+            }
         }
     }
 
