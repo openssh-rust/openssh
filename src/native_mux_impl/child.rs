@@ -39,7 +39,7 @@ impl RemoteChild {
         use RemoteChildState::*;
 
         let exit_value = match self.state.take() {
-            Intermediate => unreachable!(),
+            AwaitingExit => unreachable!(),
             Exited(exit_value) => exit_value,
             Running(established_session) => match established_session.wait().await {
                 Ok(session_status) => match session_status {
@@ -93,11 +93,11 @@ enum RemoteChildState {
     Running(EstablishedSession),
     Exited(Option<u32>),
 
-    /// Intermediate state means the function wait is being called.
-    Intermediate,
+    /// The function wait is being called.
+    AwaitingExit,
 }
 impl RemoteChildState {
     fn take(&mut self) -> Self {
-        replace(self, RemoteChildState::Intermediate)
+        replace(self, RemoteChildState::AwaitingExit)
     }
 }
