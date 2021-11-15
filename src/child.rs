@@ -113,6 +113,13 @@ impl<'s> RemoteChild<'s> {
     /// The stdin handle to the child process, if any, will be closed before waiting. This helps
     /// avoid deadlock: it ensures that the child does not block waiting for input from the parent,
     /// while the parent waits for the child to exit.
+    ///
+    /// ## Cancel Safety
+    ///
+    /// This function is not cancel-safe.
+    ///
+    /// If you cancel an on-going `Future`, then you should also drop `RemoteChild`
+    /// for it cannot be used anymore.
     pub async fn wait(&mut self) -> Result<ExitStatus, Error> {
         delegate!(&mut self.imp, imp, { imp.wait().await })
     }
@@ -143,13 +150,6 @@ impl<'s> RemoteChild<'s> {
     /// By default, stdin, stdout and stderr are inherited from the parent. In order to capture the
     /// output into this `Result<Output>` it is necessary to create new pipes between parent and
     /// child. Use `stdout(Stdio::piped())` or `stderr(Stdio::piped())`, respectively.
-    ///
-    /// ## Cancel Safety
-    ///
-    /// This function is not cancel-safe.
-    ///
-    /// If you cancel an on-going `Future`, then you should also drop `RemoteChild`
-    /// for it cannot be used anymore.
     pub async fn wait_with_output(mut self) -> Result<Output, Error> {
         // Close stdin so that if the remote process is reading stdin,
         // it would return EOF and the remote process can exit.
