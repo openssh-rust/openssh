@@ -1,7 +1,6 @@
 use super::Error;
 use super::RemoteChild;
 
-use std::borrow::Cow;
 use std::ffi::OsStr;
 use std::process::Stdio;
 use tokio::process;
@@ -23,11 +22,6 @@ impl Command {
 }
 
 impl Command {
-    pub(crate) fn arg<S: AsRef<str>>(&mut self, arg: S) -> &mut Self {
-        self.raw_arg(&*shell_escape::unix::escape(Cow::Borrowed(arg.as_ref())));
-        self
-    }
-
     pub(crate) fn raw_arg<S: AsRef<OsStr>>(&mut self, arg: S) -> &mut Self {
         self.builder.arg(arg);
         self

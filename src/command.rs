@@ -2,6 +2,7 @@ use super::Error;
 use super::RemoteChild;
 use super::Stdio;
 
+use std::borrow::Cow;
 use std::ffi::OsStr;
 use std::process;
 
@@ -115,10 +116,7 @@ impl<'s> Command<'s> {
     ///
     /// To pass multiple arguments see [`args`](Command::args).
     pub fn arg<S: AsRef<str>>(&mut self, arg: S) -> &mut Self {
-        delegate!(&mut self.imp, imp, {
-            imp.arg(arg);
-        });
-        self
+        self.raw_arg(&*shell_escape::unix::escape(Cow::Borrowed(arg.as_ref())))
     }
 
     /// Adds an argument to pass to the remote program.

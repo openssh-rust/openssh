@@ -29,15 +29,6 @@ impl Command {
         }
     }
 
-    pub(crate) fn arg<S: AsRef<str>>(&mut self, arg: S) -> &mut Self {
-        // self.cmd.push_str(" '");
-        // // TODO: Escape all `'` in `arg`
-        // self.cmd.push_str(arg.as_ref());
-        // self.cmd.push('\'');
-        // self
-        self.raw_arg(&*shell_escape::unix::escape(Cow::Borrowed(arg.as_ref())))
-    }
-
     pub(crate) fn raw_arg<S: AsRef<OsStr>>(&mut self, arg: S) -> &mut Self {
         self.cmd.push(' ');
         self.cmd.push_str(&arg.as_ref().to_string_lossy());
