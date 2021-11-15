@@ -23,12 +23,12 @@ fn loopback() -> IpAddr {
     "127.0.0.1".parse().unwrap()
 }
 
-#[cfg(not(feature = "mux_client"))]
+#[cfg(not(feature = "native-mux"))]
 async fn session_builder_connect(builder: SessionBuilder, addr: &str) -> [Session; 1] {
     [builder.connect(addr).await.unwrap()]
 }
 
-#[cfg(feature = "mux_client")]
+#[cfg(feature = "native-mux")]
 async fn session_builder_connect(builder: SessionBuilder, addr: &str) -> [Session; 2] {
     [
         builder.connect(addr).await.unwrap(),
@@ -36,12 +36,12 @@ async fn session_builder_connect(builder: SessionBuilder, addr: &str) -> [Sessio
     ]
 }
 
-#[cfg(not(feature = "mux_client"))]
+#[cfg(not(feature = "native-mux"))]
 async fn connects() -> [Session; 1] {
     [Session::connect(&addr(), KnownHosts::Accept).await.unwrap()]
 }
 
-#[cfg(feature = "mux_client")]
+#[cfg(feature = "native-mux")]
 async fn connects() -> [Session; 2] {
     [
         Session::connect(&addr(), KnownHosts::Accept).await.unwrap(),
@@ -51,14 +51,14 @@ async fn connects() -> [Session; 2] {
     ]
 }
 
-#[cfg(not(feature = "mux_client"))]
+#[cfg(not(feature = "native-mux"))]
 async fn connects_err(host: &str) -> [Error; 1] {
     [Session::connect(host, KnownHosts::Accept)
         .await
         .unwrap_err()]
 }
 
-#[cfg(feature = "mux_client")]
+#[cfg(feature = "native-mux")]
 async fn connects_err(host: &str) -> [Error; 2] {
     [
         Session::connect(host, KnownHosts::Accept)
@@ -220,7 +220,7 @@ async fn config_file() {
 async fn terminate_on_drop() {
     drop(Session::connect(&addr(), KnownHosts::Add).await.unwrap());
 
-    #[cfg(feature = "mux_client")]
+    #[cfg(feature = "native-mux")]
     {
         drop(
             Session::connect_mux(&addr(), KnownHosts::Add)
@@ -566,8 +566,8 @@ async fn connect_timeout() {
     eprintln!("{:?}", failed);
     assert!(matches!(failed, Error::Connect(ref e) if e.kind() == io::ErrorKind::TimedOut));
 
-    // Test mux_client_impl
-    #[cfg(feature = "mux_client")]
+    // Test native-mux_impl
+    #[cfg(feature = "native-mux")]
     {
         let t = Instant::now();
         let res = sb.connect_mux(host).await;
