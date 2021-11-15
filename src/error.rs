@@ -2,7 +2,7 @@ use std::fmt;
 use std::io;
 
 #[cfg(feature = "native-mux")]
-use openssh_native_mux::connection;
+use openssh_mux_client::connection;
 
 /// Errors that occur when interacting with a remote process.
 #[derive(Debug)]
