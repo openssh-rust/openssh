@@ -556,9 +556,13 @@ async fn connect_timeout() {
 
     // Test process_impl
     let t = Instant::now();
-    let failed = sb.connect(host).await.unwrap_err();
-    assert!(t.elapsed() > Duration::from_secs(1));
-    assert!(t.elapsed() < Duration::from_secs(2));
+    let res = sb.connect(host).await;
+    let duration = t.elapsed();
+
+    let failed = res.unwrap_err();
+
+    assert!(duration > Duration::from_secs(1));
+    assert!(duration < Duration::from_secs(2));
     eprintln!("{:?}", failed);
     assert!(matches!(failed, Error::Connect(ref e) if e.kind() == io::ErrorKind::TimedOut));
 
@@ -566,9 +570,13 @@ async fn connect_timeout() {
     #[cfg(feature = "mux_client")]
     {
         let t = Instant::now();
-        let failed = sb.connect_mux(host).await.unwrap_err();
-        assert!(t.elapsed() > Duration::from_secs(1));
-        assert!(t.elapsed() < Duration::from_secs(2));
+        let res = sb.connect_mux(host).await;
+        let duration = t.elapsed();
+
+        let failed = res.unwrap_err();
+
+        assert!(duration > Duration::from_secs(1));
+        assert!(duration < Duration::from_secs(2));
         eprintln!("{:?}", failed);
         assert!(matches!(failed, Error::Connect(ref e) if e.kind() == io::ErrorKind::TimedOut));
     }
