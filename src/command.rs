@@ -9,7 +9,7 @@ use std::process;
 pub(crate) enum CommandImp {
     ProcessImpl(super::process_impl::Command),
 
-    #[cfg(feature = "native_mux")]
+    #[cfg(feature = "native-mux")]
     NativeMuxImpl(super::native_mux_impl::Command),
 }
 impl From<super::process_impl::Command> for CommandImp {
@@ -18,7 +18,7 @@ impl From<super::process_impl::Command> for CommandImp {
     }
 }
 
-#[cfg(feature = "native_mux")]
+#[cfg(feature = "native-mux")]
 impl From<super::native_mux_impl::Command> for CommandImp {
     fn from(imp: super::native_mux_impl::Command) -> Self {
         CommandImp::NativeMuxImpl(imp)
@@ -30,7 +30,7 @@ macro_rules! delegate {
         match $impl {
             CommandImp::ProcessImpl($var) => $then,
 
-            #[cfg(feature = "native_mux")]
+            #[cfg(feature = "native-mux")]
             CommandImp::NativeMuxImpl($var) => $then,
         }
     }};

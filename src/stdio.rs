@@ -17,7 +17,7 @@ macro_rules! delegate {
         match $impl {
             ProcessImpl($var) => $then,
 
-            #[cfg(feature = "native_mux")]
+            #[cfg(feature = "native-mux")]
             MuxClientImpl($var) => $then,
         }
     }};
@@ -74,7 +74,7 @@ impl From<Stdio> for process::Stdio {
 enum ChildStdinImp {
     ProcessImpl(#[pin] tokio::process::ChildStdin),
 
-    #[cfg(feature = "native_mux")]
+    #[cfg(feature = "native-mux")]
     MuxClientImpl(#[pin] super::native_mux_impl::ChildStdin),
 }
 
@@ -95,7 +95,7 @@ impl From<tokio::process::ChildStdin> for ChildStdin {
     }
 }
 
-#[cfg(feature = "native_mux")]
+#[cfg(feature = "native-mux")]
 impl From<super::native_mux_impl::ChildStdin> for ChildStdin {
     fn from(imp: super::native_mux_impl::ChildStdin) -> Self {
         Self(ChildStdinImp::MuxClientImpl(imp))
@@ -165,7 +165,7 @@ macro_rules! impl_reader {
         enum $imp_type {
             ProcessImpl(#[pin] tokio::process::$type),
 
-            #[cfg(feature = "native_mux")]
+            #[cfg(feature = "native-mux")]
             MuxClientImpl(#[pin] super::native_mux_impl::$type),
         }
 
@@ -180,7 +180,7 @@ macro_rules! impl_reader {
             }
         }
 
-        #[cfg(feature = "native_mux")]
+        #[cfg(feature = "native-mux")]
         impl From<super::native_mux_impl::$type> for $type {
             fn from(imp: super::native_mux_impl::$type) -> Self {
                 Self($imp_type::MuxClientImpl(imp))

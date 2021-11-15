@@ -164,7 +164,7 @@ pub use sftp::{Mode, RemoteFile, Sftp};
 
 pub(crate) mod process_impl;
 
-#[cfg(feature = "native_mux")]
+#[cfg(feature = "native-mux")]
 pub(crate) mod native_mux_impl;
 
 mod port_forwarding;
@@ -174,7 +174,7 @@ pub use port_forwarding::*;
 enum SessionImp {
     ProcessImpl(process_impl::Session),
 
-    #[cfg(feature = "native_mux")]
+    #[cfg(feature = "native-mux")]
     NativeMuxImpl(native_mux_impl::Session),
 }
 
@@ -183,7 +183,7 @@ macro_rules! delegate {
         match $impl {
             SessionImp::ProcessImpl($var) => $then,
 
-            #[cfg(feature = "native_mux")]
+            #[cfg(feature = "native-mux")]
             SessionImp::NativeMuxImpl($var) => $then,
         }
     }};
@@ -206,7 +206,7 @@ impl Session {
         Self(SessionImp::ProcessImpl(imp))
     }
 
-    #[cfg(feature = "native_mux")]
+    #[cfg(feature = "native-mux")]
     pub(crate) fn new_native_mux_imp(imp: native_mux_impl::Session) -> Self {
         Self(SessionImp::NativeMuxImpl(imp))
     }
@@ -241,7 +241,7 @@ impl Session {
     /// instead.
     ///
     /// For more options, see [`SessionBuilder`].
-    #[cfg(feature = "native_mux")]
+    #[cfg(feature = "native-mux")]
     pub async fn connect_mux<S: AsRef<str>>(
         destination: S,
         check: KnownHosts,
