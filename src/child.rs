@@ -121,6 +121,10 @@ impl<'s> RemoteChild<'s> {
     /// If you cancel an on-going `Future`, then you should also drop `RemoteChild`
     /// for it cannot be used anymore.
     pub async fn wait(&mut self) -> Result<ExitStatus, Error> {
+        // Close stdin so that if the remote process is reading stdin,
+        // it would return EOF and the remote process can exit.
+        self.stdin().take();
+
         delegate!(&mut self.imp, imp, { imp.wait().await })
     }
 
@@ -151,10 +155,6 @@ impl<'s> RemoteChild<'s> {
     /// output into this `Result<Output>` it is necessary to create new pipes between parent and
     /// child. Use `stdout(Stdio::piped())` or `stderr(Stdio::piped())`, respectively.
     pub async fn wait_with_output(mut self) -> Result<Output, Error> {
-        // Close stdin so that if the remote process is reading stdin,
-        // it would return EOF and the remote process can exit.
-        self.stdin().take();
-
         let status = self.wait().await?;
 
         let mut output = Output {
