@@ -6,7 +6,7 @@ use std::io;
 use std::os::unix::process::ExitStatusExt;
 use std::process::ExitStatus;
 
-use openssh_mux_client::connection::{EstablishedSession, SessionStatus};
+use openssh_mux_client::connection::{EstablishedSession, SessionStatus, TryWaitSessionStatus};
 
 #[derive(Debug)]
 pub(crate) struct RemoteChild {
@@ -72,7 +72,44 @@ impl RemoteChild {
     }
 
     pub(crate) fn try_wait(&mut self) -> Result<Option<ExitStatus>, Error> {
-        Ok(None)
+        use RemoteChildState::*;
+
+        let exit_value = match self.state.take() {
+            AwaitingExit => unreachable!(),
+            Exited(exit_value) => exit_value,
+            Running(established_session) => match established_session.try_wait() {
+                Ok(session_status) => match session_status {
+                    TryWaitSessionStatus::TtyAllocFail(_established_session) => {
+                        unreachable!("mux_client_impl never allocates a tty")
+                    }
+                    TryWaitSessionStatus::Exited { exit_value } => exit_value,
+                    TryWaitSessionStatus::InProgress(established_session) => {
+                        self.state = Running(established_session);
+                        return Ok(None);
+                    }
+                },
+                Err((err, established_session)) => {
+                    self.state = Running(established_session);
+                    return Err(err.into());
+                }
+            },
+        };
+
+        self.state = Exited(exit_value);
+
+        if let Some(val) = exit_value {
+            if val == 127 {
+                Err(Error::Remote(io::Error::new(
+                    io::ErrorKind::NotFound,
+                    "remote command not found",
+                )))
+            } else {
+                let exit_status = ExitStatusExt::from_raw((val as i32) << 8);
+                Ok(Some(exit_status))
+            }
+        } else {
+            Err(Error::RemoteProcessTerminated)
+        }
     }
 
     pub(crate) fn stdin(&mut self) -> &mut Option<ChildStdin> {
