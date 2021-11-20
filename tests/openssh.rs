@@ -531,12 +531,7 @@ async fn bad_remote_command() {
         let mut child = session.command("no such program").spawn().await.unwrap();
         std::thread::sleep(std::time::Duration::from_millis(500));
 
-        let res = child.try_wait();
-        if let Ok(None) = res {
-            continue;
-        }
-
-        let failed = res.unwrap_err();
+        let failed = child.try_wait().unwrap_err();
         eprintln!("{:?}", failed);
         assert_kind!(failed, io::ErrorKind::NotFound);
         child.disconnect().await.unwrap();
