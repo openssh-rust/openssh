@@ -114,6 +114,16 @@ impl<'s> RemoteChild<'s> {
     /// avoid deadlock: it ensures that the child does not block waiting for input from the parent,
     /// while the parent waits for the child to exit.
     ///
+    /// **NOTE that due to a fundamental design flaw in ssh multiplex protocol,
+    /// there is no way to tell `RemoteProcessTerminated` from `Disconnect`.
+    ///
+    /// If you really need to identify `Disconnect`, you can call `session.check()`
+    /// after `wait()` returns `RemoteProcessTerminated`, however the ssh multiplex master
+    /// could exit right after `wait()`, meaning the remote process actually is terminated
+    /// instead of `Disconnect`ed.
+    ///
+    /// It is thus recommended to create your own workaround for your particular use cases.**
+    ///
     /// ## Cancel Safety
     ///
     /// This function is not cancel-safe.
@@ -140,6 +150,16 @@ impl<'s> RemoteChild<'s> {
     /// returned.
     ///
     /// Note that unlike `wait`, this function will not attempt to drop stdin.
+    ///
+    /// **NOTE that due to a fundamental design flaw in ssh multiplex protocol,
+    /// there is no way to tell `RemoteProcessTerminated` from `Disconnect`.
+    ///
+    /// If you really need to identify `Disconnect`, you can call `session.check()`
+    /// after `wait()` returns `RemoteProcessTerminated`, however the ssh multiplex master
+    /// could exit right after `wait()`, meaning the remote process actually is terminated
+    /// instead of `Disconnect`ed.
+    ///
+    /// It is thus recommended to create your own workaround for your particular use cases.**
     pub fn try_wait(&mut self) -> Result<Option<ExitStatus>, Error> {
         delegate!(&mut self.imp, imp, { imp.try_wait() })
     }
