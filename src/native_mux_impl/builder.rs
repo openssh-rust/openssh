@@ -20,9 +20,7 @@ pub(crate) async fn just_connect<S: AsRef<str>>(
         .await?;
 
     if !status.success() {
-        let bytes = fs::read(log)
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))
-            .map_err(Error::Connect)?;
+        let bytes = fs::read(log).map_err(Error::Connect)?;
 
         let s = str::from_utf8(&bytes)
             .map_err(|e| io::Error::new(io::ErrorKind::Other, e))
