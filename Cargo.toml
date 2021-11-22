@@ -34,3 +34,7 @@ openssh-mux-client = { version = "0.6.3", optional = true }
 lazy_static = "1.4.0"
 regex = "1"
 tokio = { version = "1", features = [ "full" ] }
+
+[[example]]
+name = "native-mux_tsp"
+required-features = ["native-mux"]
