@@ -28,19 +28,24 @@ impl Session {
         self.ctl.path().join("master")
     }
 
+    fn new_cmd(&self, args: &[&str]) -> process::Command {
+        let mut cmd = process::Command::new("ssh");
+        cmd.arg("-S")
+            .arg(self.ctl_path())
+            .arg("-o")
+            .arg("BatchMode=yes")
+            .args(args)
+            .arg(&self.addr);
+        cmd
+    }
+
     pub(crate) async fn check(&self) -> Result<(), Error> {
         if self.terminated {
             return Err(Error::Disconnected);
         }
 
-        let check = process::Command::new("ssh")
-            .arg("-S")
-            .arg(self.ctl_path())
-            .arg("-o")
-            .arg("BatchMode=yes")
-            .arg("-O")
-            .arg("check")
-            .arg(&self.addr)
+        let check = self
+            .new_cmd(&["-O", "check"])
             .output()
             .await
             .map_err(Error::Ssh)?;
@@ -62,17 +67,8 @@ impl Session {
         // NOTE: we pass -p 9 nine here (the "discard" port) to ensure that ssh does not
         // succeed in establishing a _new_ connection if the master connection has failed.
 
-        let mut cmd = process::Command::new("ssh");
-        cmd.arg("-S")
-            .arg(self.ctl_path())
-            .arg("-T")
-            .arg("-o")
-            .arg("BatchMode=yes")
-            .arg("-p")
-            .arg("9")
-            .arg(&self.addr)
-            .arg("--")
-            .arg(program);
+        let mut cmd = self.new_cmd(&["-T", "-p", "9"]);
+        cmd.arg("--").arg(program);
 
         Command::new(cmd)
     }
@@ -88,15 +84,12 @@ impl Session {
             ForwardType::Remote => "-R",
         };
 
-        let port_forwarding = process::Command::new("ssh")
-            .arg("-S")
-            .arg(self.ctl_path())
-            .arg("-o")
-            .arg("BatchMode=yes")
-            .arg("-fNT")
-            .arg(flag)
-            .arg(&format!("{}:{}", listen_socket, connect_socket))
-            .arg(&self.addr)
+        let port_forwarding = self
+            .new_cmd(&[
+                "-fNT",
+                flag,
+                &format!("{}:{}", listen_socket, connect_socket),
+            ])
             .output()
             .await
             .map_err(Error::Ssh)?;
@@ -178,15 +171,7 @@ impl Session {
     }
 
     fn new_terminate_cmd(&self) -> process::Command {
-        let mut cmd = process::Command::new("ssh");
-        cmd.arg("-s")
-            .arg(self.ctl_path())
-            .arg("-o")
-            .arg("batchmode=yes")
-            .arg("-o")
-            .arg("exit")
-            .arg(&self.addr);
-        cmd
+        self.new_cmd(&["-o", "exit"])
     }
 }
 
