@@ -1,6 +1,8 @@
 use super::Error;
 
 use std::io;
+use std::process::ExitStatus;
+
 use tokio::process;
 
 #[derive(Debug)]
@@ -27,39 +29,23 @@ impl RemoteChild {
         Ok(())
     }
 
-    pub(crate) async fn wait(&mut self) -> Result<std::process::ExitStatus, Error> {
+    pub(crate) async fn wait(&mut self) -> Result<ExitStatus, Error> {
         match self.channel.as_mut().unwrap().wait().await {
             Err(e) => Err(Error::Remote(e)),
             Ok(w) => {
                 self.done = true;
-
-                match w.code() {
-                    Some(255) => Err(Error::RemoteProcessTerminated),
-                    Some(127) => Err(Error::Remote(io::Error::new(
-                        io::ErrorKind::NotFound,
-                        "remote command not found",
-                    ))),
-                    _ => Ok(w),
-                }
+                to_remote_child_exit_status(w)
             }
         }
     }
 
-    pub(crate) fn try_wait(&mut self) -> Result<Option<std::process::ExitStatus>, Error> {
+    pub(crate) fn try_wait(&mut self) -> Result<Option<ExitStatus>, Error> {
         match self.channel.as_mut().unwrap().try_wait() {
             Err(e) => Err(Error::Remote(e)),
             Ok(None) => Ok(None),
             Ok(Some(w)) => {
                 self.done = true;
-
-                match w.code() {
-                    Some(255) => Err(Error::RemoteProcessTerminated),
-                    Some(127) => Err(Error::Remote(io::Error::new(
-                        io::ErrorKind::NotFound,
-                        "remote command not found",
-                    ))),
-                    _ => Ok(Some(w)),
-                }
+                to_remote_child_exit_status(w).map(Option::Some)
             }
         }
     }
@@ -83,5 +69,16 @@ impl Drop for RemoteChild {
             // this disconnects, but does not kill the remote process
             let _ = channel.kill();
         }
+    }
+}
+
+fn to_remote_child_exit_status(w: ExitStatus) -> Result<ExitStatus, Error> {
+    match w.code() {
+        Some(255) => Err(Error::RemoteProcessTerminated),
+        Some(127) => Err(Error::Remote(io::Error::new(
+            io::ErrorKind::NotFound,
+            "remote command not found",
+        ))),
+        _ => Ok(w),
     }
 }
