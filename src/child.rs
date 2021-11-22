@@ -1,7 +1,10 @@
 use super::{ChildStderr, ChildStdin, ChildStdout, Error, Session};
 
+use std::future::Future;
 use std::io;
 use std::process::{ExitStatus, Output};
+
+use tokio::try_join;
 
 #[derive(Debug)]
 pub(crate) enum RemoteChildImp {
@@ -175,23 +178,28 @@ impl<'s> RemoteChild<'s> {
     /// output into this `Result<Output>` it is necessary to create new pipes between parent and
     /// child. Use `stdout(Stdio::piped())` or `stderr(Stdio::piped())`, respectively.
     pub async fn wait_with_output(mut self) -> Result<Output, Error> {
-        let status = self.wait().await?;
+        let mut stdout = Vec::new();
+        let stdout_read = await_if_has_some(
+            self.stdout
+                .take()
+                .map(|child_stdout| child_stdout.read_all(&mut stdout)),
+        );
 
-        let mut output = Output {
+        let mut stderr = Vec::new();
+        let stderr_read = await_if_has_some(
+            self.stderr
+                .take()
+                .map(|child_stderr| child_stderr.read_all(&mut stderr)),
+        );
+
+        // Execute them concurrently to avoid the pipe buffer being filled up
+        // and cause the remote process to block forever.
+        let status = try_join!(self.wait(), stdout_read, stderr_read)?.0;
+        Ok(Output {
             status,
-            stdout: Vec::new(),
-            stderr: Vec::new(),
-        };
-
-        if let Some(mut child_stdout) = self.stdout {
-            child_stdout.read_all(&mut output.stdout).await?;
-        }
-
-        if let Some(mut child_stderr) = self.stderr {
-            child_stderr.read_all(&mut output.stderr).await?;
-        }
-
-        Ok(output)
+            stdout,
+            stderr,
+        })
     }
 
     /// Access the handle for reading from the remote child's standard input (stdin), if requested.
@@ -209,4 +217,14 @@ impl<'s> RemoteChild<'s> {
     pub fn stderr(&mut self) -> &mut Option<ChildStderr> {
         &mut self.stderr
     }
+}
+
+async fn await_if_has_some<T: Future<Output = Result<Res, Error>>, Res>(
+    option: Option<T>,
+) -> Result<(), Error> {
+    if let Some(future) = option {
+        future.await?;
+    }
+
+    Ok(())
 }

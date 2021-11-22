@@ -23,7 +23,7 @@ native-mux = ["tokio/rt", "once_cell", "tokio-pipe", "openssh-mux-client"]
 [dependencies]
 tempfile = "3.1.0"
 shell-escape = "0.1"
-tokio = { version = "1", features = [ "process", "io-util" ] }
+tokio = { version = "1", features = [ "process", "io-util", "macros" ] }
 pin-project = "1"
 
 once_cell = { version = "1.8.0", optional = true }
