@@ -214,6 +214,8 @@ impl From<native_mux_impl::Session> for Session {
     }
 }
 
+// TODO: UserKnownHostsFile for custom known host fingerprint.
+
 impl Session {
     /// Connect to the host at the given `host` over SSH using process_impl, which will
     /// spawn a new ssh process for each `Child` created.
