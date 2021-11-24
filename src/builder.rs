@@ -178,30 +178,30 @@ impl SessionBuilder {
             .arg("-o")
             .arg(self.known_hosts_check.as_option());
 
-        if let Some(timeout) = &self.connect_timeout {
+        if let Some(ref timeout) = self.connect_timeout {
             init.arg("-o").arg(format!("ConnectTimeout={}", timeout));
         }
 
-        if let Some(interval) = &self.server_alive_interval {
+        if let Some(ref interval) = self.server_alive_interval {
             init.arg("-o")
                 .arg(format!("ServerAliveInterval={}", interval));
         }
 
-        if let Some(port) = &self.port {
+        if let Some(ref port) = self.port {
             init.arg("-p").arg(port);
         }
 
-        if let Some(user) = &self.user {
+        if let Some(ref user) = self.user {
             init.arg("-l").arg(user);
         }
 
-        if let Some(k) = &self.keyfile {
+        if let Some(ref k) = self.keyfile {
             // if the user gives a keyfile, _only_ use that keyfile
             init.arg("-o").arg("IdentitiesOnly=yes");
             init.arg("-i").arg(k);
         }
 
-        if let Some(config_file) = &self.config_file {
+        if let Some(ref config_file) = self.config_file {
             init.arg("-F").arg(config_file);
         }
 
