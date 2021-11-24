@@ -12,7 +12,7 @@ macro_rules! do_wait {
     ($state:expr, $var:ident, $then:block) => {{
         let state = $state;
 
-        let exit_value = match state.take() {
+        let exit_value = match replace(state, RemoteChildState::AwaitingExit) {
             RemoteChildState::AwaitingExit => unreachable!(),
             RemoteChildState::Exited(exit_value) => exit_value,
             RemoteChildState::Running($var) => $then,
@@ -109,11 +109,6 @@ enum RemoteChildState {
 
     /// The function wait is being called.
     AwaitingExit,
-}
-impl RemoteChildState {
-    fn take(&mut self) -> Self {
-        replace(self, RemoteChildState::AwaitingExit)
-    }
 }
 
 fn exit_value_to_exit_status(exit_value: Option<u32>) -> Result<ExitStatus, Error> {
