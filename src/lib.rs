@@ -174,11 +174,23 @@ mod port_forwarding;
 pub use port_forwarding::*;
 
 #[derive(Debug)]
-enum SessionImp {
+pub(crate) enum SessionImp {
     ProcessImpl(process_impl::Session),
 
     #[cfg(feature = "native-mux")]
     NativeMuxImpl(native_mux_impl::Session),
+}
+impl From<process_impl::Session> for SessionImp {
+    fn from(imp: process_impl::Session) -> Self {
+        SessionImp::ProcessImpl(imp)
+    }
+}
+
+#[cfg(feature = "native-mux")]
+impl From<native_mux_impl::Session> for SessionImp {
+    fn from(imp: native_mux_impl::Session) -> Self {
+        SessionImp::NativeMuxImpl(imp)
+    }
 }
 
 macro_rules! delegate {
@@ -205,13 +217,8 @@ pub struct Session(SessionImp);
 // TODO: Extract process output in Session::check(), Session::connect(), and Session::terminate().
 
 impl Session {
-    pub(crate) fn new_process_imp(imp: process_impl::Session) -> Self {
-        Self(SessionImp::ProcessImpl(imp))
-    }
-
-    #[cfg(feature = "native-mux")]
-    pub(crate) fn new_native_mux_imp(imp: native_mux_impl::Session) -> Self {
-        Self(SessionImp::NativeMuxImpl(imp))
+    pub(crate) fn new(imp: SessionImp) -> Self {
+        Self(imp)
     }
 
     /// Connect to the host at the given `host` over SSH using process_impl, which will
