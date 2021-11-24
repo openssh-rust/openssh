@@ -26,7 +26,7 @@ pub(crate) struct Session {
     master: Mutex<Option<PathBuf>>,
 }
 
-// TODO: Extract process output in Session::check(), Session::connect(), and Session::terminate().
+// TODO: Extract process output in Session::check() and Session::close().
 
 impl Session {
     pub(crate) fn new(ctl: TempDir, addr: &str) -> Self {
