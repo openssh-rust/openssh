@@ -13,6 +13,11 @@ echo Set up ssh agent
 eval $(ssh-agent)
 cat .test-key | ssh-add -
 
+function cleanup {
+    ssh-agent -k
+}
+trap cleanup EXIT
+
 echo Run tests
 rm -rf control-test config-file-test .ssh-connection*
 
@@ -24,10 +29,4 @@ cargo test \
     --no-fail-fast \
     --test openssh \
     -- --test-threads=3 # Use test-threads=3 so that the output is readable
-exit_code=$?
-
-ssh-agent -k
-
-exit $exit_code
-
-# exec cargo tarpaulin --forward --all-features
+# cargo tarpaulin --forward --all-features
