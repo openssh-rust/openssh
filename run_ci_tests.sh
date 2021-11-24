@@ -31,7 +31,7 @@ cargo check --all-features
 cargo clippy --all-features
 RUSTFLAGS='--cfg=ci' cargo build --all-features --tests
 
-sleep 10
+sleep 3
 
 echo Running the test:
 ./run_tests.sh
