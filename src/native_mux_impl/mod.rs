@@ -1,3 +1,5 @@
+use super::{Error, Stdio};
+
 use std::ffi::OsStr;
 use std::path;
 
@@ -8,12 +10,9 @@ use tokio::runtime;
 use openssh_mux_client::connection::Connection;
 pub(crate) use openssh_mux_client::connection::{ForwardType, Socket};
 
-use super::Error;
-
 mod stdio;
-pub(crate) use stdio::{as_raw_fd, ChildStderr, ChildStdin, ChildStdout};
-
-use super::Stdio;
+use stdio::as_raw_fd;
+pub(crate) use stdio::{ChildStderr, ChildStdin, ChildStdout};
 
 mod command;
 pub(crate) use command::Command;
