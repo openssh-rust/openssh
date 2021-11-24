@@ -10,11 +10,8 @@ pub(crate) use openssh_mux_client::connection::{ForwardType, Socket};
 
 use super::Error;
 
-mod fd;
-use fd::*;
-
 mod stdio;
-pub(crate) use stdio::{ChildStderr, ChildStdin, ChildStdout};
+pub(crate) use stdio::{as_raw_fd, ChildStderr, ChildStdin, ChildStdout};
 
 use super::Stdio;
 
