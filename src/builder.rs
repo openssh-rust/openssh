@@ -242,12 +242,8 @@ impl SessionBuilder {
     pub async fn connect<S: AsRef<str>>(&self, destination: S) -> Result<Session, Error> {
         let destination = destination.as_ref();
         let (builder, destination) = self.resolve(destination);
-        builder.just_connect(destination).await
-    }
-
-    pub(crate) async fn just_connect<S: AsRef<str>>(&self, host: S) -> Result<Session, Error> {
         Ok(Session::new(
-            super::process_impl::builder::just_connect(self, host)
+            super::process_impl::builder::just_connect(&builder, destination)
                 .await?
                 .into(),
         ))
@@ -270,13 +266,8 @@ impl SessionBuilder {
     pub async fn connect_mux<S: AsRef<str>>(&self, destination: S) -> Result<Session, Error> {
         let destination = destination.as_ref();
         let (builder, destination) = self.resolve(destination);
-        builder.just_connect_mux(destination).await
-    }
-
-    #[cfg(feature = "native-mux")]
-    pub(crate) async fn just_connect_mux<S: AsRef<str>>(&self, host: S) -> Result<Session, Error> {
         Ok(Session::new(
-            super::native_mux_impl::builder::just_connect(self, host)
+            super::native_mux_impl::builder::just_connect(&builder, destination)
                 .await?
                 .into(),
         ))
