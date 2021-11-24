@@ -213,9 +213,6 @@ macro_rules! delegate {
 #[derive(Debug)]
 pub struct Session(SessionImp);
 
-// TODO: UserKnownHostsFile for custom known host fingerprint.
-// TODO: Extract process output in Session::check(), Session::connect(), and Session::terminate().
-
 impl Session {
     pub(crate) fn new(imp: SessionImp) -> Self {
         Self(imp)

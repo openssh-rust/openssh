@@ -26,6 +26,9 @@ pub(crate) struct Session {
     master: Mutex<Option<PathBuf>>,
 }
 
+// TODO: UserKnownHostsFile for custom known host fingerprint.
+// TODO: Extract process output in Session::check(), Session::connect(), and Session::terminate().
+
 impl Session {
     pub(crate) fn new(ctl: TempDir, addr: &str) -> Self {
         let log = ctl.path().join("log");
