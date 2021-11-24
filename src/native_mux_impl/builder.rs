@@ -4,12 +4,10 @@ use crate::SessionBuilder;
 use std::fs;
 use std::str;
 
-pub(crate) async fn just_connect<S: AsRef<str>>(
+pub(crate) async fn just_connect(
     builder: &SessionBuilder,
-    host: S,
+    destination: &str,
 ) -> Result<Session, Error> {
-    let destination = host.as_ref();
-
     let dir = builder.build_tempdir()?;
 
     let log = dir.path().join("log");
