@@ -233,10 +233,8 @@ impl SessionBuilder {
     pub async fn connect<S: AsRef<str>>(&self, destination: S) -> Result<Session, Error> {
         let destination = destination.as_ref();
         let (builder, destination) = self.resolve(destination);
-        Ok(Session::new(
-            process_impl::Session::new(builder.launch_master(destination).await?, destination)
-                .into(),
-        ))
+        let tempdir = builder.launch_master(destination).await?;
+        Ok(process_impl::Session::new(tempdir, destination).into())
     }
 
     /// Connect to the host at the given `host` over SSH using native_mux, which will
@@ -256,9 +254,8 @@ impl SessionBuilder {
     pub async fn connect_mux<S: AsRef<str>>(&self, destination: S) -> Result<Session, Error> {
         let destination = destination.as_ref();
         let (builder, destination) = self.resolve(destination);
-        Ok(Session::new(
-            native_mux_impl::Session::new(builder.launch_master(destination).await?).into(),
-        ))
+        let tempdir = builder.launch_master(destination).await?;
+        Ok(native_mux_impl::Session::new(tempdir).into())
     }
 }
 
