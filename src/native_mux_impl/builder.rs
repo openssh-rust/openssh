@@ -2,7 +2,6 @@ use super::{Error, Session};
 use crate::SessionBuilder;
 
 use std::fs;
-use std::io;
 use std::str;
 
 pub(crate) async fn just_connect<S: AsRef<str>>(
@@ -20,13 +19,9 @@ pub(crate) async fn just_connect<S: AsRef<str>>(
         .await?;
 
     if !status.success() {
-        let bytes = fs::read(log).map_err(Error::Connect)?;
+        let output = fs::read_to_string(log).map_err(Error::Connect)?;
 
-        let s = str::from_utf8(&bytes)
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))
-            .map_err(Error::Connect)?;
-
-        Err(Error::interpret_ssh_error(s))
+        Err(Error::interpret_ssh_error(&output))
     } else {
         Ok(Session { tempdir: Some(dir) })
     }
