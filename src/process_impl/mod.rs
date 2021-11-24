@@ -39,6 +39,10 @@ impl Session {
         cmd
     }
 
+    fn new_terminate_cmd(&self) -> process::Command {
+        self.new_cmd(&["-o", "exit"])
+    }
+
     pub(crate) async fn check(&self) -> Result<(), Error> {
         if self.terminated {
             return Err(Error::Disconnected);
@@ -166,10 +170,6 @@ impl Session {
         };
 
         Some(Error::Master(io::Error::new(kind, stderr)))
-    }
-
-    fn new_terminate_cmd(&self) -> process::Command {
-        self.new_cmd(&["-o", "exit"])
     }
 }
 
