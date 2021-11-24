@@ -9,7 +9,7 @@ use std::net::{SocketAddr, ToSocketAddrs};
 use std::path::Path;
 
 /// Type of forwarding
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum ForwardType {
     /// Forward requests to a port on the local machine to remote machine.
     Local,
