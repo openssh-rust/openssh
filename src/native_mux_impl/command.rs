@@ -29,10 +29,9 @@ impl Command {
         }
     }
 
-    pub(crate) fn raw_arg<S: AsRef<OsStr>>(&mut self, arg: S) -> &mut Self {
+    pub(crate) fn raw_arg<S: AsRef<OsStr>>(&mut self, arg: S) {
         self.cmd.push(' ');
         self.cmd.push_str(&arg.as_ref().to_string_lossy());
-        self
     }
 
     pub(crate) fn stdin<T: Into<Stdio>>(&mut self, cfg: T) {
