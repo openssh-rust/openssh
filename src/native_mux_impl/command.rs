@@ -35,19 +35,16 @@ impl Command {
         self
     }
 
-    pub(crate) fn stdin<T: Into<Stdio>>(&mut self, cfg: T) -> &mut Self {
+    pub(crate) fn stdin<T: Into<Stdio>>(&mut self, cfg: T) {
         self.stdin_v = cfg.into();
-        self
     }
 
-    pub(crate) fn stdout<T: Into<Stdio>>(&mut self, cfg: T) -> &mut Self {
+    pub(crate) fn stdout<T: Into<Stdio>>(&mut self, cfg: T) {
         self.stdout_v = cfg.into();
-        self
     }
 
-    pub(crate) fn stderr<T: Into<Stdio>>(&mut self, cfg: T) -> &mut Self {
+    pub(crate) fn stderr<T: Into<Stdio>>(&mut self, cfg: T) {
         self.stderr_v = cfg.into();
-        self
     }
 
     pub(crate) async fn spawn(&mut self) -> Result<RemoteChild, Error> {
