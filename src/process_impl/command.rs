@@ -22,24 +22,20 @@ impl Command {
 }
 
 impl Command {
-    pub(crate) fn raw_arg<S: AsRef<OsStr>>(&mut self, arg: S) -> &mut Self {
+    pub(crate) fn raw_arg<S: AsRef<OsStr>>(&mut self, arg: S) {
         self.builder.arg(arg);
-        self
     }
 
-    pub(crate) fn stdin<T: Into<Stdio>>(&mut self, cfg: T) -> &mut Self {
+    pub(crate) fn stdin<T: Into<Stdio>>(&mut self, cfg: T) {
         self.builder.stdin(cfg);
-        self
     }
 
-    pub(crate) fn stdout<T: Into<Stdio>>(&mut self, cfg: T) -> &mut Self {
+    pub(crate) fn stdout<T: Into<Stdio>>(&mut self, cfg: T) {
         self.builder.stdout(cfg);
-        self
     }
 
-    pub(crate) fn stderr<T: Into<Stdio>>(&mut self, cfg: T) -> &mut Self {
+    pub(crate) fn stderr<T: Into<Stdio>>(&mut self, cfg: T) {
         self.builder.stderr(cfg);
-        self
     }
 
     pub(crate) async fn spawn(&mut self) -> Result<RemoteChild, Error> {
