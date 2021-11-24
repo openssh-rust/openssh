@@ -8,6 +8,21 @@ use std::process::ExitStatus;
 
 use openssh_mux_client::connection::{EstablishedSession, SessionStatus, TryWaitSessionStatus};
 
+macro_rules! do_wait {
+    ($state:expr, $var:ident, $then:block) => {{
+        let state = $state;
+
+        let exit_value = match state.take() {
+            RemoteChildState::AwaitingExit => unreachable!(),
+            RemoteChildState::Exited(exit_value) => exit_value,
+            RemoteChildState::Running($var) => $then,
+        };
+
+        *state = RemoteChildState::Exited(exit_value);
+        exit_value_to_exit_status(exit_value)
+    }};
+}
+
 #[derive(Debug)]
 pub(crate) struct RemoteChild {
     state: RemoteChildState,
@@ -36,12 +51,8 @@ impl RemoteChild {
     }
 
     pub(crate) async fn wait(&mut self) -> Result<ExitStatus, Error> {
-        use RemoteChildState::*;
-
-        let exit_value = match self.state.take() {
-            AwaitingExit => unreachable!(),
-            Exited(exit_value) => exit_value,
-            Running(established_session) => match established_session.wait().await {
+        do_wait!(&mut self.state, established_session, {
+            match established_session.wait().await {
                 Ok(session_status) => match session_status {
                     SessionStatus::TtyAllocFail(_established_session) => {
                         unreachable!("mux_client_impl never allocates a tty")
@@ -49,42 +60,33 @@ impl RemoteChild {
                     SessionStatus::Exited { exit_value } => exit_value,
                 },
                 Err((err, established_session)) => {
-                    self.state = Running(established_session);
+                    self.state = RemoteChildState::Running(established_session);
                     return Err(err.into());
                 }
-            },
-        };
-
-        self.state = Exited(exit_value);
-        exit_value_to_exit_status(exit_value)
+            }
+        })
     }
 
     pub(crate) fn try_wait(&mut self) -> Result<Option<ExitStatus>, Error> {
-        use RemoteChildState::*;
-
-        let exit_value = match self.state.take() {
-            AwaitingExit => unreachable!(),
-            Exited(exit_value) => exit_value,
-            Running(established_session) => match established_session.try_wait() {
+        do_wait!(&mut self.state, established_session, {
+            match established_session.try_wait() {
                 Ok(session_status) => match session_status {
                     TryWaitSessionStatus::TtyAllocFail(_established_session) => {
                         unreachable!("mux_client_impl never allocates a tty")
                     }
                     TryWaitSessionStatus::Exited { exit_value } => exit_value,
                     TryWaitSessionStatus::InProgress(established_session) => {
-                        self.state = Running(established_session);
+                        self.state = RemoteChildState::Running(established_session);
                         return Ok(None);
                     }
                 },
                 Err((err, established_session)) => {
-                    self.state = Running(established_session);
+                    self.state = RemoteChildState::Running(established_session);
                     return Err(err.into());
                 }
-            },
-        };
-
-        self.state = Exited(exit_value);
-        exit_value_to_exit_status(exit_value).map(Option::Some)
+            }
+        })
+        .map(Option::Some)
     }
 
     pub(crate) fn stdin(&mut self) -> &mut Option<ChildStdin> {
