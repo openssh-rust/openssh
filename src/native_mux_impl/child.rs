@@ -19,7 +19,18 @@ macro_rules! do_wait {
         };
 
         *state = RemoteChildState::Exited(exit_value);
-        exit_value_to_exit_status(exit_value)
+        if let Some(val) = exit_value {
+            if val == 127 {
+                Err(Error::Remote(io::Error::new(
+                    io::ErrorKind::NotFound,
+                    "remote command not found",
+                )))
+            } else {
+                Ok(ExitStatusExt::from_raw((val as i32) << 8))
+            }
+        } else {
+            Err(Error::RemoteProcessTerminated)
+        }
     }};
 }
 
@@ -109,19 +120,4 @@ enum RemoteChildState {
 
     /// The function wait is being called.
     AwaitingExit,
-}
-
-fn exit_value_to_exit_status(exit_value: Option<u32>) -> Result<ExitStatus, Error> {
-    if let Some(val) = exit_value {
-        if val == 127 {
-            Err(Error::Remote(io::Error::new(
-                io::ErrorKind::NotFound,
-                "remote command not found",
-            )))
-        } else {
-            Ok(ExitStatusExt::from_raw((val as i32) << 8))
-        }
-    } else {
-        Err(Error::RemoteProcessTerminated)
-    }
 }
