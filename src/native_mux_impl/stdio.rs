@@ -67,8 +67,7 @@ impl Stdio {
     }
 
     pub(crate) fn get_stderr(&self) -> Result<(Option<File>, Option<ChildStderr>), Error> {
-        let (fd, stdout) = self.get_stdout()?;
-        Ok((fd, stdout))
+        self.get_stdout()
     }
 }
 
