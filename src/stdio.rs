@@ -1,4 +1,7 @@
-use super::Error;
+use super::{process_impl, Error};
+
+#[cfg(feature = "native-mux")]
+use super::native_mux_impl;
 
 use core::pin::Pin;
 use core::task::{Context, Poll};
@@ -72,10 +75,10 @@ impl From<Stdio> for process::Stdio {
 #[pin_project(project = ChildStdinImpProj)]
 #[derive(Debug)]
 enum ChildStdinImp {
-    ProcessImpl(#[pin] tokio::process::ChildStdin),
+    ProcessImpl(#[pin] process_impl::ChildStdin),
 
     #[cfg(feature = "native-mux")]
-    MuxClientImpl(#[pin] super::native_mux_impl::ChildStdin),
+    MuxClientImpl(#[pin] native_mux_impl::ChildStdin),
 }
 
 /// Input for the remote child.
@@ -89,15 +92,15 @@ impl ChildStdin {
     }
 }
 
-impl From<tokio::process::ChildStdin> for ChildStdin {
-    fn from(imp: tokio::process::ChildStdin) -> Self {
+impl From<process_impl::ChildStdin> for ChildStdin {
+    fn from(imp: process_impl::ChildStdin) -> Self {
         Self(ChildStdinImp::ProcessImpl(imp))
     }
 }
 
 #[cfg(feature = "native-mux")]
-impl From<super::native_mux_impl::ChildStdin> for ChildStdin {
-    fn from(imp: super::native_mux_impl::ChildStdin) -> Self {
+impl From<native_mux_impl::ChildStdin> for ChildStdin {
+    fn from(imp: native_mux_impl::ChildStdin) -> Self {
         Self(ChildStdinImp::MuxClientImpl(imp))
     }
 }
@@ -163,26 +166,26 @@ macro_rules! impl_reader {
         #[pin_project(project = $imp_proj_type)]
         #[derive(Debug)]
         enum $imp_type {
-            ProcessImpl(#[pin] tokio::process::$type),
+            ProcessImpl(#[pin] process_impl::$type),
 
             #[cfg(feature = "native-mux")]
-            MuxClientImpl(#[pin] super::native_mux_impl::$type),
+            MuxClientImpl(#[pin] native_mux_impl::$type),
         }
 
-        /// Wrapper type for tokio::process and native_mux_impl
+        /// Wrapper type for process_impl and native_mux_impl
         #[pin_project]
         #[derive(Debug)]
         pub struct $type(#[pin] $imp_type);
 
-        impl From<tokio::process::$type> for $type {
-            fn from(imp: tokio::process::$type) -> Self {
+        impl From<process_impl::$type> for $type {
+            fn from(imp: process_impl::$type) -> Self {
                 Self($imp_type::ProcessImpl(imp))
             }
         }
 
         #[cfg(feature = "native-mux")]
-        impl From<super::native_mux_impl::$type> for $type {
-            fn from(imp: super::native_mux_impl::$type) -> Self {
+        impl From<native_mux_impl::$type> for $type {
+            fn from(imp: native_mux_impl::$type) -> Self {
                 Self($imp_type::MuxClientImpl(imp))
             }
         }

@@ -1,5 +1,7 @@
 use super::{Error, ForwardType, Socket};
 
+pub(crate) use tokio::process::{ChildStderr, ChildStdin, ChildStdout};
+
 mod session;
 pub(crate) use session::Session;
 
