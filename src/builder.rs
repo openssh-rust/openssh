@@ -111,6 +111,45 @@ impl SessionBuilder {
         self
     }
 
+    /// Connect to the host at the given `host` over SSH using process_impl, which will
+    /// spawn a new ssh process for each `Child` created.
+    ///
+    /// The format of `destination` is the same as the `destination` argument to `ssh`. It may be
+    /// specified as either `[user@]hostname` or a URI of the form `ssh://[user@]hostname[:port]`.
+    /// A username or port that is specified in the connection string overrides the one set in the
+    /// builder (but does not change the builder).
+    ///
+    /// If connecting requires interactive authentication based on `STDIN` (such as reading a
+    /// password), the connection will fail. Consider setting up keypair-based authentication
+    /// instead.
+    pub async fn connect<S: AsRef<str>>(&self, destination: S) -> Result<Session, Error> {
+        let destination = destination.as_ref();
+        let (builder, destination) = self.resolve(destination);
+        let tempdir = builder.launch_master(destination).await?;
+        Ok(process_impl::Session::new(tempdir, destination).into())
+    }
+
+    /// Connect to the host at the given `host` over SSH using native_mux, which will
+    /// create a new socket connection for each `Child` created.
+    ///
+    /// **PLEASE READ THE CRATE-LEVEL DOCUMENTATION FOR DETAILS**.
+    ///
+    /// The format of `destination` is the same as the `destination` argument to `ssh`. It may be
+    /// specified as either `[user@]hostname` or a URI of the form `ssh://[user@]hostname[:port]`.
+    /// A username or port that is specified in the connection string overrides the one set in the
+    /// builder (but does not change the builder).
+    ///
+    /// If connecting requires interactive authentication based on `STDIN` (such as reading a
+    /// password), the connection will fail. Consider setting up keypair-based authentication
+    /// instead.
+    #[cfg(feature = "native-mux")]
+    pub async fn connect_mux<S: AsRef<str>>(&self, destination: S) -> Result<Session, Error> {
+        let destination = destination.as_ref();
+        let (builder, destination) = self.resolve(destination);
+        let tempdir = builder.launch_master(destination).await?;
+        Ok(native_mux_impl::Session::new(tempdir).into())
+    }
+
     fn resolve<'a, 'b>(&'a self, mut destination: &'b str) -> (Cow<'a, Self>, &'b str) {
         // the "new" ssh://user@host:port form is not supported by all versions of ssh,
         // so we always translate it into the option form.
@@ -217,45 +256,6 @@ impl SessionBuilder {
         } else {
             Ok(dir)
         }
-    }
-
-    /// Connect to the host at the given `host` over SSH using process_impl, which will
-    /// spawn a new ssh process for each `Child` created.
-    ///
-    /// The format of `destination` is the same as the `destination` argument to `ssh`. It may be
-    /// specified as either `[user@]hostname` or a URI of the form `ssh://[user@]hostname[:port]`.
-    /// A username or port that is specified in the connection string overrides the one set in the
-    /// builder (but does not change the builder).
-    ///
-    /// If connecting requires interactive authentication based on `STDIN` (such as reading a
-    /// password), the connection will fail. Consider setting up keypair-based authentication
-    /// instead.
-    pub async fn connect<S: AsRef<str>>(&self, destination: S) -> Result<Session, Error> {
-        let destination = destination.as_ref();
-        let (builder, destination) = self.resolve(destination);
-        let tempdir = builder.launch_master(destination).await?;
-        Ok(process_impl::Session::new(tempdir, destination).into())
-    }
-
-    /// Connect to the host at the given `host` over SSH using native_mux, which will
-    /// create a new socket connection for each `Child` created.
-    ///
-    /// **PLEASE READ THE CRATE-LEVEL DOCUMENTATION FOR DETAILS**.
-    ///
-    /// The format of `destination` is the same as the `destination` argument to `ssh`. It may be
-    /// specified as either `[user@]hostname` or a URI of the form `ssh://[user@]hostname[:port]`.
-    /// A username or port that is specified in the connection string overrides the one set in the
-    /// builder (but does not change the builder).
-    ///
-    /// If connecting requires interactive authentication based on `STDIN` (such as reading a
-    /// password), the connection will fail. Consider setting up keypair-based authentication
-    /// instead.
-    #[cfg(feature = "native-mux")]
-    pub async fn connect_mux<S: AsRef<str>>(&self, destination: S) -> Result<Session, Error> {
-        let destination = destination.as_ref();
-        let (builder, destination) = self.resolve(destination);
-        let tempdir = builder.launch_master(destination).await?;
-        Ok(native_mux_impl::Session::new(tempdir).into())
     }
 }
 
