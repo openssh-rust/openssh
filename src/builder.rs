@@ -1,8 +1,12 @@
-use super::{Error, Session};
+use super::{process_impl, Error, Session};
+
+#[cfg(feature = "native-mux")]
+use super::native_mux_impl;
 
 use std::borrow::Cow;
+use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::{ExitStatus, Stdio};
+use std::process::Stdio;
 use std::str;
 
 use tempfile::{Builder, TempDir};
@@ -145,24 +149,23 @@ impl SessionBuilder {
         (Cow::Owned(with_overrides), destination)
     }
 
-    pub(crate) fn build_tempdir(&self) -> Result<TempDir, Error> {
+    async fn launch_master(&self, destination: &str) -> Result<TempDir, Error> {
         let defaultdir = Path::new("./");
         let socketdir = self.control_dir.as_deref().unwrap_or(defaultdir);
-        Builder::new()
+        let dir = Builder::new()
             .prefix(".ssh-connection")
             .tempdir_in(socketdir)
-            .map_err(Error::Master)
-    }
+            .map_err(Error::Master)?;
 
-    pub(crate) async fn launch_mux_master(
-        &self,
-        destination: &str,
-        dir: &TempDir,
-        log: Option<&Path>,
-    ) -> Result<(process::Child, ExitStatus), Error> {
+        let log = dir.path().join("log");
+
         let mut init = process::Command::new("ssh");
 
         init.stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .arg("-E")
+            .arg(&log)
             .arg("-S")
             .arg(dir.path().join("master"))
             .arg("-M")
@@ -174,15 +177,6 @@ impl SessionBuilder {
             .arg("BatchMode=yes")
             .arg("-o")
             .arg(self.known_hosts_check.as_option());
-
-        if let Some(log) = log {
-            init.stdout(Stdio::null())
-                .stderr(Stdio::null())
-                .arg("-E")
-                .arg(&log);
-        } else {
-            init.stdout(Stdio::piped()).stderr(Stdio::piped());
-        }
 
         if let Some(timeout) = &self.connect_timeout {
             init.arg("-o").arg(format!("ConnectTimeout={}", timeout));
@@ -213,19 +207,16 @@ impl SessionBuilder {
 
         init.arg(destination);
 
-        // eprintln!("{:?}", init);
-
-        // we spawn and immediately wait, because the process is supposed to fork.
-        // note that we cannot use .output, since it _also_ tries to read all of
-        // stdout/stderr.
-        // if the call _didn't_ error, then the backgrounded ssh client will still hold
-        // onto those handles, and it's still running, so those reads will hang
-        // indefinitely.
-
         let mut child = init.spawn().map_err(Error::Connect)?;
         let status = child.wait().await.map_err(Error::Connect)?;
 
-        Ok((child, status))
+        if !status.success() {
+            let output = fs::read_to_string(log).map_err(Error::Connect)?;
+
+            Err(Error::interpret_ssh_error(&output))
+        } else {
+            Ok(dir)
+        }
     }
 
     /// Connect to the host at the given `host` over SSH using process_impl, which will
@@ -243,8 +234,7 @@ impl SessionBuilder {
         let destination = destination.as_ref();
         let (builder, destination) = self.resolve(destination);
         Ok(Session::new(
-            super::process_impl::builder::just_connect(&builder, destination)
-                .await?
+            process_impl::Session::new(builder.launch_master(destination).await?, destination)
                 .into(),
         ))
     }
@@ -267,9 +257,7 @@ impl SessionBuilder {
         let destination = destination.as_ref();
         let (builder, destination) = self.resolve(destination);
         Ok(Session::new(
-            super::native_mux_impl::builder::just_connect(&builder, destination)
-                .await?
-                .into(),
+            native_mux_impl::Session::new(builder.launch_master(destination).await?).into(),
         ))
     }
 }

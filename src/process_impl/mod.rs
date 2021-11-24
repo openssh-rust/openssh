@@ -1,13 +1,16 @@
 use std::ffi::OsStr;
+use std::fs;
 use std::io;
-use tokio::io::AsyncReadExt;
+use std::path::PathBuf;
+use std::sync::Mutex;
+
 use tokio::process;
+
+use tempfile::TempDir;
 
 use super::Error;
 
 use super::{ForwardType, Socket};
-
-pub(crate) mod builder;
 
 mod command;
 pub(crate) use command::Command;
@@ -17,13 +20,24 @@ pub(crate) use child::RemoteChild;
 
 #[derive(Debug)]
 pub(crate) struct Session {
-    ctl: tempfile::TempDir,
+    ctl: TempDir,
     addr: String,
     terminated: bool,
-    master: std::sync::Mutex<Option<(tokio::process::ChildStdout, tokio::process::ChildStderr)>>,
+    master: Mutex<Option<PathBuf>>,
 }
 
 impl Session {
+    pub(crate) fn new(ctl: TempDir, addr: &str) -> Self {
+        let log = ctl.path().join("log");
+
+        Self {
+            ctl,
+            addr: addr.into(),
+            terminated: false,
+            master: Mutex::new(Some(log)),
+        }
+    }
+
     fn ctl_path(&self) -> std::path::PathBuf {
         self.ctl.path().join("master")
     }
@@ -151,12 +165,12 @@ impl Session {
     }
 
     async fn take_master_error(&self) -> Option<Error> {
-        let (_stdout, mut stderr) = self.master.lock().unwrap().take()?;
+        let log = self.master.lock().unwrap().take()?;
 
-        let mut err = String::new();
-        if let Err(e) = stderr.read_to_string(&mut err).await {
-            return Some(Error::Master(e));
-        }
+        let err = match fs::read_to_string(log) {
+            Ok(err) => err,
+            Err(e) => return Some(Error::Master(e)),
+        };
         let stderr = err.trim();
 
         if stderr.is_empty() {

@@ -10,8 +10,6 @@ pub(crate) use openssh_mux_client::connection::{ForwardType, Socket};
 
 use super::Error;
 
-pub(crate) mod builder;
-
 mod fd;
 use fd::*;
 
@@ -36,6 +34,10 @@ pub(crate) struct Session {
 // TODO: Extract process output in Session::check(), Session::connect(), and Session::terminate().
 
 impl Session {
+    pub(crate) fn new(dir: TempDir) -> Self {
+        Self { tempdir: Some(dir) }
+    }
+
     fn ctl(&self) -> path::PathBuf {
         self.tempdir.as_ref().unwrap().path().join("master")
     }
