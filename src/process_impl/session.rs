@@ -87,11 +87,11 @@ impl Session {
 
     pub(crate) async fn request_port_forward(
         &self,
-        forward_type: ForwardType,
-        listen_socket: &Socket<'_>,
-        connect_socket: &Socket<'_>,
+        forward_type: impl Into<ForwardType>,
+        listen_socket: impl Into<Socket<'_>>,
+        connect_socket: impl Into<Socket<'_>>,
     ) -> Result<(), Error> {
-        let flag = match forward_type {
+        let flag = match forward_type.into() {
             ForwardType::Local => "-L",
             ForwardType::Remote => "-R",
         };
@@ -100,7 +100,7 @@ impl Session {
             .new_cmd(&[
                 "-fNT",
                 flag,
-                &format!("{}:{}", listen_socket, connect_socket),
+                &format!("{}:{}", &listen_socket.into(), &connect_socket.into()),
             ])
             .output()
             .await

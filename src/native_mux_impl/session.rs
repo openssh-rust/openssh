@@ -41,13 +41,17 @@ impl Session {
 
     pub(crate) async fn request_port_forward(
         &self,
-        forward_type: ForwardType,
-        listen_socket: &Socket<'_>,
-        connect_socket: &Socket<'_>,
+        forward_type: impl Into<ForwardType>,
+        listen_socket: impl Into<Socket<'_>>,
+        connect_socket: impl Into<Socket<'_>>,
     ) -> Result<(), Error> {
         Connection::connect(&self.ctl())
             .await?
-            .request_port_forward(forward_type, listen_socket, connect_socket)
+            .request_port_forward(
+                forward_type.into(),
+                &listen_socket.into(),
+                &connect_socket.into(),
+            )
             .await?;
 
         Ok(())
