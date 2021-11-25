@@ -5,7 +5,7 @@ use super::{as_raw_fd, Stdio};
 use std::ffi::OsStr;
 use std::path::PathBuf;
 
-use openssh_mux_client::connection::{Connection, Session};
+use openssh_mux_client::{Connection, Session};
 
 #[derive(Debug)]
 pub(crate) struct Command {

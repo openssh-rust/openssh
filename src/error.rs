@@ -1,9 +1,6 @@
 use std::fmt;
 use std::io;
 
-#[cfg(feature = "native-mux")]
-use openssh_mux_client::connection;
-
 /// Errors that occur when interacting with a remote process.
 #[derive(Debug)]
 #[non_exhaustive]
@@ -19,7 +16,7 @@ pub enum Error {
 
     /// Failed to connect to the ssh multiplex server.
     #[cfg(feature = "native-mux")]
-    SshMux(connection::Error),
+    SshMux(openssh_mux_client::Error),
 
     /// The remote process failed.
     Remote(io::Error),
@@ -50,12 +47,12 @@ pub enum Error {
 }
 
 #[cfg(feature = "native-mux")]
-impl From<connection::Error> for Error {
-    fn from(err: connection::Error) -> Self {
+impl From<openssh_mux_client::Error> for Error {
+    fn from(err: openssh_mux_client::Error) -> Self {
         use io::ErrorKind;
 
         match &err {
-            connection::Error::IOError(ioerr) => match ioerr.kind() {
+            openssh_mux_client::Error::IOError(ioerr) => match ioerr.kind() {
                 ErrorKind::NotFound
                 | ErrorKind::ConnectionReset
                 // If the listener of a unix socket exits without removing the socket

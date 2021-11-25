@@ -1,6 +1,6 @@
 use super::{Error, Stdio};
 
-pub(crate) use openssh_mux_client::connection::{ForwardType, Socket};
+pub(crate) use openssh_mux_client::{ForwardType, Socket};
 
 mod stdio;
 use stdio::as_raw_fd;

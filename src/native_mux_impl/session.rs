@@ -3,7 +3,7 @@ use super::{Command, Error, ForwardType, Socket};
 use std::ffi::OsStr;
 use std::path::PathBuf;
 
-use openssh_mux_client::connection::Connection;
+use openssh_mux_client::Connection;
 use tempfile::TempDir;
 use tokio::runtime;
 

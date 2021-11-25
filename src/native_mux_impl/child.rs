@@ -6,7 +6,7 @@ use std::io;
 use std::os::unix::process::ExitStatusExt;
 use std::process::ExitStatus;
 
-use openssh_mux_client::connection::{EstablishedSession, SessionStatus, TryWaitSessionStatus};
+use openssh_mux_client::{EstablishedSession, SessionStatus, TryWaitSessionStatus};
 
 macro_rules! do_wait {
     ($state:expr, $var:ident, $then:block) => {{
