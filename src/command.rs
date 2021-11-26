@@ -1,6 +1,6 @@
-use super::Error;
 use super::RemoteChild;
 use super::Stdio;
+use super::{Error, Session};
 
 use std::borrow::Cow;
 use std::ffi::OsStr;
@@ -70,7 +70,7 @@ macro_rules! delegate {
 ///   [`env(1)`]: https://linux.die.net/man/1/env
 #[derive(Debug)]
 pub struct Command<'s> {
-    session: &'s super::Session,
+    session: &'s Session,
     imp: CommandImp,
 
     stdin_set: bool,
