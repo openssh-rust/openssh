@@ -3,7 +3,7 @@ use super::{Command, Error, ForwardType, Socket};
 use std::ffi::OsStr;
 use std::path::PathBuf;
 
-use openssh_mux_client::Connection;
+use openssh_mux_client::{shutdown_mux_master, Connection};
 use tempfile::TempDir;
 use tokio::runtime;
 
@@ -86,10 +86,6 @@ impl Drop for Session {
             None => return,
         };
 
-        if let Ok(handle) = runtime::Handle::try_current() {
-            handle.spawn(async move {
-                let _ = Self::request_server_shutdown(&tempdir).await;
-            });
-        }
+        let _ = shutdown_mux_master(&tempdir.path().join("master"));
     }
 }
