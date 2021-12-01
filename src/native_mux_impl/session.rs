@@ -5,7 +5,6 @@ use std::path::PathBuf;
 
 use openssh_mux_client::{shutdown_mux_master, Connection};
 use tempfile::TempDir;
-use tokio::runtime;
 
 #[derive(Debug)]
 pub(crate) struct Session {
@@ -57,20 +56,14 @@ impl Session {
         Ok(())
     }
 
-    async fn request_server_shutdown(tempdir: &TempDir) -> Result<(), Error> {
-        Connection::connect(&tempdir.path().join("master"))
-            .await?
-            .request_stop_listening()
-            .await?;
-
-        Ok(())
-    }
-
     pub(crate) async fn close(mut self) -> Result<(), Error> {
         // This also set self.tempdir to None so that Drop::drop would do nothing.
         let tempdir = self.tempdir.take().unwrap();
 
-        Self::request_server_shutdown(&tempdir).await?;
+        Connection::connect(&tempdir.path().join("master"))
+            .await?
+            .request_stop_listening()
+            .await?;
 
         tempdir.close().map_err(Error::Cleanup)?;
 
