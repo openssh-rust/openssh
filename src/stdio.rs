@@ -4,6 +4,8 @@ use super::{process_impl, Error};
 #[cfg(feature = "native-mux")]
 use super::native_mux_impl::{self, input_to_fd, output_to_fd};
 
+use std::convert::TryFrom;
+
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
@@ -70,6 +72,28 @@ impl From<Stdio> for process::Stdio {
         }
     }
 }
+
+impl From<Fd> for Stdio {
+    fn from(fd: Fd) -> Self {
+        Self(StdioImpl::Fd(fd))
+    }
+}
+
+macro_rules! impl_try_from_for_stdio {
+    ($type:ident) => {
+        impl TryFrom<$type> for Stdio {
+            type Error = Error;
+
+            fn try_from(arg: $type) -> Result<Self, Self::Error> {
+                arg.try_into_file().map(From::from)
+            }
+        }
+    };
+}
+
+impl_try_from_for_stdio!(ChildStdin);
+impl_try_from_for_stdio!(ChildStdout);
+impl_try_from_for_stdio!(ChildStderr);
 
 #[pin_project(project = ChildStdinImpProj)]
 #[derive(Debug)]
