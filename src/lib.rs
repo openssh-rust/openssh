@@ -5,6 +5,8 @@
 //! through the `ssh` command, all your existing configuration (e.g., in `.ssh/config`) should
 //! continue to work as expected.
 //!
+//! # Executing remote processes
+//!
 //! The library's API is modeled closely after that of [`std::process::Command`], since `ssh` also
 //! attempts to make the remote process seem as much as possible like a local command. However,
 //! there are some differences.
@@ -12,6 +14,30 @@
 //! First of all, all remote commands are executed in the context of a single ssh
 //! [session](Session). Authentication happens once when the session is
 //! [established](Session::connect), and subsequent command invocations re-use the same connection.
+//!
+//! Note that the maximum number of multiplexed remote commands is 10 by default. This value can be
+//! increased by changing the `MaxSessions` setting in [`sshd_config`].
+//!
+//! Much like with [`std::process::Command`], you have multiple options when it comes to launching
+//! a remote command. You can [spawn](Command::spawn) the remote command, which just gives you a
+//! handle to the running process, you can run the command and wait for its
+//! [output](Command::output), or you can run it and just extract its [exit
+//! status](Command::status). Unlike its `std` counterpart though, these methods on [`Command`] can
+//! fail even if the remote command executed successfully, since there is a fallible network
+//! separating you from it.
+//!
+//! Also unlike its `std` counterpart, [`spawn`](Command::spawn) gives you a [`RemoteChild`] rather
+//! than a [`std::process::Child`]. Behind the scenes, a remote child is really just a process
+//! handle to the _local_ `ssh` instance corresponding to the spawned remote command. The behavior
+//! of the methods of [`RemoteChild`] therefore match the behavior of `ssh`, rather than that of
+//! the remote command directly. Usually, these are the same, though not always, as highlighted in
+//! the documetantation the individual methods. See also the section below on Remote Shells.
+//!
+//! And finally, our commands never default to inheriting stdin/stdout/stderr, since we expect you
+//! are using this to automate things. Instead, unless otherwise noted, all I/O ports default to
+//! [`Stdio::null`](std::process::Stdio::null).
+//!
+//! # Connection modes
 //!
 //! This library provides two way to connect to the [`ControlMaster`]:
 //!
@@ -46,28 +72,6 @@
 //! the different remote commands. Because of this, each remote command is tied to the lifetime of
 //! the [`Session`] that spawned them. When the session is [closed](Session::close), the connection
 //! is severed, and there can be no outstanding remote clients.
-//!
-//! Note that the maximum number of multiplexed remote commands is 10 by default. This value can be
-//! increased by changing the `MaxSessions` setting in [`sshd_config`].
-//!
-//! Much like with [`std::process::Command`], you have multiple options when it comes to launching
-//! a remote command. You can [spawn](Command::spawn) the remote command, which just gives you a
-//! handle to the running process, you can run the command and wait for its
-//! [output](Command::output), or you can run it and just extract its [exit
-//! status](Command::status). Unlike its `std` counterpart though, these methods on [`Command`] can
-//! fail even if the remote command executed successfully, since there is a fallible network
-//! separating you from it.
-//!
-//! Also unlike its `std` counterpart, [`spawn`](Command::spawn) gives you a [`RemoteChild`] rather
-//! than a [`std::process::Child`]. Behind the scenes, a remote child is really just a process
-//! handle to the _local_ `ssh` instance corresponding to the spawned remote command. The behavior
-//! of the methods of [`RemoteChild`] therefore match the behavior of `ssh`, rather than that of
-//! the remote command directly. Usually, these are the same, though not always, as highlighted in
-//! the documetantation the individual methods. See also the section below on Remote Shells.
-//!
-//! And finally, our commands never default to inheriting stdin/stdout/stderr, since we expect you
-//! are using this to automate things. Instead, unless otherwise noted, all I/O ports default to
-//! [`Stdio::null`](std::process::Stdio::null).
 //!
 //! # Authentication
 //!
