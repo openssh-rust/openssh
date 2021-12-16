@@ -12,7 +12,6 @@ pub(crate) struct Session {
     tempdir: Option<TempDir>,
 }
 
-// TODO: UserKnownHostsFile for custom known host fingerprint.
 // TODO: Extract process output in Session::check(), Session::connect(), and Session::terminate().
 
 impl Session {
