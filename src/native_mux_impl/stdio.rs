@@ -43,12 +43,7 @@ impl Stdio {
             StdioImpl::Null => Ok((None, None)),
             StdioImpl::Pipe => {
                 let (read, write) = create_pipe()?;
-                Ok((
-                    // safety: read is guaranteed to contain a valid fd
-                    // when `create_pipe()` succeeded.
-                    Some(unsafe { Fd::from_raw_fd(read.into_raw_fd()) }),
-                    Some(write),
-                ))
+                Ok((Some(input_to_fd(read)), Some(write)))
             }
             StdioImpl::Fd(fd) => Ok((Some(fd.try_clone()?), None)),
         }
@@ -59,12 +54,7 @@ impl Stdio {
             StdioImpl::Null => Ok((None, None)),
             StdioImpl::Pipe => {
                 let (read, write) = create_pipe()?;
-                Ok((
-                    // safety: write is guaranteed to contain a valid fd
-                    // when `create_pipe()` succeeded.
-                    Some(unsafe { Fd::from_raw_fd(write.into_raw_fd()) }),
-                    Some(read),
-                ))
+                Ok((Some(output_to_fd(write)), Some(read)))
             }
             StdioImpl::Fd(fd) => Ok((Some(fd.try_clone()?), None)),
         }
@@ -74,3 +64,17 @@ impl Stdio {
 pub(crate) type ChildStdin = PipeWrite;
 pub(crate) type ChildStdout = PipeRead;
 pub(crate) type ChildStderr = PipeRead;
+
+pub(crate) fn output_to_fd(output: PipeWrite) -> Fd {
+    let raw_fd = output.into_raw_fd();
+
+    // safety: output is guaranteed to contain a valid fd.
+    unsafe { Fd::from_raw_fd(raw_fd) }
+}
+
+pub(crate) fn input_to_fd(input: PipeRead) -> Fd {
+    let raw_fd = input.into_raw_fd();
+
+    // safety: input is guaranteed to contain a valid fd.
+    unsafe { Fd::from_raw_fd(raw_fd) }
+}

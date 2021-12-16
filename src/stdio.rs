@@ -1,8 +1,8 @@
-use super::fd::Fd;
+use super::fd::{dup, Fd};
 use super::{process_impl, Error};
 
 #[cfg(feature = "native-mux")]
-use super::native_mux_impl;
+use super::native_mux_impl::{self, input_to_fd, output_to_fd};
 
 use std::pin::Pin;
 use std::task::{Context, Poll};
@@ -88,6 +88,27 @@ pub struct ChildStdin(#[pin] ChildStdinImp);
 impl ChildStdin {
     fn project_enum(self: Pin<&mut Self>) -> ChildStdinImpProj<'_> {
         self.project().0.project()
+    }
+
+    fn try_into_file(self) -> Result<Fd, Error> {
+        use ChildStdinImp::*;
+
+        match self.0 {
+            ProcessImpl(stdin) => {
+                let fd = stdin.as_raw_fd();
+
+                // safety: stdin.as_raw_fd() is guaranteed to return a valid fd.
+                unsafe { dup(fd) }
+            }
+
+            #[cfg(feature = "native-mux")]
+            MuxClientImpl(stdin) => Ok(output_to_fd(stdin)),
+        }
+    }
+
+    /// Convert into RawFd, could fail if dup fails.
+    pub fn try_into_fd(self) -> Result<RawFd, Error> {
+        self.try_into_file().map(Fd::into_raw_fd)
     }
 }
 
@@ -193,6 +214,27 @@ macro_rules! impl_reader {
             pub(crate) async fn read_all(mut self, output: &mut Vec<u8>) -> Result<(), Error> {
                 self.read_to_end(output).await.map_err(Error::ChildIo)?;
                 Ok(())
+            }
+
+            fn try_into_file(self) -> Result<Fd, Error> {
+                use $imp_type::*;
+
+                match self.0 {
+                    ProcessImpl(stdout) => {
+                        let fd = stdout.as_raw_fd();
+
+                        // safety: stdout.as_raw_fd() is guaranteed to return a valid fd.
+                        unsafe { dup(fd) }
+                    }
+
+                    #[cfg(feature = "native-mux")]
+                    MuxClientImpl(stdout) => Ok(input_to_fd(stdout)),
+                }
+            }
+
+            /// Convert into RawFd, could fail if dup fails.
+            pub fn try_into_fd(self) -> Result<RawFd, Error> {
+                self.try_into_file().map(Fd::into_raw_fd)
             }
         }
 
