@@ -36,6 +36,7 @@ impl IntoRawFd for Fd {
 }
 
 impl Fd {
+    #[cfg(feature = "native-mux")]
     pub(crate) fn try_clone(&self) -> Result<Self, Error> {
         // safety: self.0 is guaranteed to contain a valid fd.
         unsafe { dup(self.0) }
