@@ -32,10 +32,6 @@ fn get_null_fd() -> Result<RawFd, Error> {
     res.map(AsRawFd::as_raw_fd)
 }
 
-fn into_fd<T: IntoRawFd>(val: T) -> File {
-    unsafe { File::from_raw_fd(val.into_raw_fd()) }
-}
-
 pub(crate) fn as_raw_fd(fd: &Option<File>) -> Result<RawFd, Error> {
     match fd {
         Some(fd) => Ok(AsRawFd::as_raw_fd(fd)),
@@ -49,7 +45,12 @@ impl Stdio {
             StdioImpl::Null => Ok((None, None)),
             StdioImpl::Pipe => {
                 let (read, write) = create_pipe()?;
-                Ok((Some(into_fd(read)), Some(write)))
+                Ok((
+                    // safety: read is guaranteed to contain a valid fd
+                    // when `create_pipe()` succeeded.
+                    Some(unsafe { File::from_raw_fd(read.into_raw_fd()) }),
+                    Some(write),
+                ))
             }
             StdioImpl::Fd(fd) => Ok((Some(dup(fd)?), None)),
         }
@@ -60,7 +61,12 @@ impl Stdio {
             StdioImpl::Null => Ok((None, None)),
             StdioImpl::Pipe => {
                 let (read, write) = create_pipe()?;
-                Ok((Some(into_fd(write)), Some(read)))
+                Ok((
+                    // safety: write is guaranteed to contain a valid fd
+                    // when `create_pipe()` succeeded.
+                    Some(unsafe { File::from_raw_fd(write.into_raw_fd()) }),
+                    Some(read),
+                ))
             }
             StdioImpl::Fd(fd) => Ok((Some(dup(fd)?), None)),
         }
