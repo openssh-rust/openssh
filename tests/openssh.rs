@@ -347,7 +347,7 @@ async fn stdin() {
     }
 }
 
-macro_rules! assert_kind {
+macro_rules! assert_remote_kind {
     ($e:expr, $kind:expr) => {
         let e = $e;
 
@@ -372,50 +372,50 @@ async fn sftp_can() {
         sftp.can(Mode::Read, ".ssh/authorized_keys").await.unwrap();
         sftp.can(Mode::Read, "/etc/hostname").await.unwrap();
         // some things we cannot
-        assert_kind!(
+        assert_remote_kind!(
             sftp.can(Mode::Write, "/etc/passwd").await.unwrap_err(),
             io::ErrorKind::PermissionDenied
         );
-        assert_kind!(
+        assert_remote_kind!(
             sftp.can(Mode::Write, "no/such/file").await.unwrap_err(),
             io::ErrorKind::NotFound
         );
-        assert_kind!(
+        assert_remote_kind!(
             sftp.can(Mode::Read, "/etc/shadow").await.unwrap_err(),
             io::ErrorKind::PermissionDenied
         );
-        assert_kind!(
+        assert_remote_kind!(
             sftp.can(Mode::Read, "/etc/no-such-file").await.unwrap_err(),
             io::ErrorKind::NotFound
         );
-        assert_kind!(
+        assert_remote_kind!(
             sftp.can(Mode::Write, "/etc/no-such-file")
                 .await
                 .unwrap_err(),
             io::ErrorKind::PermissionDenied
         );
-        assert_kind!(
+        assert_remote_kind!(
             sftp.can(Mode::Write, "/no-such-file").await.unwrap_err(),
             io::ErrorKind::PermissionDenied
         );
-        assert_kind!(
+        assert_remote_kind!(
             sftp.can(Mode::Read, "no/such/file").await.unwrap_err(),
             io::ErrorKind::NotFound
         );
         // and something are just weird
-        assert_kind!(
+        assert_remote_kind!(
             sftp.can(Mode::Write, ".ssh").await.unwrap_err(),
             io::ErrorKind::AlreadyExists
         );
-        assert_kind!(
+        assert_remote_kind!(
             sftp.can(Mode::Write, "/etc").await.unwrap_err(),
             io::ErrorKind::AlreadyExists
         );
-        assert_kind!(
+        assert_remote_kind!(
             sftp.can(Mode::Write, "/").await.unwrap_err(),
             io::ErrorKind::AlreadyExists
         );
-        assert_kind!(
+        assert_remote_kind!(
             sftp.can(Mode::Read, "/etc").await.unwrap_err(),
             io::ErrorKind::Other
         );
@@ -472,23 +472,23 @@ async fn sftp() {
 
         // reading a file that does not exist should error on open
         let failed = sftp.read_from("no/such/file").await.unwrap_err();
-        assert_kind!(failed, io::ErrorKind::NotFound);
+        assert_remote_kind!(failed, io::ErrorKind::NotFound);
         // so should file we're not allowed to read
         let failed = sftp.read_from("/etc/shadow").await.unwrap_err();
-        assert_kind!(failed, io::ErrorKind::PermissionDenied);
+        assert_remote_kind!(failed, io::ErrorKind::PermissionDenied);
 
         // writing a file that does not exist should also error on open
         let failed = sftp.write_to("no/such/file").await.unwrap_err();
-        assert_kind!(failed, io::ErrorKind::NotFound);
+        assert_remote_kind!(failed, io::ErrorKind::NotFound);
         // so should file we're not allowed to write
         let failed = sftp.write_to("/rootfile").await.unwrap_err();
-        assert_kind!(failed, io::ErrorKind::PermissionDenied);
+        assert_remote_kind!(failed, io::ErrorKind::PermissionDenied);
 
         // writing to a full disk (or the like) should also error
         let mut w = sftp.write_to("/dev/full").await.unwrap();
         w.write_all(b"hello world").await.unwrap();
         let failed = w.close().await.unwrap_err();
-        assert_kind!(failed, io::ErrorKind::WriteZero);
+        assert_remote_kind!(failed, io::ErrorKind::WriteZero);
 
         session.close().await.unwrap();
     }
@@ -505,7 +505,7 @@ async fn bad_remote_command() {
             .await
             .unwrap_err();
         eprintln!("{:?}", failed);
-        assert_kind!(failed, io::ErrorKind::NotFound);
+        assert_remote_kind!(failed, io::ErrorKind::NotFound);
 
         // no matter how you run it
         let failed = session
@@ -514,20 +514,20 @@ async fn bad_remote_command() {
             .await
             .unwrap_err();
         eprintln!("{:?}", failed);
-        assert_kind!(failed, io::ErrorKind::NotFound);
+        assert_remote_kind!(failed, io::ErrorKind::NotFound);
 
         // even if you spawn first
         let mut child = session.command("no such program").spawn().await.unwrap();
         let failed = child.wait().await.unwrap_err();
         eprintln!("{:?}", failed);
-        assert_kind!(failed, io::ErrorKind::NotFound);
+        assert_remote_kind!(failed, io::ErrorKind::NotFound);
         child.disconnect().await.unwrap();
 
         // of if you want output
         let child = session.command("no such program").spawn().await.unwrap();
         let failed = child.wait_with_output().await.unwrap_err();
         eprintln!("{:?}", failed);
-        assert_kind!(failed, io::ErrorKind::NotFound);
+        assert_remote_kind!(failed, io::ErrorKind::NotFound);
 
         // no matter how hard you _try_
         let mut child = session.command("no such program").spawn().await.unwrap();
@@ -535,7 +535,7 @@ async fn bad_remote_command() {
 
         let failed = child.try_wait().unwrap_err();
         eprintln!("{:?}", failed);
-        assert_kind!(failed, io::ErrorKind::NotFound);
+        assert_remote_kind!(failed, io::ErrorKind::NotFound);
         child.disconnect().await.unwrap();
 
         session.close().await.unwrap();
