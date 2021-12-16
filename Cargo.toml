@@ -26,6 +26,8 @@ shell-escape = "0.1"
 tokio = { version = "1", features = [ "process", "io-util", "macros" ] }
 pin-project = "1"
 
+libc = "0.2.112"
+
 once_cell = { version = "1.8.0", optional = true }
 tokio-pipe = { version = "0.2.1", optional = true }
 openssh-mux-client = { version = "0.10.1", optional = true }
