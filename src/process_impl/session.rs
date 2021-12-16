@@ -45,10 +45,6 @@ impl Session {
         cmd
     }
 
-    fn new_terminate_cmd(&self) -> process::Command {
-        self.new_cmd(&["-o", "exit"])
-    }
-
     pub(crate) async fn check(&self) -> Result<(), Error> {
         if self.terminated {
             return Err(Error::Disconnected);
@@ -119,7 +115,7 @@ impl Session {
     pub(crate) async fn close(mut self) -> Result<(), Error> {
         if !self.terminated {
             let exit = self
-                .new_terminate_cmd()
+                .new_cmd(&["-o", "exit"])
                 .output()
                 .await
                 .map_err(Error::Ssh)?;
