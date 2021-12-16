@@ -47,7 +47,7 @@ impl Command {
     }
 
     pub(crate) async fn spawn(&mut self) -> Result<RemoteChild, Error> {
-        let (stdin, child_stdin) = self.stdin_v.to_stdin()?;
+        let (stdin, child_stdin) = self.stdin_v.to_input()?;
         let (stdout, child_stdout) = self.stdout_v.to_stdout()?;
         let (stderr, child_stderr) = self.stderr_v.to_stderr()?;
 

@@ -40,7 +40,7 @@ pub(crate) fn as_raw_fd(fd: &Option<File>) -> Result<RawFd, Error> {
 }
 
 impl Stdio {
-    pub(crate) fn to_stdin(&self) -> Result<(Option<File>, Option<ChildStdin>), Error> {
+    pub(crate) fn to_input(&self) -> Result<(Option<File>, Option<ChildStdin>), Error> {
         match &self.0 {
             StdioImpl::Null => Ok((None, None)),
             StdioImpl::Pipe => {
