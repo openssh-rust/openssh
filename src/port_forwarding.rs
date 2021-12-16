@@ -47,9 +47,9 @@ impl Socket<'_> {
     pub fn new<T: ToSocketAddrs>(addr: &T) -> Result<Self, io::Error> {
         let mut it = addr.to_socket_addrs()?;
 
-        let addr = it
-            .next()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "Iterator is empty"))?;
+        let addr = it.next().ok_or_else(|| {
+            io::Error::new(io::ErrorKind::Other, "no more socket addresses to try")
+        })?;
 
         Ok(Socket::TcpSocket(addr))
     }
