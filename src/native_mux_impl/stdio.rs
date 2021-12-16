@@ -40,7 +40,7 @@ pub(crate) fn as_raw_fd(fd: &Option<File>) -> Result<RawFd, Error> {
 }
 
 impl Stdio {
-    pub(crate) fn get_stdin(&self) -> Result<(Option<File>, Option<ChildStdin>), Error> {
+    pub(crate) fn to_stdin(&self) -> Result<(Option<File>, Option<ChildStdin>), Error> {
         match &self.0 {
             StdioImpl::Null => Ok((None, None)),
             StdioImpl::Pipe => {
@@ -56,7 +56,7 @@ impl Stdio {
         }
     }
 
-    pub(crate) fn get_stdout(&self) -> Result<(Option<File>, Option<ChildStdout>), Error> {
+    pub(crate) fn to_stdout(&self) -> Result<(Option<File>, Option<ChildStdout>), Error> {
         match &self.0 {
             StdioImpl::Null => Ok((None, None)),
             StdioImpl::Pipe => {
@@ -72,8 +72,8 @@ impl Stdio {
         }
     }
 
-    pub(crate) fn get_stderr(&self) -> Result<(Option<File>, Option<ChildStderr>), Error> {
-        self.get_stdout()
+    pub(crate) fn to_stderr(&self) -> Result<(Option<File>, Option<ChildStderr>), Error> {
+        self.to_stdout()
     }
 }
 
