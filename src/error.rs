@@ -83,10 +83,7 @@ impl fmt::Display for Error {
             Error::Ssh(_) => write!(f, "the local ssh command could not be executed"),
             Error::Remote(_) => write!(f, "the remote command could not be executed"),
             Error::Disconnected => write!(f, "the connection was terminated"),
-            Error::Cleanup(_) => write!(
-                f,
-                "failed to remove temporary directory where ssh socket and output is stored"
-            ),
+            Error::Cleanup(_) => write!(f, "failed to remove temporary ssh session directory"),
             Error::ChildIo(_) => {
                 write!(f, "failure while accessing standard I/O of remote process")
             }
