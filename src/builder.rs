@@ -111,7 +111,7 @@ impl SessionBuilder {
         self
     }
 
-    /// Connect to the host at the given `host` over SSH using process_impl, which will
+    /// Connect to the host at the given `host` over SSH using process impl, which will
     /// spawn a new ssh process for each `Child` created.
     ///
     /// The format of `destination` is the same as the `destination` argument to `ssh`. It may be
@@ -129,7 +129,7 @@ impl SessionBuilder {
         Ok(process_impl::Session::new(tempdir, destination).into())
     }
 
-    /// Connect to the host at the given `host` over SSH using native_mux, which will
+    /// Connect to the host at the given `host` over SSH using native mux, which will
     /// create a new socket connection for each `Child` created.
     ///
     /// **PLEASE READ THE CRATE-LEVEL DOCUMENTATION FOR DETAILS**.
