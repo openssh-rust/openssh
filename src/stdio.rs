@@ -3,8 +3,8 @@ use super::{process_impl, Error};
 #[cfg(feature = "native-mux")]
 use super::native_mux_impl;
 
-use core::pin::Pin;
-use core::task::{Context, Poll};
+use std::pin::Pin;
+use std::task::{Context, Poll};
 
 use std::fs::File;
 use std::io::{self, IoSlice};
