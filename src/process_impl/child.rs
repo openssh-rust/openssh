@@ -39,17 +39,6 @@ impl RemoteChild {
         }
     }
 
-    pub(crate) fn try_wait(&mut self) -> Result<Option<ExitStatus>, Error> {
-        match self.channel.as_mut().unwrap().try_wait() {
-            Err(e) => Err(Error::Remote(e)),
-            Ok(None) => Ok(None),
-            Ok(Some(w)) => {
-                self.done = true;
-                to_remote_child_exit_status(w).map(Option::Some)
-            }
-        }
-    }
-
     pub(crate) fn stdin(&mut self) -> &mut Option<process::ChildStdin> {
         &mut self
             .channel

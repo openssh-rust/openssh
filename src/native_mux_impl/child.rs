@@ -6,7 +6,7 @@ use std::io;
 use std::os::unix::process::ExitStatusExt;
 use std::process::ExitStatus;
 
-use openssh_mux_client::{EstablishedSession, SessionStatus, TryWaitSessionStatus};
+use openssh_mux_client::{EstablishedSession, SessionStatus};
 
 macro_rules! do_wait {
     ($state:expr, $var:ident, $then:block) => {{
@@ -76,28 +76,6 @@ impl RemoteChild {
                 }
             }
         })
-    }
-
-    pub(crate) fn try_wait(&mut self) -> Result<Option<ExitStatus>, Error> {
-        do_wait!(&mut self.state, established_session, {
-            match established_session.try_wait() {
-                Ok(session_status) => match session_status {
-                    TryWaitSessionStatus::TtyAllocFail(_established_session) => {
-                        unreachable!("mux_client_impl never allocates a tty")
-                    }
-                    TryWaitSessionStatus::Exited { exit_value } => exit_value,
-                    TryWaitSessionStatus::InProgress(established_session) => {
-                        self.state = RemoteChildState::Running(established_session);
-                        return Ok(None);
-                    }
-                },
-                Err((err, established_session)) => {
-                    self.state = RemoteChildState::Running(established_session);
-                    return Err(err.into());
-                }
-            }
-        })
-        .map(Option::Some)
     }
 
     pub(crate) fn stdin(&mut self) -> &mut Option<ChildStdin> {

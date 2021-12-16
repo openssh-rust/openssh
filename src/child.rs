@@ -124,32 +124,6 @@ impl<'s> RemoteChild<'s> {
         delegate!(self.imp, imp, { imp.wait().await })
     }
 
-    /// Attempts to collect the exit status of the remote child if it has already exited.
-    ///
-    /// This function will not block the calling thread and will only check to see if the child
-    /// process has exited or not. If the child has exited then on Unix the process ID is reaped.
-    /// This function is guaranteed to repeatedly return a successful exit status so long as the
-    /// child has already exited.
-    ///
-    /// If the child has exited, then `Ok(Some(status))` is returned. If the exit status is not
-    /// available at this time then `Ok(None)` is returned. If an error occurs, then that error is
-    /// returned.
-    ///
-    /// Note that unlike `wait`, this function will not attempt to drop stdin.
-    ///
-    /// **NOTE that due to a fundamental design flaw in ssh multiplex protocol,
-    /// there is no way to tell `RemoteProcessTerminated` from `Disconnect`.
-    ///
-    /// If you really need to identify `Disconnect`, you can call `session.check()`
-    /// after `wait()` returns `RemoteProcessTerminated`, however the ssh multiplex master
-    /// could exit right after `wait()`, meaning the remote process actually is terminated
-    /// instead of `Disconnect`ed.
-    ///
-    /// It is thus recommended to create your own workaround for your particular use cases.**
-    pub fn try_wait(&mut self) -> Result<Option<ExitStatus>, Error> {
-        delegate!(&mut self.imp, imp, { imp.try_wait() })
-    }
-
     /// Simultaneously waits for the remote child to exit and collect all remaining output on the
     /// stdout/stderr handles, returning an `Output` instance.
     ///
