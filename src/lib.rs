@@ -151,6 +151,8 @@ compile_error!("This crate can only be used on unix");
 use std::borrow::Cow;
 use std::ffi::OsStr;
 
+mod fd;
+
 mod stdio;
 pub use stdio::{ChildStderr, ChildStdin, ChildStdout, Stdio};
 
