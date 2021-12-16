@@ -5,8 +5,10 @@ use std::net::{IpAddr, SocketAddr};
 
 use std::time::Duration;
 
-use tokio::net::{TcpListener, TcpStream};
-use tokio::time::sleep;
+use tokio::{
+    net::{TcpListener, TcpStream},
+    time::sleep,
+};
 
 use regex::Regex;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
