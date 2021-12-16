@@ -62,6 +62,10 @@ impl From<Stdio> for process::Stdio {
         match stdio.0 {
             StdioImpl::Null => process::Stdio::null(),
             StdioImpl::Pipe => process::Stdio::piped(),
+
+            // safety: StdioImpl(fd) is only constructed from known-valid and
+            // owned file descriptors by virtue of the safety requirement
+            // for invoking from_raw_fd.
             StdioImpl::Fd(fd) => unsafe { process::Stdio::from_raw_fd(IntoRawFd::into_raw_fd(fd)) },
         }
     }
