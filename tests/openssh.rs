@@ -338,7 +338,6 @@ async fn stdin() {
 
         // cat should now have terminated
         let status = child.wait().await.unwrap();
-        drop(child);
 
         // ... successfully
         assert!(status.success());
@@ -517,11 +516,10 @@ async fn bad_remote_command() {
         assert_remote_kind!(failed, io::ErrorKind::NotFound);
 
         // even if you spawn first
-        let mut child = session.command("no such program").spawn().await.unwrap();
+        let child = session.command("no such program").spawn().await.unwrap();
         let failed = child.wait().await.unwrap_err();
         eprintln!("{:?}", failed);
         assert_remote_kind!(failed, io::ErrorKind::NotFound);
-        child.disconnect().await.unwrap();
 
         // of if you want output
         let child = session.command("no such program").spawn().await.unwrap();
@@ -665,7 +663,7 @@ async fn escaping() {
 #[cfg_attr(not(ci), ignore)]
 async fn process_exit_on_signal() {
     for session in connects().await {
-        let mut sleeping = session.command("sleep").arg("5566").spawn().await.unwrap();
+        let sleeping = session.command("sleep").arg("5566").spawn().await.unwrap();
 
         // give it some time to make sure it starts
         tokio::time::sleep(std::time::Duration::from_secs(1)).await;
