@@ -902,7 +902,7 @@ async fn local_socket_forward() {
             .unwrap();
 
         eprintln!("Connecting to forwarded socket");
-        let mut output = TcpStream::connect(("127.0.0.1", ports.0)).await.unwrap();
+        let mut output = TcpStream::connect((loopback(), ports.0)).await.unwrap();
 
         eprintln!("Reading");
 
