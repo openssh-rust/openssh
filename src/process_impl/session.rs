@@ -4,6 +4,7 @@ use std::ffi::OsStr;
 use std::fs;
 use std::io;
 use std::path::PathBuf;
+use std::process::Stdio;
 use std::sync::Mutex;
 
 use tokio::process;
@@ -36,7 +37,8 @@ impl Session {
 
     fn new_cmd(&self, args: &[&str]) -> process::Command {
         let mut cmd = process::Command::new("ssh");
-        cmd.arg("-S")
+        cmd.stdin(Stdio::null())
+            .arg("-S")
             .arg(self.ctl_path())
             .arg("-o")
             .arg("BatchMode=yes")

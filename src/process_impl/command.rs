@@ -13,10 +13,8 @@ pub(crate) struct Command {
 
 impl Command {
     pub(crate) fn new(mut builder: process::Command) -> Self {
-        builder
-            .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null());
+        // Session::new_cmd already et stdin to Stdio::null()
+        builder.stdout(Stdio::null()).stderr(Stdio::null());
 
         Self { builder }
     }
