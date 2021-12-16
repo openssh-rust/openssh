@@ -88,7 +88,7 @@ impl fmt::Display for Error {
                 write!(f, "failure while accessing standard I/O of remote process")
             }
 
-            Error::RemoteProcessTerminated => write!(f, "Remote process is terminated"),
+            Error::RemoteProcessTerminated => write!(f, "the remote process has terminated"),
 
             #[cfg(feature = "native-mux")]
             Error::SshMux(_) => write!(f, "failed to connect to the ssh multiplex server"),
