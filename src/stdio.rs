@@ -52,11 +52,6 @@ impl Stdio {
         Self(StdioImpl::Null)
     }
 }
-impl<T: IntoRawFd> From<T> for Stdio {
-    fn from(val: T) -> Self {
-        unsafe { Stdio::from_raw_fd(val.into_raw_fd()) }
-    }
-}
 impl FromRawFd for Stdio {
     unsafe fn from_raw_fd(fd: RawFd) -> Self {
         Self(StdioImpl::Fd(File::from_raw_fd(fd)))
