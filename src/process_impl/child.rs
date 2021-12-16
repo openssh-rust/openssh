@@ -51,15 +51,27 @@ impl RemoteChild {
     }
 
     pub(crate) fn stdin(&mut self) -> &mut Option<process::ChildStdin> {
-        &mut self.channel.as_mut().unwrap().stdin
+        &mut self
+            .channel
+            .as_mut()
+            .expect("channel is only taken when self is consumed")
+            .stdin
     }
 
     pub(crate) fn stdout(&mut self) -> &mut Option<process::ChildStdout> {
-        &mut self.channel.as_mut().unwrap().stdout
+        &mut self
+            .channel
+            .as_mut()
+            .expect("channel is only taken when self is consumed")
+            .stdout
     }
 
     pub(crate) fn stderr(&mut self) -> &mut Option<process::ChildStderr> {
-        &mut self.channel.as_mut().unwrap().stderr
+        &mut self
+            .channel
+            .as_mut()
+            .expect("channel is only taken when self is consumed")
+            .stderr
     }
 }
 
