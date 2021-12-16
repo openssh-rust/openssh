@@ -61,7 +61,7 @@ impl RemoteChild {
         Ok(())
     }
 
-    pub(crate) async fn wait(&mut self) -> Result<ExitStatus, Error> {
+    pub(crate) async fn wait(mut self) -> Result<ExitStatus, Error> {
         do_wait!(&mut self.state, established_session, {
             match established_session.wait().await {
                 Ok(session_status) => match session_status {

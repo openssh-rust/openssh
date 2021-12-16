@@ -123,12 +123,12 @@ impl<'s> RemoteChild<'s> {
     ///
     /// If you cancel an on-going `Future`, then you should also drop `RemoteChild`
     /// for it cannot be used anymore.
-    pub async fn wait(&mut self) -> Result<ExitStatus, Error> {
+    pub async fn wait(mut self) -> Result<ExitStatus, Error> {
         // Close stdin so that if the remote process is reading stdin,
         // it would return EOF and the remote process can exit.
         self.stdin().take();
 
-        delegate!(&mut self.imp, imp, { imp.wait().await })
+        delegate!(self.imp, imp, { imp.wait().await })
     }
 
     /// Attempts to collect the exit status of the remote child if it has already exited.

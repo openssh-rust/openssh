@@ -29,7 +29,7 @@ impl RemoteChild {
         Ok(())
     }
 
-    pub(crate) async fn wait(&mut self) -> Result<ExitStatus, Error> {
+    pub(crate) async fn wait(mut self) -> Result<ExitStatus, Error> {
         match self.channel.as_mut().unwrap().wait().await {
             Err(e) => Err(Error::Remote(e)),
             Ok(w) => {
