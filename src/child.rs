@@ -79,7 +79,7 @@ pub struct RemoteChild<'s> {
 
 #[inline(always)]
 fn opt_into<T, U: From<T>>(opt: Option<T>) -> Option<U> {
-    opt.map(|val| val.into())
+    opt.map(Into::into)
 }
 
 impl<'s> RemoteChild<'s> {
