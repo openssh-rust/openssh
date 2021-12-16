@@ -221,7 +221,7 @@ impl From<native_mux_impl::Session> for Session {
 // TODO: UserKnownHostsFile for custom known host fingerprint.
 
 impl Session {
-    /// Connect to the host at the given `host` over SSH using process_impl, which will
+    /// Connect to the host at the given `host` over SSH using process impl, which will
     /// spawn a new ssh process for each `Child` created.
     ///
     /// The format of `destination` is the same as the `destination` argument to `ssh`. It may be
@@ -238,7 +238,7 @@ impl Session {
         s.connect(destination.as_ref()).await
     }
 
-    /// Connect to the host at the given `host` over SSH using native_mux_impl, which
+    /// Connect to the host at the given `host` over SSH using native mux impl, which
     /// will create a new socket connection for each `Child` created.
     ///
     /// **PLEASE READ THE CRATE-LEVEL DOCUMENTATION FOR DETAILS**.
