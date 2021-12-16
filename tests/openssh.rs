@@ -826,7 +826,7 @@ async fn auth_failed() {
 async fn remote_socket_forward() {
     let sessions = connects().await;
     for (session, ports) in sessions.iter().zip(&[(9999, 1234), (9998, 1233)]) {
-        let output_listener = TcpListener::bind(("127.0.0.1", ports.0)).await.unwrap();
+        let output_listener = TcpListener::bind((loopback(), ports.0)).await.unwrap();
 
         eprintln!("Requesting port forward");
         session
