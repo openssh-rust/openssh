@@ -6,6 +6,7 @@ use super::Stdio;
 use crate::stdio::StdioImpl;
 
 use std::fs::{File, OpenOptions};
+use std::io;
 use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
 
 use once_cell::sync::OnceCell;
@@ -45,7 +46,16 @@ impl Stdio {
                 let (read, write) = create_pipe()?;
                 Ok((Some(input_to_fd(read)), Some(write)))
             }
-            StdioImpl::Fd(fd) => Ok((Some(fd.try_clone()?), None)),
+            StdioImpl::Fd(fd) => {
+                if fd.get_access_mode()?.is_readable() {
+                    Ok((Some(fd.try_clone()?), None))
+                } else {
+                    Err(Error::ChildIo(io::Error::new(
+                        io::ErrorKind::Other,
+                        "Fd stored in Stdio isn't readable",
+                    )))
+                }
+            }
         }
     }
 
@@ -56,7 +66,16 @@ impl Stdio {
                 let (read, write) = create_pipe()?;
                 Ok((Some(output_to_fd(write)), Some(read)))
             }
-            StdioImpl::Fd(fd) => Ok((Some(fd.try_clone()?), None)),
+            StdioImpl::Fd(fd) => {
+                if fd.get_access_mode()?.is_writeable() {
+                    Ok((Some(fd.try_clone()?), None))
+                } else {
+                    Err(Error::ChildIo(io::Error::new(
+                        io::ErrorKind::Other,
+                        "Fd stored in Stdio isn't writable",
+                    )))
+                }
+            }
         }
     }
 }
