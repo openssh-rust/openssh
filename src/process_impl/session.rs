@@ -189,8 +189,9 @@ impl Drop for Session {
                 .arg("BatchMode=yes")
                 .args(&["-o", "exit"])
                 .arg(&self.addr)
-                .stdout(std::process::Stdio::null())
-                .stderr(std::process::Stdio::null())
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
                 .status();
         }
     }
