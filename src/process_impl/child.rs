@@ -68,7 +68,7 @@ impl Drop for RemoteChild {
     fn drop(&mut self) {
         if let Some(mut channel) = self.channel.take() {
             // this disconnects, but does not kill the remote process
-            let _ = channel.kill();
+            let _ = channel.start_kill();
         }
     }
 }
