@@ -56,7 +56,7 @@ impl Stdio {
         }
     }
 
-    pub(crate) fn to_stdout(&self) -> Result<(Option<File>, Option<ChildStdout>), Error> {
+    pub(crate) fn to_output(&self) -> Result<(Option<File>, Option<PipeRead>), Error> {
         match &self.0 {
             StdioImpl::Null => Ok((None, None)),
             StdioImpl::Pipe => {
@@ -70,10 +70,6 @@ impl Stdio {
             }
             StdioImpl::Fd(fd) => Ok((Some(dup(fd)?), None)),
         }
-    }
-
-    pub(crate) fn to_stderr(&self) -> Result<(Option<File>, Option<ChildStderr>), Error> {
-        self.to_stdout()
     }
 }
 

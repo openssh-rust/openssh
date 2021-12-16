@@ -48,8 +48,8 @@ impl Command {
 
     pub(crate) async fn spawn(&mut self) -> Result<RemoteChild, Error> {
         let (stdin, child_stdin) = self.stdin_v.to_input()?;
-        let (stdout, child_stdout) = self.stdout_v.to_stdout()?;
-        let (stderr, child_stderr) = self.stderr_v.to_stderr()?;
+        let (stdout, child_stdout) = self.stdout_v.to_output()?;
+        let (stderr, child_stderr) = self.stderr_v.to_output()?;
 
         let stdios = [as_raw_fd(&stdin)?, as_raw_fd(&stdout)?, as_raw_fd(&stderr)?];
 
