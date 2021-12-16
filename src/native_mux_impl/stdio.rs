@@ -30,7 +30,7 @@ fn get_null_fd() -> Result<RawFd, Error> {
     res.map(AsRawFd::as_raw_fd)
 }
 
-pub(crate) fn as_raw_fd(fd: &Option<Fd>) -> Result<RawFd, Error> {
+pub(crate) fn as_raw_fd_or_null_fd(fd: &Option<Fd>) -> Result<RawFd, Error> {
     match fd {
         Some(fd) => Ok(AsRawFd::as_raw_fd(fd)),
         None => get_null_fd(),

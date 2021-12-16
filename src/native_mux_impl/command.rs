@@ -1,6 +1,6 @@
 use super::Error;
 use super::RemoteChild;
-use super::{as_raw_fd, Stdio};
+use super::{as_raw_fd_or_null_fd, Stdio};
 
 use std::ffi::OsStr;
 use std::path::PathBuf;
@@ -51,7 +51,11 @@ impl Command {
         let (stdout, child_stdout) = self.stdout_v.to_output()?;
         let (stderr, child_stderr) = self.stderr_v.to_output()?;
 
-        let stdios = [as_raw_fd(&stdin)?, as_raw_fd(&stdout)?, as_raw_fd(&stderr)?];
+        let stdios = [
+            as_raw_fd_or_null_fd(&stdin)?,
+            as_raw_fd_or_null_fd(&stdout)?,
+            as_raw_fd_or_null_fd(&stderr)?,
+        ];
 
         let session = Session::builder().cmd((&self.cmd).into()).build();
 
