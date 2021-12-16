@@ -1,3 +1,5 @@
+use crate::fd::Fd;
+
 use super::Error;
 use super::Stdio;
 
@@ -9,10 +11,6 @@ use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
 use once_cell::sync::OnceCell;
 
 use tokio_pipe::{pipe, PipeRead, PipeWrite};
-
-fn dup(file: &File) -> Result<File, Error> {
-    file.try_clone().map_err(Error::ChildIo)
-}
 
 fn create_pipe() -> Result<(PipeRead, PipeWrite), Error> {
     pipe().map_err(Error::ChildIo)
@@ -32,7 +30,7 @@ fn get_null_fd() -> Result<RawFd, Error> {
     res.map(AsRawFd::as_raw_fd)
 }
 
-pub(crate) fn as_raw_fd(fd: &Option<File>) -> Result<RawFd, Error> {
+pub(crate) fn as_raw_fd(fd: &Option<Fd>) -> Result<RawFd, Error> {
     match fd {
         Some(fd) => Ok(AsRawFd::as_raw_fd(fd)),
         None => get_null_fd(),
@@ -40,7 +38,7 @@ pub(crate) fn as_raw_fd(fd: &Option<File>) -> Result<RawFd, Error> {
 }
 
 impl Stdio {
-    pub(crate) fn to_input(&self) -> Result<(Option<File>, Option<ChildStdin>), Error> {
+    pub(crate) fn to_input(&self) -> Result<(Option<Fd>, Option<ChildStdin>), Error> {
         match &self.0 {
             StdioImpl::Null => Ok((None, None)),
             StdioImpl::Pipe => {
@@ -48,15 +46,15 @@ impl Stdio {
                 Ok((
                     // safety: read is guaranteed to contain a valid fd
                     // when `create_pipe()` succeeded.
-                    Some(unsafe { File::from_raw_fd(read.into_raw_fd()) }),
+                    Some(unsafe { Fd::from_raw_fd(read.into_raw_fd()) }),
                     Some(write),
                 ))
             }
-            StdioImpl::Fd(fd) => Ok((Some(dup(fd)?), None)),
+            StdioImpl::Fd(fd) => Ok((Some(fd.try_clone()?), None)),
         }
     }
 
-    pub(crate) fn to_output(&self) -> Result<(Option<File>, Option<PipeRead>), Error> {
+    pub(crate) fn to_output(&self) -> Result<(Option<Fd>, Option<PipeRead>), Error> {
         match &self.0 {
             StdioImpl::Null => Ok((None, None)),
             StdioImpl::Pipe => {
@@ -64,11 +62,11 @@ impl Stdio {
                 Ok((
                     // safety: write is guaranteed to contain a valid fd
                     // when `create_pipe()` succeeded.
-                    Some(unsafe { File::from_raw_fd(write.into_raw_fd()) }),
+                    Some(unsafe { Fd::from_raw_fd(write.into_raw_fd()) }),
                     Some(read),
                 ))
             }
-            StdioImpl::Fd(fd) => Ok((Some(dup(fd)?), None)),
+            StdioImpl::Fd(fd) => Ok((Some(fd.try_clone()?), None)),
         }
     }
 }
