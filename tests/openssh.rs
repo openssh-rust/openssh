@@ -3,7 +3,7 @@ use std::io;
 use std::io::Write;
 use std::net::{IpAddr, SocketAddr};
 
-use core::time::Duration;
+use std::time::Duration;
 
 use tokio::net::{TcpListener, TcpStream};
 use tokio::time::sleep;
