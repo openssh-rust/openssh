@@ -182,8 +182,15 @@ impl Session {
 impl Drop for Session {
     fn drop(&mut self) {
         if !self.terminated {
-            let _ = self
-                .new_terminate_cmd()
+            let mut cmd = std::process::Command::new("ssh");
+
+            let _ = cmd
+                .arg("-S")
+                .arg(self.ctl_path())
+                .arg("-o")
+                .arg("BatchMode=yes")
+                .args(&["-o", "exit"])
+                .arg(&self.addr)
                 .stdout(std::process::Stdio::null())
                 .stderr(std::process::Stdio::null())
                 .status();
