@@ -1,6 +1,6 @@
 use super::{ChildStderr, ChildStdin, ChildStdout, Error};
 
-use core::mem::replace;
+use std::mem::replace;
 
 use std::io;
 use std::os::unix::process::ExitStatusExt;
