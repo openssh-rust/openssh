@@ -547,7 +547,7 @@ async fn connect_timeout() {
     use std::time::{Duration, Instant};
 
     let mut sb = SessionBuilder::default();
-    let sb = sb.connect_timeout(Duration::from_secs(1));
+    sb.connect_timeout(Duration::from_secs(1));
 
     let host = "192.0.0.8";
 
