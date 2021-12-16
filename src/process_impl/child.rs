@@ -8,34 +8,34 @@ use tokio::process;
 #[derive(Debug)]
 pub(crate) struct RemoteChild {
     channel: Option<process::Child>,
-    done: bool,
 }
 
 impl RemoteChild {
     pub(crate) fn new(child: process::Child) -> Self {
         Self {
             channel: Some(child),
-            done: false,
         }
     }
 
     pub(crate) async fn disconnect(mut self) -> io::Result<()> {
         if let Some(mut channel) = self.channel.take() {
-            if !self.done {
-                // this disconnects, but does not kill the remote process
-                channel.kill().await?;
-            }
+            // this disconnects, but does not kill the remote process
+            channel.kill().await?;
         }
         Ok(())
     }
 
     pub(crate) async fn wait(mut self) -> Result<ExitStatus, Error> {
-        match self.channel.as_mut().unwrap().wait().await {
+        match self.channel.take().unwrap().wait().await {
             Err(e) => Err(Error::Remote(e)),
-            Ok(w) => {
-                self.done = true;
-                to_remote_child_exit_status(w)
-            }
+            Ok(w) => match w.code() {
+                Some(255) => Err(Error::RemoteProcessTerminated),
+                Some(127) => Err(Error::Remote(io::Error::new(
+                    io::ErrorKind::NotFound,
+                    "remote command not found",
+                ))),
+                _ => Ok(w),
+            },
         }
     }
 
@@ -70,16 +70,5 @@ impl Drop for RemoteChild {
             // this disconnects, but does not kill the remote process
             let _ = channel.kill();
         }
-    }
-}
-
-fn to_remote_child_exit_status(w: ExitStatus) -> Result<ExitStatus, Error> {
-    match w.code() {
-        Some(255) => Err(Error::RemoteProcessTerminated),
-        Some(127) => Err(Error::Remote(io::Error::new(
-            io::ErrorKind::NotFound,
-            "remote command not found",
-        ))),
-        _ => Ok(w),
     }
 }
