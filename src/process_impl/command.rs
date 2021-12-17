@@ -13,8 +13,12 @@ pub(crate) struct Command {
 
 impl Command {
     pub(crate) fn new(mut builder: process::Command) -> Self {
-        // Session::new_cmd already et stdin to Stdio::null()
+        // Session::new_cmd already set stdin to Stdio::null()
         builder.stdout(Stdio::null()).stderr(Stdio::null());
+
+        // Disconnects the ssh session at `RemoteChild::drop`, but does
+        // not kill the remote process.
+        builder.kill_on_drop(true);
 
         Self { builder }
     }
