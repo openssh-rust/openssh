@@ -744,7 +744,7 @@ async fn broken_connection() {
 
     // check should obviously fail
     let failed = session.check().await.unwrap_err();
-    assert!(matches!(failed, Error::Disconnected));
+    assert!(matches!(failed, Error::Disconnected), "{:?}", failed);
 
     // what should close do in this instance?
     // probably not return an error, since the connection _is_ closed.
