@@ -1,4 +1,4 @@
-use super::{ChildStderr, ChildStdin, ChildStdout, Error};
+use super::Error;
 
 use std::io;
 use std::os::unix::process::ExitStatusExt;
@@ -9,23 +9,12 @@ use openssh_mux_client::{EstablishedSession, SessionStatus};
 #[derive(Debug)]
 pub(crate) struct RemoteChild {
     established_session: EstablishedSession,
-    child_stdin: Option<ChildStdin>,
-    child_stdout: Option<ChildStdout>,
-    child_stderr: Option<ChildStderr>,
 }
 
 impl RemoteChild {
-    pub(crate) fn new(
-        established_session: EstablishedSession,
-        child_stdin: Option<ChildStdin>,
-        child_stdout: Option<ChildStdout>,
-        child_stderr: Option<ChildStderr>,
-    ) -> Self {
+    pub(crate) fn new(established_session: EstablishedSession) -> Self {
         Self {
             established_session,
-            child_stdin,
-            child_stdout,
-            child_stderr,
         }
     }
 
@@ -59,17 +48,5 @@ impl RemoteChild {
                 }
             }
         }
-    }
-
-    pub(crate) fn stdin(&mut self) -> &mut Option<ChildStdin> {
-        &mut self.child_stdin
-    }
-
-    pub(crate) fn stdout(&mut self) -> &mut Option<ChildStdout> {
-        &mut self.child_stdout
-    }
-
-    pub(crate) fn stderr(&mut self) -> &mut Option<ChildStderr> {
-        &mut self.child_stderr
     }
 }

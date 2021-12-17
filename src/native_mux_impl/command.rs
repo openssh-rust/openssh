@@ -1,6 +1,7 @@
 use super::Error;
 use super::RemoteChild;
 use super::{as_raw_fd_or_null_fd, Stdio};
+use super::{ChildStderr, ChildStdin, ChildStdout};
 
 use std::borrow::Cow;
 use std::ffi::OsStr;
@@ -47,7 +48,17 @@ impl<'s> Command<'s> {
         self.stderr_v = cfg.into();
     }
 
-    pub(crate) async fn spawn(&mut self) -> Result<RemoteChild, Error> {
+    pub(crate) async fn spawn(
+        &mut self,
+    ) -> Result<
+        (
+            RemoteChild,
+            Option<ChildStdin>,
+            Option<ChildStdout>,
+            Option<ChildStderr>,
+        ),
+        Error,
+    > {
         let (stdin, child_stdin) = self.stdin_v.to_input()?;
         let (stdout, child_stdout) = self.stdout_v.to_output()?;
         let (stderr, child_stderr) = self.stderr_v.to_output()?;
@@ -65,8 +76,8 @@ impl<'s> Command<'s> {
             .open_new_session(&session, &stdios)
             .await?;
 
-        Ok(RemoteChild::new(
-            established_session,
+        Ok((
+            RemoteChild::new(established_session),
             child_stdin,
             child_stdout,
             child_stderr,

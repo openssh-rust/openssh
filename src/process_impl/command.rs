@@ -1,5 +1,6 @@
 use super::Error;
 use super::RemoteChild;
+use super::{ChildStderr, ChildStdin, ChildStdout};
 
 use std::ffi::OsStr;
 use std::process::Stdio;
@@ -41,9 +42,28 @@ impl Command {
         self.builder.stderr(cfg);
     }
 
-    pub(crate) async fn spawn(&mut self) -> Result<RemoteChild, Error> {
-        let child = self.builder.spawn().map_err(Error::Ssh)?;
+    pub(crate) async fn spawn(
+        &mut self,
+    ) -> Result<
+        (
+            RemoteChild,
+            Option<ChildStdin>,
+            Option<ChildStdout>,
+            Option<ChildStderr>,
+        ),
+        Error,
+    > {
+        let mut channel = self.builder.spawn().map_err(Error::Ssh)?;
 
-        Ok(RemoteChild::new(child))
+        let child_stdin = channel.stdin.take();
+        let child_stdout = channel.stdout.take();
+        let child_stderr = channel.stderr.take();
+
+        Ok((
+            RemoteChild::new(channel),
+            child_stdin,
+            child_stdout,
+            child_stderr,
+        ))
     }
 }

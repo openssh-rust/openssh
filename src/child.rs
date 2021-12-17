@@ -77,20 +77,21 @@ pub struct RemoteChild<'s> {
     stderr: Option<ChildStderr>,
 }
 
-#[inline(always)]
-fn opt_into<T, U: From<T>>(opt: Option<T>) -> Option<U> {
-    opt.map(Into::into)
-}
-
 impl<'s> RemoteChild<'s> {
-    pub(crate) fn new(session: &'s Session, mut imp: RemoteChildImp) -> Self {
+    pub(crate) fn new(
+        session: &'s Session,
+        (imp, stdin, stdout, stderr): (
+            RemoteChildImp,
+            Option<ChildStdin>,
+            Option<ChildStdout>,
+            Option<ChildStderr>,
+        ),
+    ) -> Self {
         Self {
             session,
-
-            stdin: delegate!(&mut imp, imp, { opt_into(imp.stdin().take()) }),
-            stdout: delegate!(&mut imp, imp, { opt_into(imp.stdout().take()) }),
-            stderr: delegate!(&mut imp, imp, { opt_into(imp.stderr().take()) }),
-
+            stdin,
+            stdout,
+            stderr,
             imp,
         }
     }

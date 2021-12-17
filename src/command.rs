@@ -7,6 +7,10 @@ use std::ffi::OsStr;
 use std::marker::PhantomData;
 use std::process;
 
+fn opt_into<T, U: From<T>>(opt: Option<T>) -> Option<U> {
+    opt.map(Into::into)
+}
+
 #[derive(Debug)]
 pub(crate) enum CommandImp<'s> {
     ProcessImpl(super::process_impl::Command, PhantomData<&'s Session>),
@@ -221,7 +225,15 @@ impl<'s> Command<'s> {
     pub async fn spawn(&mut self) -> Result<RemoteChild<'s>, Error> {
         Ok(RemoteChild::new(
             self.session,
-            delegate!(&mut self.imp, imp, { imp.spawn().await?.into() }),
+            delegate!(&mut self.imp, imp, {
+                let (imp, stdin, stdout, stderr) = imp.spawn().await?;
+                (
+                    imp.into(),
+                    opt_into(stdin),
+                    opt_into(stdout),
+                    opt_into(stderr),
+                )
+            }),
         ))
     }
 

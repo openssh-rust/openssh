@@ -37,16 +37,4 @@ impl RemoteChild {
             },
         }
     }
-
-    pub(crate) fn stdin(&mut self) -> &mut Option<process::ChildStdin> {
-        &mut self.channel.stdin
-    }
-
-    pub(crate) fn stdout(&mut self) -> &mut Option<process::ChildStdout> {
-        &mut self.channel.stdout
-    }
-
-    pub(crate) fn stderr(&mut self) -> &mut Option<process::ChildStderr> {
-        &mut self.channel.stderr
-    }
 }
