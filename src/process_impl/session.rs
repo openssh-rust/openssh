@@ -3,7 +3,7 @@ use super::{Command, Error, ForwardType, Socket};
 use std::ffi::OsStr;
 use std::fs;
 use std::io;
-use std::path::PathBuf;
+use std::path::Path;
 use std::process::Stdio;
 
 use tokio::process;
@@ -15,12 +15,12 @@ pub(crate) struct Session {
     ctl: TempDir,
     addr: String,
     terminated: bool,
-    master: PathBuf,
+    master: Box<Path>,
 }
 
 impl Session {
     pub(crate) fn new(ctl: TempDir, addr: &str) -> Self {
-        let log = ctl.path().join("log");
+        let log = ctl.path().join("log").into_boxed_path();
 
         Self {
             ctl,
