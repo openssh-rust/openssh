@@ -182,7 +182,7 @@ impl Drop for Session {
         if !self.terminated {
             let mut cmd = std::process::Command::new("ssh");
 
-            let _ = cmd
+            let res = cmd
                 .arg("-S")
                 .arg(self.ctl_path())
                 .arg("-o")
@@ -193,6 +193,12 @@ impl Drop for Session {
                 .stdout(Stdio::null())
                 .stderr(Stdio::null())
                 .status();
+
+            debug_assert!(
+                res.is_ok(),
+                "process_impl::Session::drop failed: {:#?}",
+                res
+            );
         }
     }
 }
