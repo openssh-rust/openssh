@@ -10,19 +10,21 @@ use tempfile::TempDir;
 pub(crate) struct Session {
     /// TempDir will automatically removes the temporary dir on drop
     tempdir: Option<TempDir>,
+    ctl: PathBuf,
 }
 
 impl Session {
     pub(crate) fn new(dir: TempDir) -> Self {
-        Self { tempdir: Some(dir) }
-    }
+        let ctl = dir.path().join("master");
 
-    fn ctl(&self) -> PathBuf {
-        self.tempdir.as_ref().unwrap().path().join("master")
+        Self {
+            tempdir: Some(dir),
+            ctl,
+        }
     }
 
     pub(crate) async fn check(&self) -> Result<(), Error> {
-        Connection::connect(&self.ctl())
+        Connection::connect(&self.ctl)
             .await?
             .send_alive_check()
             .await?;
@@ -32,7 +34,7 @@ impl Session {
 
     pub(crate) fn raw_command<S: AsRef<OsStr>>(&self, program: S) -> Command {
         let program = program.as_ref().to_string_lossy();
-        Command::new(self.ctl(), program.to_string())
+        Command::new(self.ctl.clone(), program.to_string())
     }
 
     pub(crate) async fn request_port_forward(
@@ -41,7 +43,7 @@ impl Session {
         listen_socket: impl Into<Socket<'_>>,
         connect_socket: impl Into<Socket<'_>>,
     ) -> Result<(), Error> {
-        Connection::connect(&self.ctl())
+        Connection::connect(&self.ctl)
             .await?
             .request_port_forward(
                 forward_type.into(),
@@ -57,7 +59,7 @@ impl Session {
         // This also set self.tempdir to None so that Drop::drop would do nothing.
         let tempdir = self.tempdir.take().unwrap();
 
-        Connection::connect(&tempdir.path().join("master"))
+        Connection::connect(&self.ctl)
             .await?
             .request_stop_listening()
             .await?;
@@ -71,11 +73,12 @@ impl Session {
 impl Drop for Session {
     fn drop(&mut self) {
         // Keep tempdir alive until the connection is established
-        let tempdir = match self.tempdir.take() {
+        let _tempdir = match self.tempdir.take() {
             Some(tempdir) => tempdir,
             None => return,
         };
 
-        let _ = shutdown_mux_master(&tempdir.path().join("master"));
+        let res = shutdown_mux_master(&self.ctl);
+        debug_assert!(res.is_ok(), "shutdown_mux_master failed: {:#?}", res);
     }
 }
