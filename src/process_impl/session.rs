@@ -47,10 +47,6 @@ impl Session {
     }
 
     pub(crate) async fn check(&self) -> Result<(), Error> {
-        if self.terminated {
-            return Err(Error::Disconnected);
-        }
-
         let check = self
             .new_cmd(&["-O", "check"])
             .output()
