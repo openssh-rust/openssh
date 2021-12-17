@@ -58,7 +58,7 @@ impl Session {
             .map_err(Error::Ssh)?;
 
         if let Some(255) = check.status.code() {
-            if let Some(master_error) = self.take_master_error().await {
+            if let Some(master_error) = self.discover_master_error().await {
                 Err(master_error)
             } else {
                 Err(Error::Disconnected)
@@ -108,7 +108,7 @@ impl Session {
             let err = exit_err.trim();
 
             if err.is_empty() {
-                if let Some(master_error) = self.take_master_error().await {
+                if let Some(master_error) = self.discover_master_error().await {
                     return Err(master_error);
                 }
             }
@@ -127,7 +127,7 @@ impl Session {
 
             self.terminated = true;
 
-            if let Some(master_error) = self.take_master_error().await {
+            if let Some(master_error) = self.discover_master_error().await {
                 return Err(master_error);
             }
 
@@ -157,7 +157,7 @@ impl Session {
         Ok(())
     }
 
-    async fn take_master_error(&self) -> Option<Error> {
+    async fn discover_master_error(&self) -> Option<Error> {
         let err = match fs::read_to_string(&self.master) {
             Ok(err) => err,
             Err(e) => return Some(Error::Master(e)),
