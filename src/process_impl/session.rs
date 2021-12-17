@@ -12,9 +12,8 @@ use tempfile::TempDir;
 
 #[derive(Debug)]
 pub(crate) struct Session {
-    ctl: TempDir,
+    ctl: Option<TempDir>,
     addr: Box<str>,
-    terminated: bool,
     master: Box<Path>,
 }
 
@@ -23,15 +22,14 @@ impl Session {
         let log = ctl.path().join("log").into_boxed_path();
 
         Self {
-            ctl,
+            ctl: Some(ctl),
             addr: addr.into(),
-            terminated: false,
             master: log,
         }
     }
 
     fn ctl_path(&self) -> std::path::PathBuf {
-        self.ctl.path().join("master")
+        self.ctl.as_ref().unwrap().path().join("master")
     }
 
     fn new_cmd(&self, args: &[&str]) -> process::Command {
@@ -114,41 +112,38 @@ impl Session {
     }
 
     pub(crate) async fn close(mut self) -> Result<(), Error> {
-        if !self.terminated {
-            let exit = self
-                .new_cmd(&["-o", "exit"])
-                .output()
-                .await
-                .map_err(Error::Ssh)?;
+        let mut exit_cmd = self.new_cmd(&["-o", "exit"]);
 
-            self.terminated = true;
+        // Take self.ctl so that drop would do nothing
+        let ctl = self.ctl.take().unwrap();
 
-            if let Some(master_error) = self.discover_master_error().await {
-                return Err(master_error);
-            }
+        let exit = exit_cmd.output().await.map_err(Error::Ssh)?;
 
-            if exit.status.success() {
-                return Ok(());
-            }
+        if let Some(master_error) = self.discover_master_error().await {
+            return Err(master_error);
+        }
 
-            // let's get this case straight:
-            // we tried to tell the master to exit.
-            // the -O exit command failed.
-            // the master exited, but did not produce an error.
-            // what could cause that?
-            //
-            // the only thing I can think of at the moment is that the remote end cleanly
-            // closed the connection, probably by virtue of being killed (but without the
-            // network dropping out). since we were told to _close_ the connection, well, we
-            // have succeeded, so this should not produce an error.
-            //
-            // we will still _collect_ the error that -O exit produced though,
-            // just for ease of debugging.
+        // let's get this case straight:
+        // we tried to tell the master to exit.
+        // the -O exit command failed.
+        // the master exited, but did not produce an error.
+        // what could cause that?
+        //
+        // the only thing I can think of at the moment is that the remote end cleanly
+        // closed the connection, probably by virtue of being killed (but without the
+        // network dropping out). since we were told to _close_ the connection, well, we
+        // have succeeded, so this should not produce an error.
+        //
+        // we will still _collect_ the error that -O exit produced though,
+        // just for ease of debugging.
 
+        if !exit.status.success() {
             let _exit_err = String::from_utf8_lossy(&exit.stderr);
             let _err = _exit_err.trim();
             // eprintln!("{}", _err);
         }
+
+        ctl.close().map_err(Error::Cleanup)?;
 
         Ok(())
     }
@@ -184,7 +179,7 @@ impl Session {
 
 impl Drop for Session {
     fn drop(&mut self) {
-        if !self.terminated {
+        if self.ctl.is_some() {
             let mut cmd = std::process::Command::new("ssh");
 
             let res = cmd
