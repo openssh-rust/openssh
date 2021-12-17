@@ -5,7 +5,6 @@ use std::fs;
 use std::io;
 use std::path::PathBuf;
 use std::process::Stdio;
-use std::sync::Mutex;
 
 use tokio::process;
 
@@ -16,7 +15,7 @@ pub(crate) struct Session {
     ctl: TempDir,
     addr: String,
     terminated: bool,
-    master: Mutex<Option<PathBuf>>,
+    master: PathBuf,
 }
 
 impl Session {
@@ -27,7 +26,7 @@ impl Session {
             ctl,
             addr: addr.into(),
             terminated: false,
-            master: Mutex::new(Some(log)),
+            master: log,
         }
     }
 
@@ -159,9 +158,7 @@ impl Session {
     }
 
     async fn take_master_error(&self) -> Option<Error> {
-        let log = self.master.lock().unwrap().take()?;
-
-        let err = match fs::read_to_string(log) {
+        let err = match fs::read_to_string(&self.master) {
             Ok(err) => err,
             Err(e) => return Some(Error::Master(e)),
         };
