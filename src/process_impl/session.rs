@@ -13,6 +13,7 @@ use tempfile::TempDir;
 #[derive(Debug)]
 pub(crate) struct Session {
     ctl: Option<TempDir>,
+    ctl_path: Box<Path>,
     addr: Box<str>,
     master: Box<Path>,
 }
@@ -20,23 +21,21 @@ pub(crate) struct Session {
 impl Session {
     pub(crate) fn new(ctl: TempDir, addr: &str) -> Self {
         let log = ctl.path().join("log").into_boxed_path();
+        let ctl_path = ctl.path().join("master").into_boxed_path();
 
         Self {
             ctl: Some(ctl),
+            ctl_path,
             addr: addr.into(),
             master: log,
         }
-    }
-
-    fn ctl_path(&self) -> std::path::PathBuf {
-        self.ctl.as_ref().unwrap().path().join("master")
     }
 
     fn new_cmd(&self, args: &[&str]) -> process::Command {
         let mut cmd = process::Command::new("ssh");
         cmd.stdin(Stdio::null())
             .arg("-S")
-            .arg(self.ctl_path())
+            .arg(&*self.ctl_path)
             .arg("-o")
             .arg("BatchMode=yes")
             .args(args)
@@ -179,26 +178,33 @@ impl Session {
 
 impl Drop for Session {
     fn drop(&mut self) {
-        if self.ctl.is_some() {
-            let mut cmd = std::process::Command::new("ssh");
+        // Keep tempdir alive until the connection is established
+        let ctl = match self.ctl.take() {
+            Some(ctl) => ctl,
+            None => return,
+        };
 
-            let res = cmd
-                .arg("-S")
-                .arg(self.ctl_path())
-                .arg("-o")
-                .arg("BatchMode=yes")
-                .args(&["-o", "exit"])
-                .arg(&*self.addr)
-                .stdin(Stdio::null())
-                .stdout(Stdio::null())
-                .stderr(Stdio::null())
-                .status();
+        let mut cmd = std::process::Command::new("ssh");
 
-            debug_assert!(
-                res.is_ok(),
-                "process_impl::Session::drop failed: {:#?}",
-                res
-            );
-        }
+        let res = cmd
+            .arg("-S")
+            .arg(&*self.ctl_path)
+            .arg("-o")
+            .arg("BatchMode=yes")
+            .args(&["-o", "exit"])
+            .arg(&*self.addr)
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status();
+
+        debug_assert!(
+            res.is_ok(),
+            "process_impl::Session::drop failed: {:#?}",
+            res
+        );
+
+        let res = ctl.close();
+        debug_assert!(res.is_ok(), "ctl.close() failed: {:#?}", res);
     }
 }
