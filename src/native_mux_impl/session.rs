@@ -73,12 +73,15 @@ impl Session {
 impl Drop for Session {
     fn drop(&mut self) {
         // Keep tempdir alive until the connection is established
-        let _tempdir = match self.tempdir.take() {
+        let tempdir = match self.tempdir.take() {
             Some(tempdir) => tempdir,
             None => return,
         };
 
         let res = shutdown_mux_master(&self.ctl);
         debug_assert!(res.is_ok(), "shutdown_mux_master failed: {:#?}", res);
+
+        let res = tempdir.close();
+        debug_assert!(res.is_ok(), "tempdir.close() failed: {:#?}", res);
     }
 }
