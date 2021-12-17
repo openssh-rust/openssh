@@ -247,8 +247,7 @@ impl SessionBuilder {
         init.arg(destination);
 
         // we spawn and immediately wait, because the process is supposed to fork.
-        let mut child = init.spawn().map_err(Error::Connect)?;
-        let status = child.wait().await.map_err(Error::Connect)?;
+        let status = init.status().await.map_err(Error::Connect)?;
 
         if !status.success() {
             let output = fs::read_to_string(log).map_err(Error::Connect)?;
