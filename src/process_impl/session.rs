@@ -104,11 +104,15 @@ impl Session {
 
         if port_forwarding.status.success() {
             Ok(())
-        } else if let Some(master_error) = self.take_master_error().await {
-            Err(master_error)
         } else {
             let exit_err = String::from_utf8_lossy(&port_forwarding.stderr);
             let err = exit_err.trim();
+
+            if err.is_empty() {
+                if let Some(master_error) = self.take_master_error().await {
+                    return Err(master_error);
+                }
+            }
 
             Err(Error::Ssh(io::Error::new(io::ErrorKind::Other, err)))
         }
