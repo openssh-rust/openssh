@@ -1,7 +1,7 @@
 use super::{Command, Error, ForwardType, Socket};
 
 use std::ffi::OsStr;
-use std::path::PathBuf;
+use std::path::Path;
 
 use openssh_mux_client::{shutdown_mux_master, Connection};
 use tempfile::TempDir;
@@ -10,12 +10,12 @@ use tempfile::TempDir;
 pub(crate) struct Session {
     /// TempDir will automatically removes the temporary dir on drop
     tempdir: Option<TempDir>,
-    ctl: PathBuf,
+    ctl: Box<Path>,
 }
 
 impl Session {
     pub(crate) fn new(dir: TempDir) -> Self {
-        let ctl = dir.path().join("master");
+        let ctl = dir.path().join("master").into_boxed_path();
 
         Self {
             tempdir: Some(dir),
