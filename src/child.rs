@@ -1,6 +1,5 @@
 use super::{ChildStderr, ChildStdin, ChildStdout, Error, Session};
 
-use std::future::Future;
 use std::io;
 use std::process::{ExitStatus, Output};
 
@@ -136,23 +135,31 @@ impl<'s> RemoteChild<'s> {
     /// output into this `Result<Output>` it is necessary to create new pipes between parent and
     /// child. Use `stdout(Stdio::piped())` or `stderr(Stdio::piped())`, respectively.
     pub async fn wait_with_output(mut self) -> Result<Output, Error> {
-        let mut stdout = Vec::new();
-        let stdout_read = await_if_has_some(
-            self.stdout
-                .take()
-                .map(|child_stdout| child_stdout.read_all(&mut stdout)),
-        );
+        let child_stdout = self.stdout.take();
+        let stdout_read = async move {
+            let mut stdout = Vec::new();
 
-        let mut stderr = Vec::new();
-        let stderr_read = await_if_has_some(
-            self.stderr
-                .take()
-                .map(|child_stderr| child_stderr.read_all(&mut stderr)),
-        );
+            if let Some(child_stdout) = child_stdout {
+                child_stdout.read_all(&mut stdout).await?;
+            }
+
+            Result::<_, Error>::Ok(stdout)
+        };
+
+        let child_stderr = self.stderr.take();
+        let stderr_read = async move {
+            let mut stderr = Vec::new();
+
+            if let Some(child_stderr) = child_stderr {
+                child_stderr.read_all(&mut stderr).await?;
+            }
+
+            Result::<_, Error>::Ok(stderr)
+        };
 
         // Execute them concurrently to avoid the pipe buffer being filled up
         // and cause the remote process to block forever.
-        let status = try_join!(self.wait(), stdout_read, stderr_read)?.0;
+        let (status, stdout, stderr) = try_join!(self.wait(), stdout_read, stderr_read)?;
         Ok(Output {
             status,
             stdout,
@@ -175,14 +182,4 @@ impl<'s> RemoteChild<'s> {
     pub fn stderr(&mut self) -> &mut Option<ChildStderr> {
         &mut self.stderr
     }
-}
-
-async fn await_if_has_some<T: Future<Output = Result<Res, Error>>, Res>(
-    option: Option<T>,
-) -> Result<(), Error> {
-    if let Some(future) = option {
-        future.await?;
-    }
-
-    Ok(())
 }
