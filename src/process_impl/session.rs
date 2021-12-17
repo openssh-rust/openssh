@@ -13,7 +13,7 @@ use tempfile::TempDir;
 #[derive(Debug)]
 pub(crate) struct Session {
     ctl: TempDir,
-    addr: String,
+    addr: Box<str>,
     terminated: bool,
     master: Box<Path>,
 }
@@ -42,7 +42,7 @@ impl Session {
             .arg("-o")
             .arg("BatchMode=yes")
             .args(args)
-            .arg(&self.addr);
+            .arg(&*self.addr);
         cmd
     }
 
@@ -197,7 +197,7 @@ impl Drop for Session {
                 .arg("-o")
                 .arg("BatchMode=yes")
                 .args(&["-o", "exit"])
-                .arg(&self.addr)
+                .arg(&*self.addr)
                 .stdin(Stdio::null())
                 .stdout(Stdio::null())
                 .stderr(Stdio::null())
