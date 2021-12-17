@@ -161,7 +161,15 @@ impl Session {
             Ok(err) => err,
             Err(e) => return Some(Error::Master(e)),
         };
-        let stderr = err.trim();
+        let mut stderr = err.trim();
+
+        if stderr.starts_with("ssh: ") {
+            stderr = &stderr["ssh: ".len()..];
+        }
+        if stderr.starts_with("Warning: Permanently added ") {
+            // added to hosts file -- let's ignore that message
+            stderr = stderr.split_once("\r\n").map(|x| x.1).unwrap_or("");
+        }
 
         if stderr.is_empty() {
             return None;
