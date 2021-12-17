@@ -12,8 +12,6 @@ pub(crate) struct Session {
     tempdir: Option<TempDir>,
 }
 
-// TODO: Extract process output in Session::check(), Session::connect(), and Session::terminate().
-
 impl Session {
     pub(crate) fn new(dir: TempDir) -> Self {
         Self { tempdir: Some(dir) }
