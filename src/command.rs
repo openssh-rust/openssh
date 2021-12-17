@@ -4,24 +4,25 @@ use super::{Error, Session};
 
 use std::borrow::Cow;
 use std::ffi::OsStr;
+use std::marker::PhantomData;
 use std::process;
 
 #[derive(Debug)]
-pub(crate) enum CommandImp {
-    ProcessImpl(super::process_impl::Command),
+pub(crate) enum CommandImp<'s> {
+    ProcessImpl(super::process_impl::Command, PhantomData<&'s Session>),
 
     #[cfg(feature = "native-mux")]
-    NativeMuxImpl(super::native_mux_impl::Command),
+    NativeMuxImpl(super::native_mux_impl::Command<'s>),
 }
-impl From<super::process_impl::Command> for CommandImp {
+impl From<super::process_impl::Command> for CommandImp<'_> {
     fn from(imp: super::process_impl::Command) -> Self {
-        CommandImp::ProcessImpl(imp)
+        CommandImp::ProcessImpl(imp, PhantomData)
     }
 }
 
 #[cfg(feature = "native-mux")]
-impl From<super::native_mux_impl::Command> for CommandImp {
-    fn from(imp: super::native_mux_impl::Command) -> Self {
+impl<'s> From<super::native_mux_impl::Command<'s>> for CommandImp<'s> {
+    fn from(imp: super::native_mux_impl::Command<'s>) -> Self {
         CommandImp::NativeMuxImpl(imp)
     }
 }
@@ -29,7 +30,7 @@ impl From<super::native_mux_impl::Command> for CommandImp {
 macro_rules! delegate {
     ($impl:expr, $var:ident, $then:block) => {{
         match $impl {
-            CommandImp::ProcessImpl($var) => $then,
+            CommandImp::ProcessImpl($var, _) => $then,
 
             #[cfg(feature = "native-mux")]
             CommandImp::NativeMuxImpl($var) => $then,
@@ -71,14 +72,14 @@ macro_rules! delegate {
 #[derive(Debug)]
 pub struct Command<'s> {
     session: &'s Session,
-    imp: CommandImp,
+    imp: CommandImp<'s>,
 
     stdout_set: bool,
     stderr_set: bool,
 }
 
 impl<'s> Command<'s> {
-    pub(crate) fn new(session: &'s super::Session, imp: CommandImp) -> Self {
+    pub(crate) fn new(session: &'s super::Session, imp: CommandImp<'s>) -> Self {
         // All implementations of Command initializes stdin, stdout and stderr
         // to Stdio::null()
         Self {

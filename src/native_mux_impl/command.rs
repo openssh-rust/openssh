@@ -2,23 +2,24 @@ use super::Error;
 use super::RemoteChild;
 use super::{as_raw_fd_or_null_fd, Stdio};
 
+use std::borrow::Cow;
 use std::ffi::OsStr;
-use std::path::PathBuf;
+use std::path::Path;
 
 use openssh_mux_client::{Connection, Session};
 
 #[derive(Debug)]
-pub(crate) struct Command {
+pub(crate) struct Command<'s> {
     cmd: String,
-    ctl: PathBuf,
+    ctl: &'s Path,
 
     stdin_v: Stdio,
     stdout_v: Stdio,
     stderr_v: Stdio,
 }
 
-impl Command {
-    pub(crate) fn new(ctl: PathBuf, cmd: String) -> Self {
+impl<'s> Command<'s> {
+    pub(crate) fn new(ctl: &'s Path, cmd: String) -> Self {
         Self {
             cmd,
             ctl,
@@ -57,9 +58,9 @@ impl Command {
             as_raw_fd_or_null_fd(&stderr)?,
         ];
 
-        let session = Session::builder().cmd((&self.cmd).into()).build();
+        let session = Session::builder().cmd(Cow::Borrowed(&self.cmd)).build();
 
-        let established_session = Connection::connect(&self.ctl)
+        let established_session = Connection::connect(self.ctl)
             .await?
             .open_new_session(&session, &stdios)
             .await?;

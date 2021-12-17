@@ -32,9 +32,9 @@ impl Session {
         Ok(())
     }
 
-    pub(crate) fn raw_command<S: AsRef<OsStr>>(&self, program: S) -> Command {
+    pub(crate) fn raw_command<S: AsRef<OsStr>>(&self, program: S) -> Command<'_> {
         let program = program.as_ref().to_string_lossy();
-        Command::new(self.ctl.clone(), program.to_string())
+        Command::new(&self.ctl, program.to_string())
     }
 
     pub(crate) async fn request_port_forward(
