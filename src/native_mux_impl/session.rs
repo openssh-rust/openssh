@@ -72,7 +72,7 @@ impl Session {
 
 impl Drop for Session {
     fn drop(&mut self) {
-        // Keep tempdir alive until the connection is established
+        // Keep tempdir alive until the shutdown request is sent
         let tempdir = match self.tempdir.take() {
             Some(tempdir) => tempdir,
             None => return,
