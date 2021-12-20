@@ -19,6 +19,13 @@ impl RemoteChild {
     }
 
     pub(crate) async fn disconnect(self) -> io::Result<()> {
+        // ssh multiplex protocol does not specify any message type
+        // that can be used to kill the remote process or properly shutdown
+        // the connection.
+        //
+        // So here we just let the drop handler does its job to release
+        // underlying resources such as unix stream socket and heap memory allocated,
+        // the remote process is not killed.
         Ok(())
     }
 
