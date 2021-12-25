@@ -13,7 +13,7 @@ use std::io::{self, IoSlice};
 use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
 use std::process;
 
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, ReadBuf};
+use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 
 use pin_project::pin_project;
 
@@ -235,11 +235,6 @@ macro_rules! impl_reader {
         }
 
         impl $type {
-            pub(crate) async fn read_all(mut self, output: &mut Vec<u8>) -> Result<(), Error> {
-                self.read_to_end(output).await.map_err(Error::ChildIo)?;
-                Ok(())
-            }
-
             fn try_into_file(self) -> Result<Fd, Error> {
                 use $imp_type::*;
 

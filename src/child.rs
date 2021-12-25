@@ -3,6 +3,7 @@ use super::{ChildStderr, ChildStdin, ChildStdout, Error, Session};
 use std::io;
 use std::process::{ExitStatus, Output};
 
+use tokio::io::AsyncReadExt;
 use tokio::try_join;
 
 #[derive(Debug)]
@@ -139,8 +140,11 @@ impl<'s> RemoteChild<'s> {
         let stdout_read = async move {
             let mut stdout = Vec::new();
 
-            if let Some(child_stdout) = child_stdout {
-                child_stdout.read_all(&mut stdout).await?;
+            if let Some(mut child_stdout) = child_stdout {
+                child_stdout
+                    .read_to_end(&mut stdout)
+                    .await
+                    .map_err(Error::ChildIo)?;
             }
 
             Result::<_, Error>::Ok(stdout)
@@ -150,8 +154,11 @@ impl<'s> RemoteChild<'s> {
         let stderr_read = async move {
             let mut stderr = Vec::new();
 
-            if let Some(child_stderr) = child_stderr {
-                child_stderr.read_all(&mut stderr).await?;
+            if let Some(mut child_stderr) = child_stderr {
+                child_stderr
+                    .read_to_end(&mut stderr)
+                    .await
+                    .map_err(Error::ChildIo)?;
             }
 
             Result::<_, Error>::Ok(stderr)
