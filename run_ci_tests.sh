@@ -27,7 +27,6 @@ function cleanup {
 trap cleanup EXIT
 
 # Wait for docker mod to be installed and sshd starts up
-cargo check --all-features
 cargo clippy --all-features
 RUSTFLAGS='--cfg=ci' cargo build --all-features --tests
 
