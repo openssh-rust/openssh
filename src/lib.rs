@@ -144,6 +144,9 @@
     rust_2018_idioms,
     unreachable_pub
 )]
+// only enables the nightly `doc_cfg` feature when
+// the `docsrs` configuration attribute is defined
+#![cfg_attr(docsrs, feature(doc_cfg))]
 
 #[cfg(not(unix))]
 compile_error!("This crate can only be used on unix");
@@ -254,6 +257,7 @@ impl Session {
     ///
     /// For more options, see [`SessionBuilder`].
     #[cfg(feature = "native-mux")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "native-mux")))]
     pub async fn connect_mux<S: AsRef<str>>(
         destination: S,
         check: KnownHosts,

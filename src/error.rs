@@ -16,6 +16,7 @@ pub enum Error {
 
     /// Failed to connect to the ssh multiplex server.
     #[cfg(feature = "native-mux")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "native-mux")))]
     SshMux(openssh_mux_client::Error),
 
     /// The remote process failed.

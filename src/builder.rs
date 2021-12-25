@@ -143,6 +143,7 @@ impl SessionBuilder {
     /// password), the connection will fail. Consider setting up keypair-based authentication
     /// instead.
     #[cfg(feature = "native-mux")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "native-mux")))]
     pub async fn connect_mux<S: AsRef<str>>(&self, destination: S) -> Result<Session, Error> {
         let destination = destination.as_ref();
         let (builder, destination) = self.resolve(destination);

@@ -17,6 +17,20 @@ azure-devops = { project = "jonhoo/jonhoo", pipeline = "openssh", build = "23" }
 codecov = { repository = "jonhoo/openssh-rs", branch = "master", service = "github" }
 maintenance = { status = "experimental" }
 
+# docs.rs-specific configuration, shamelessly copied from
+# https://stackoverflow.com/a/61417700/8375400.
+#
+# To test locally, use:
+#
+# ```
+# RUSTDOCFLAGS="--cfg docsrs" cargo +nightly doc --all-features
+# ```
+[package.metadata.docs.rs]
+# document all features
+all-features = true
+# defines the configuration attribute `docsrs`
+rustdoc-args = ["--cfg", "docsrs"]
+
 [features]
 native-mux = ["once_cell", "tokio-pipe", "openssh-mux-client"]
 
