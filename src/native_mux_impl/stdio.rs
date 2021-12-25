@@ -84,14 +84,14 @@ pub(crate) type ChildStdin = PipeWrite;
 pub(crate) type ChildStdout = PipeRead;
 pub(crate) type ChildStderr = PipeRead;
 
-pub(crate) fn output_to_fd(output: PipeWrite) -> Fd {
+fn output_to_fd(output: PipeWrite) -> Fd {
     let raw_fd = output.into_raw_fd();
 
     // safety: output is guaranteed to contain a valid fd.
     unsafe { Fd::from_raw_fd(raw_fd) }
 }
 
-pub(crate) fn input_to_fd(input: PipeRead) -> Fd {
+fn input_to_fd(input: PipeRead) -> Fd {
     let raw_fd = input.into_raw_fd();
 
     // safety: input is guaranteed to contain a valid fd.

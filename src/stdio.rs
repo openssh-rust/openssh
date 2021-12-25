@@ -2,31 +2,12 @@ use super::fd::{dup, Fd};
 use super::{process_impl, Error};
 
 #[cfg(feature = "native-mux")]
-use super::native_mux_impl::{self, input_to_fd, output_to_fd};
+use super::native_mux_impl;
 
-use std::convert::TryFrom;
-
-use std::pin::Pin;
-use std::task::{Context, Poll};
-
-use std::io::{self, IoSlice};
 use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
 use std::process;
 
-use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
-
-use pin_project::pin_project;
-
-macro_rules! delegate {
-    ($impl:expr, $var:ident, $then:block) => {{
-        match $impl {
-            ProcessImpl($var) => $then,
-
-            #[cfg(feature = "native-mux")]
-            MuxClientImpl($var) => $then,
-        }
-    }};
-}
+use std::convert::TryFrom;
 
 #[derive(Debug)]
 pub(crate) enum StdioImpl {
@@ -73,213 +54,56 @@ impl From<Stdio> for process::Stdio {
     }
 }
 
-impl From<Fd> for Stdio {
-    fn from(fd: Fd) -> Self {
-        Self(StdioImpl::Fd(fd))
-    }
-}
-
-macro_rules! impl_try_from_for_stdio {
-    ($type:ident) => {
-        impl TryFrom<$type> for Stdio {
-            type Error = Error;
-
-            fn try_from(arg: $type) -> Result<Self, Self::Error> {
-                arg.try_into_file().map(From::from)
-            }
-        }
-    };
-}
-
-impl_try_from_for_stdio!(ChildStdin);
-impl_try_from_for_stdio!(ChildStdout);
-impl_try_from_for_stdio!(ChildStderr);
-
-#[pin_project(project = ChildStdinImpProj)]
-#[derive(Debug)]
-enum ChildStdinImp {
-    ProcessImpl(#[pin] process_impl::ChildStdin),
-
-    #[cfg(feature = "native-mux")]
-    MuxClientImpl(#[pin] native_mux_impl::ChildStdin),
-}
+// Impl From<ChildStdin>, From<ChildStdout> and From<ChildStderr> for Stdio
 
 /// Input for the remote child.
-#[pin_project]
-#[derive(Debug)]
-pub struct ChildStdin(#[pin] ChildStdinImp);
+pub type ChildStdin = tokio_pipe::PipeWrite;
 
-impl ChildStdin {
-    fn project_enum(self: Pin<&mut Self>) -> ChildStdinImpProj<'_> {
-        self.project().0.project()
-    }
+/// Stdout for the remote child.
+pub type ChildStdout = tokio_pipe::PipeRead;
 
-    fn try_into_file(self) -> Result<Fd, Error> {
-        use ChildStdinImp::*;
+/// Stderr for the remote child.
+pub type ChildStderr = tokio_pipe::PipeRead;
 
-        match self.0 {
-            ProcessImpl(stdin) => {
-                let fd = stdin.as_raw_fd();
+pub(crate) struct ChildInputWrapper(pub(crate) ChildStdin);
+pub(crate) struct ChildOutputWrapper(pub(crate) ChildStderr);
 
-                // safety: stdin.as_raw_fd() is guaranteed to return a valid fd.
-                unsafe { dup(fd) }
-            }
+macro_rules! impl_from_impl_child_io {
+    ($type:ident, $wrapper:ident) => {
+        impl TryFrom<process_impl::$type> for $wrapper {
+            type Error = Error;
 
-            #[cfg(feature = "native-mux")]
-            MuxClientImpl(stdin) => Ok(output_to_fd(stdin)),
-        }
-    }
+            fn try_from(arg: process_impl::$type) -> Result<Self, Self::Error> {
+                let fd = arg.as_raw_fd();
 
-    /// Convert into RawFd, could fail if dup fails.
-    pub fn try_into_fd(self) -> Result<RawFd, Error> {
-        self.try_into_file().map(Fd::into_raw_fd)
-    }
-}
-
-impl From<process_impl::ChildStdin> for ChildStdin {
-    fn from(imp: process_impl::ChildStdin) -> Self {
-        Self(ChildStdinImp::ProcessImpl(imp))
-    }
-}
-
-#[cfg(feature = "native-mux")]
-impl From<native_mux_impl::ChildStdin> for ChildStdin {
-    fn from(imp: native_mux_impl::ChildStdin) -> Self {
-        Self(ChildStdinImp::MuxClientImpl(imp))
-    }
-}
-
-impl AsRawFd for ChildStdin {
-    fn as_raw_fd(&self) -> RawFd {
-        use ChildStdinImp::*;
-
-        delegate!(&self.0, imp, { AsRawFd::as_raw_fd(imp) })
-    }
-}
-
-impl AsyncWrite for ChildStdin {
-    fn poll_write(
-        self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-        buf: &[u8],
-    ) -> Poll<Result<usize, io::Error>> {
-        use ChildStdinImpProj::*;
-
-        delegate!(self.project_enum(), imp, {
-            AsyncWrite::poll_write(imp, cx, buf)
-        })
-    }
-
-    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
-        use ChildStdinImpProj::*;
-
-        delegate!(self.project_enum(), imp, {
-            AsyncWrite::poll_flush(imp, cx)
-        })
-    }
-
-    fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
-        use ChildStdinImpProj::*;
-
-        delegate!(self.project_enum(), imp, {
-            AsyncWrite::poll_shutdown(imp, cx)
-        })
-    }
-
-    fn poll_write_vectored(
-        self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-        bufs: &[IoSlice<'_>],
-    ) -> Poll<Result<usize, io::Error>> {
-        use ChildStdinImpProj::*;
-
-        delegate!(self.project_enum(), imp, {
-            AsyncWrite::poll_write_vectored(imp, cx, bufs)
-        })
-    }
-
-    fn is_write_vectored(&self) -> bool {
-        use ChildStdinImp::*;
-
-        delegate!(&self.0, imp, { AsyncWrite::is_write_vectored(imp) })
-    }
-}
-
-macro_rules! impl_reader {
-    ( $type:ident, $imp_type:ident, $imp_proj_type:ident ) => {
-        #[pin_project(project = $imp_proj_type)]
-        #[derive(Debug)]
-        enum $imp_type {
-            ProcessImpl(#[pin] process_impl::$type),
-
-            #[cfg(feature = "native-mux")]
-            MuxClientImpl(#[pin] native_mux_impl::$type),
-        }
-
-        /// Wrapper type for process_impl and native_mux_impl
-        #[pin_project]
-        #[derive(Debug)]
-        pub struct $type(#[pin] $imp_type);
-
-        impl From<process_impl::$type> for $type {
-            fn from(imp: process_impl::$type) -> Self {
-                Self($imp_type::ProcessImpl(imp))
+                // safety: arg.as_raw_fd() is guaranteed to return a valid fd.
+                let fd = unsafe { dup(fd) }?.into_raw_fd();
+                Ok(Self(unsafe { $type::from_raw_fd(fd) }))
             }
         }
 
         #[cfg(feature = "native-mux")]
-        impl From<native_mux_impl::$type> for $type {
-            fn from(imp: native_mux_impl::$type) -> Self {
-                Self($imp_type::MuxClientImpl(imp))
-            }
-        }
+        impl TryFrom<native_mux_impl::$type> for $wrapper {
+            type Error = Error;
 
-        impl $type {
-            fn try_into_file(self) -> Result<Fd, Error> {
-                use $imp_type::*;
-
-                match self.0 {
-                    ProcessImpl(stdout) => {
-                        let fd = stdout.as_raw_fd();
-
-                        // safety: stdout.as_raw_fd() is guaranteed to return a valid fd.
-                        unsafe { dup(fd) }
-                    }
-
-                    #[cfg(feature = "native-mux")]
-                    MuxClientImpl(stdout) => Ok(input_to_fd(stdout)),
-                }
-            }
-
-            /// Convert into RawFd, could fail if dup fails.
-            pub fn try_into_fd(self) -> Result<RawFd, Error> {
-                self.try_into_file().map(Fd::into_raw_fd)
-            }
-        }
-
-        impl AsRawFd for $type {
-            fn as_raw_fd(&self) -> RawFd {
-                use $imp_type::*;
-
-                delegate!(&self.0, imp, { AsRawFd::as_raw_fd(imp) })
-            }
-        }
-
-        impl AsyncRead for $type {
-            fn poll_read(
-                self: Pin<&mut Self>,
-                cx: &mut Context<'_>,
-                buf: &mut ReadBuf<'_>,
-            ) -> Poll<Result<(), io::Error>> {
-                use $imp_proj_type::*;
-
-                delegate!(self.project().0.project(), imp, {
-                    AsyncRead::poll_read(imp, cx, buf)
-                })
+            fn try_from(arg: native_mux_impl::$type) -> Result<Self, Self::Error> {
+                Ok(Self(arg))
             }
         }
     };
 }
 
-impl_reader!(ChildStdout, ChildStdoutImp, ChildStdoutImpProj);
-impl_reader!(ChildStderr, ChildStderrImp, ChildStderrImpProj);
+impl_from_impl_child_io!(ChildStdin, ChildInputWrapper);
+impl_from_impl_child_io!(ChildStdout, ChildOutputWrapper);
+
+impl TryFrom<process_impl::ChildStderr> for ChildOutputWrapper {
+    type Error = Error;
+
+    fn try_from(arg: process_impl::ChildStderr) -> Result<Self, Self::Error> {
+        let fd = arg.as_raw_fd();
+
+        // safety: arg.as_raw_fd() is guaranteed to return a valid fd.
+        let fd = unsafe { dup(fd) }?.into_raw_fd();
+        Ok(Self(unsafe { ChildStderr::from_raw_fd(fd) }))
+    }
+}

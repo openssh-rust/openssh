@@ -1,8 +1,10 @@
+use super::stdio::{ChildInputWrapper, ChildOutputWrapper};
 use super::RemoteChild;
 use super::Stdio;
 use super::{Error, Session};
 
 use std::borrow::Cow;
+use std::convert::TryFrom;
 use std::ffi::OsStr;
 use std::marker::PhantomData;
 use std::process;
@@ -225,9 +227,18 @@ impl<'s> Command<'s> {
                 let (imp, stdin, stdout, stderr) = imp.spawn().await?;
                 (
                     imp.into(),
-                    stdin.map(Into::into),
-                    stdout.map(Into::into),
-                    stderr.map(Into::into),
+                    stdin
+                        .map(TryFrom::try_from)
+                        .transpose()?
+                        .map(|wrapper: ChildInputWrapper| wrapper.0),
+                    stdout
+                        .map(TryFrom::try_from)
+                        .transpose()?
+                        .map(|wrapper: ChildOutputWrapper| wrapper.0),
+                    stderr
+                        .map(TryFrom::try_from)
+                        .transpose()?
+                        .map(|wrapper: ChildOutputWrapper| wrapper.0),
                 )
             }),
         ))
