@@ -94,7 +94,7 @@ impl<'s> Command<'s> {
     /// Adds an argument to pass to the remote program.
     ///
     /// Before it is passed to the remote host, `arg` is escaped so that special characters aren't
-    /// evaluated by the remote shell. If you do not want this behavior, use [`raw_arg`].
+    /// evaluated by the remote shell. If you do not want this behavior, use [`raw_arg`](Command::raw_arg).
     ///
     /// Only one argument can be passed per use. So instead of:
     ///
@@ -120,7 +120,7 @@ impl<'s> Command<'s> {
 
     /// Adds an argument to pass to the remote program.
     ///
-    /// Unlike [`arg`], this method does not shell-escape `arg`. The argument is passed as written
+    /// Unlike [`arg`](Command::arg), this method does not shell-escape `arg`. The argument is passed as written
     /// to `ssh`, which will pass it again as an argument to the remote shell. Since the remote
     /// shell may do argument parsing, characters such as spaces and `*` may be interpreted by the
     /// remote shell.
@@ -137,7 +137,7 @@ impl<'s> Command<'s> {
     ///
     /// Before they are passed to the remote host, each argument in `args` is escaped so that
     /// special characters aren't evaluated by the remote shell. If you do not want this behavior,
-    /// use [`raw_args`].
+    /// use [`raw_args`](Command::raw_args).
     ///
     /// To pass a single argument see [`arg`](Command::arg).
     pub fn args<I, S>(&mut self, args: I) -> &mut Self
@@ -153,7 +153,7 @@ impl<'s> Command<'s> {
 
     /// Adds multiple arguments to pass to the remote program.
     ///
-    /// Unlike [`args`], this method does not shell-escape `args`. The arguments are passed as
+    /// Unlike [`args`](Command::args), this method does not shell-escape `args`. The arguments are passed as
     /// written to `ssh`, which will pass them again as arguments to the remote shell. However,
     /// since the remote shell may do argument parsing, characters such as spaces and `*` may be
     /// interpreted by the remote shell.

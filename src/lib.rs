@@ -203,7 +203,7 @@ macro_rules! delegate {
 
 /// A single SSH session to a remote host.
 ///
-/// You can use [`command`] to start a new command on the connected machine.
+/// You can use [`command`](Session::command) to start a new command on the connected machine.
 ///
 /// When the `Session` is dropped, the connection to the remote host is severed, and any errors
 /// silently ignored. To disconnect and be alerted to errors, use [`close`](Session::close).
@@ -277,7 +277,7 @@ impl Session {
     ///
     /// Before it is passed to the remote host, `program` is escaped so that special characters
     /// aren't evaluated by the remote shell. If you do not want this behavior, use
-    /// [`raw_command`].
+    /// [`raw_command`](Session::raw_command).
     ///
     /// The returned `Command` is a builder, with the following default configuration:
     ///
@@ -296,7 +296,7 @@ impl Session {
     /// Constructs a new [`Command`] for launching the program at path `program` on the remote
     /// host.
     ///
-    /// Unlike [`command`], this method does not shell-escape `program`, so it may be evaluated in
+    /// Unlike [`command`](Session::command), this method does not shell-escape `program`, so it may be evaluated in
     /// unforeseen ways by the remote shell.
     ///
     /// The returned `Command` is a builder, with the following default configuration:
@@ -321,10 +321,10 @@ impl Session {
     /// The provided command is passed as a single, escaped argument to `sh -c`, and from that
     /// point forward the behavior is up to `sh`. Since this executes a shell command, keep in mind
     /// that you are subject to the shell's rules around argument parsing, such as whitespace
-    /// splitting, variable expansion, and other funkyness. I _highly_ recommend you read [this
-    /// article] if you observe strange things.
+    /// splitting, variable expansion, and other funkyness. I _highly_ recommend you read
+    /// [this article] if you observe strange things.
     ///
-    /// While the returned `Command` is a builder, like for [`command`], you should not add
+    /// While the returned `Command` is a builder, like for [`command`](Session::command), you should not add
     /// additional arguments to it, since the arguments are already passed within the shell
     /// command.
     ///
@@ -349,8 +349,8 @@ impl Session {
     /// With sufficiently complex or weird commands, the escaping of `shell-escape` may not fully
     /// match the "un-escaping" of the remote shell. This will manifest as escape characters
     /// appearing in the `sh` command that you did not intend to be there. If this happens, try
-    /// changing the remote shell if you can, or fall back to [`command`] and do the escaping
-    /// manually instead.
+    /// changing the remote shell if you can, or fall back to [`command`](Session::command)
+    /// and do the escaping manually instead.
     ///
     ///   [POSIX compliant]: https://pubs.opengroup.org/onlinepubs/9699919799/xrat/V4_xcu_chap02.html
     ///   [this article]: https://mywiki.wooledge.org/Arguments
