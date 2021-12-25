@@ -78,6 +78,7 @@ macro_rules! impl_from_impl_child_io {
 
                 // safety: arg.as_raw_fd() is guaranteed to return a valid fd.
                 let fd = unsafe { dup(fd) }?.into_raw_fd();
+                // safety: under unix, ChildStdin/ChildStdout is implemented using pipe
                 Ok(Self(unsafe { $type::from_raw_fd(fd) }))
             }
         }
@@ -104,6 +105,7 @@ impl TryFrom<process_impl::ChildStderr> for ChildOutputWrapper {
 
         // safety: arg.as_raw_fd() is guaranteed to return a valid fd.
         let fd = unsafe { dup(fd) }?.into_raw_fd();
+        // safety: under unix, ChildStderr is implemented using pipe
         Ok(Self(unsafe { ChildStderr::from_raw_fd(fd) }))
     }
 }
