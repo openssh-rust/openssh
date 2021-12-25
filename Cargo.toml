@@ -20,11 +20,7 @@ maintenance = { status = "experimental" }
 # docs.rs-specific configuration, shamelessly copied from
 # https://stackoverflow.com/a/61417700/8375400.
 #
-# To test locally, use:
-#
-# ```
-# RUSTDOCFLAGS="--cfg docsrs" cargo +nightly doc --all-features
-# ```
+# To test locally, use ` ./build_doc.sh`
 [package.metadata.docs.rs]
 # document all features
 all-features = true
