@@ -35,7 +35,6 @@ tempfile = "3.1.0"
 shell-escape = "0.1"
 tokio = { version = "1", features = [ "process", "io-util", "macros" ] }
 tokio-pipe = "0.2.8"
-pin-project = "1"
 
 libc = "0.2.112"
 
