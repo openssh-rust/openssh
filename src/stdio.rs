@@ -4,6 +4,7 @@ use super::{process_impl, Error};
 #[cfg(feature = "native-mux")]
 use super::native_mux_impl;
 
+use std::fs::File;
 use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
 use std::process;
 
@@ -73,6 +74,8 @@ impl_from_for_stdio!(tokio_pipe::PipeRead);
 impl_from_for_stdio!(process::ChildStdin);
 impl_from_for_stdio!(process::ChildStdout);
 impl_from_for_stdio!(process::ChildStderr);
+
+impl_from_for_stdio!(File);
 
 /// Input for the remote child.
 pub type ChildStdin = tokio_pipe::PipeWrite;
