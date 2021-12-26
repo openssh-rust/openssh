@@ -9,6 +9,7 @@ use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
 use std::process;
 
 use std::convert::TryFrom;
+use std::convert::TryInto;
 
 #[derive(Debug)]
 pub(crate) enum StdioImpl {
@@ -76,6 +77,23 @@ impl_from_for_stdio!(process::ChildStdout);
 impl_from_for_stdio!(process::ChildStderr);
 
 impl_from_for_stdio!(File);
+
+macro_rules! impl_try_from_tokio_process_child_for_stdio {
+    ($type:ident, $wrapper:ty) => {
+        impl TryFrom<tokio::process::$type> for Stdio {
+            type Error = Error;
+
+            fn try_from(arg: tokio::process::$type) -> Result<Self, Self::Error> {
+                let wrapper: $wrapper = arg.try_into()?;
+                Ok(wrapper.0.into())
+            }
+        }
+    };
+}
+
+impl_try_from_tokio_process_child_for_stdio!(ChildStdin, ChildInputWrapper);
+impl_try_from_tokio_process_child_for_stdio!(ChildStdout, ChildOutputWrapper);
+impl_try_from_tokio_process_child_for_stdio!(ChildStderr, ChildOutputWrapper);
 
 /// Input for the remote child.
 pub type ChildStdin = tokio_pipe::PipeWrite;
