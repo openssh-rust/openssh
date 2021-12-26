@@ -108,7 +108,7 @@ pub(crate) struct ChildInputWrapper(pub(crate) ChildStdin);
 pub(crate) struct ChildOutputWrapper(pub(crate) ChildStderr);
 
 macro_rules! impl_from_impl_child_io {
-    ($type:ident, $wrapper:ident) => {
+    (process_impl, $type:ident, $wrapper:ty) => {
         impl TryFrom<process_impl::$type> for $wrapper {
             type Error = Error;
 
@@ -121,7 +121,9 @@ macro_rules! impl_from_impl_child_io {
                 Ok(Self(unsafe { $type::from_raw_fd(fd) }))
             }
         }
+    };
 
+    (native_mux_impl, $type:ident, $wrapper:ty) => {
         #[cfg(feature = "native-mux")]
         impl TryFrom<native_mux_impl::$type> for $wrapper {
             type Error = Error;
@@ -133,18 +135,9 @@ macro_rules! impl_from_impl_child_io {
     };
 }
 
-impl_from_impl_child_io!(ChildStdin, ChildInputWrapper);
-impl_from_impl_child_io!(ChildStdout, ChildOutputWrapper);
+impl_from_impl_child_io!(process_impl, ChildStdin, ChildInputWrapper);
+impl_from_impl_child_io!(process_impl, ChildStdout, ChildOutputWrapper);
+impl_from_impl_child_io!(process_impl, ChildStderr, ChildOutputWrapper);
 
-impl TryFrom<process_impl::ChildStderr> for ChildOutputWrapper {
-    type Error = Error;
-
-    fn try_from(arg: process_impl::ChildStderr) -> Result<Self, Self::Error> {
-        let fd = arg.as_raw_fd();
-
-        // safety: arg.as_raw_fd() is guaranteed to return a valid fd.
-        let fd = unsafe { dup(fd) }?.into_raw_fd();
-        // safety: under unix, ChildStderr is implemented using pipe
-        Ok(Self(unsafe { ChildStderr::from_raw_fd(fd) }))
-    }
-}
+impl_from_impl_child_io!(native_mux_impl, ChildStdin, ChildInputWrapper);
+impl_from_impl_child_io!(native_mux_impl, ChildStdout, ChildOutputWrapper);
