@@ -70,6 +70,10 @@ macro_rules! impl_from_for_stdio {
 impl_from_for_stdio!(tokio_pipe::PipeWrite);
 impl_from_for_stdio!(tokio_pipe::PipeRead);
 
+impl_from_for_stdio!(process::ChildStdin);
+impl_from_for_stdio!(process::ChildStdout);
+impl_from_for_stdio!(process::ChildStderr);
+
 /// Input for the remote child.
 pub type ChildStdin = tokio_pipe::PipeWrite;
 
