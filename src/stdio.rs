@@ -54,7 +54,21 @@ impl From<Stdio> for process::Stdio {
     }
 }
 
-// Impl From<ChildStdin>, From<ChildStdout> and From<ChildStderr> for Stdio
+macro_rules! impl_from_for_stdio {
+    ($type:ty) => {
+        impl From<$type> for Stdio {
+            fn from(arg: $type) -> Self {
+                let fd = arg.into_raw_fd();
+                // safety: $type must have a valid into_raw_fd implementation
+                // and must not be RawFd.
+                unsafe { Self::from_raw_fd(fd) }
+            }
+        }
+    };
+}
+
+impl_from_for_stdio!(tokio_pipe::PipeWrite);
+impl_from_for_stdio!(tokio_pipe::PipeRead);
 
 /// Input for the remote child.
 pub type ChildStdin = tokio_pipe::PipeWrite;
