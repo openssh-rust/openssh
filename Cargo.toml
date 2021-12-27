@@ -51,3 +51,7 @@ tokio = { version = "1", features = [ "full" ] }
 [[example]]
 name = "native-mux_tsp"
 required-features = ["native-mux"]
+
+[[example]]
+name = "tsp"
+required-features = ["process"]
