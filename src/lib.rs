@@ -245,7 +245,7 @@ impl Session {
     ///
     /// For more options, see [`SessionBuilder`].
     #[cfg(feature = "process")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "process")))]
+    #[cfg_attr(docsrs, doc(cfg(any(feature = "default", feature = "process"))))]
     pub async fn connect<S: AsRef<str>>(destination: S, check: KnownHosts) -> Result<Self, Error> {
         let mut s = SessionBuilder::default();
         s.known_hosts_check(check);

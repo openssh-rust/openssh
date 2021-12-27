@@ -13,7 +13,7 @@ pub enum Error {
 
     /// Failed to run the `ssh` command locally.
     #[cfg(feature = "process")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "process")))]
+    #[cfg_attr(docsrs, doc(cfg(any(feature = "default", feature = "process"))))]
     Ssh(io::Error),
 
     /// Failed to connect to the ssh multiplex server.

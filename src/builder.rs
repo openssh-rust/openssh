@@ -126,6 +126,7 @@ impl SessionBuilder {
     /// password), the connection will fail. Consider setting up keypair-based authentication
     /// instead.
     #[cfg(feature = "process")]
+    #[cfg_attr(docsrs, doc(cfg(any(feature = "default", feature = "process"))))]
     pub async fn connect<S: AsRef<str>>(&self, destination: S) -> Result<Session, Error> {
         let destination = destination.as_ref();
         let (builder, destination) = self.resolve(destination);
