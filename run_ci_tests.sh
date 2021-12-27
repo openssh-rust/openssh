@@ -32,12 +32,10 @@ export RUSTFLAGS='--cfg=ci'
 
 # Wait for docker mod to be installed and sshd starts up
 cargo clippy --all-features
-cargo build --all-features --tests
 
 echo Running the test:
 
 export HOSTNAME=127.0.0.1
-
 chmod 600 .test-key
 
 echo Waiting for sshd to be up
@@ -52,10 +50,12 @@ cat .test-key | ssh-add -
 echo Run tests
 rm -rf control-test config-file-test .ssh-connection*
 
-echo Running test
-cargo test \
-    --all-features \
-    --no-fail-fast \
-    --test openssh \
-    -- --test-threads=3 # Use test-threads=3 so that the output is readable
-# cargo tarpaulin --forward --all-features
+for features in process native-mux process,native-mux; do
+    echo Running test with features = $features
+    cargo test \
+        --no-default-features \
+        --features "$features" \
+        --no-fail-fast \
+        --test openssh \
+        -- --test-threads=3 # Use test-threads=3 so that the output is readable
+done
