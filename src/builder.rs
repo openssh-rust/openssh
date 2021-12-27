@@ -1,4 +1,7 @@
-use super::{process_impl, Error, Session};
+use super::{Error, Session};
+
+#[cfg(feature = "process")]
+use super::process_impl;
 
 #[cfg(feature = "native-mux")]
 use super::native_mux_impl;
@@ -122,6 +125,7 @@ impl SessionBuilder {
     /// If connecting requires interactive authentication based on `STDIN` (such as reading a
     /// password), the connection will fail. Consider setting up keypair-based authentication
     /// instead.
+    #[cfg(feature = "process")]
     pub async fn connect<S: AsRef<str>>(&self, destination: S) -> Result<Session, Error> {
         let destination = destination.as_ref();
         let (builder, destination) = self.resolve(destination);

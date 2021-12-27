@@ -1,5 +1,5 @@
 use super::fd::{dup, Fd};
-use super::{process_impl, Error};
+use super::Error;
 
 #[cfg(feature = "native-mux")]
 use super::native_mux_impl;
@@ -108,11 +108,11 @@ pub(crate) struct ChildInputWrapper(pub(crate) ChildStdin);
 pub(crate) struct ChildOutputWrapper(pub(crate) ChildStderr);
 
 macro_rules! impl_from_impl_child_io {
-    (process_impl, $type:ident, $wrapper:ty) => {
-        impl TryFrom<process_impl::$type> for $wrapper {
+    (process, $type:ident, $wrapper:ty) => {
+        impl TryFrom<tokio::process::$type> for $wrapper {
             type Error = Error;
 
-            fn try_from(arg: process_impl::$type) -> Result<Self, Self::Error> {
+            fn try_from(arg: tokio::process::$type) -> Result<Self, Self::Error> {
                 let fd = arg.as_raw_fd();
 
                 // safety: arg.as_raw_fd() is guaranteed to return a valid fd.
@@ -123,7 +123,7 @@ macro_rules! impl_from_impl_child_io {
         }
     };
 
-    (native_mux_impl, $type:ident, $wrapper:ty) => {
+    (native_mux, $type:ident, $wrapper:ty) => {
         #[cfg(feature = "native-mux")]
         impl TryFrom<native_mux_impl::$type> for $wrapper {
             type Error = Error;
@@ -135,9 +135,9 @@ macro_rules! impl_from_impl_child_io {
     };
 }
 
-impl_from_impl_child_io!(process_impl, ChildStdin, ChildInputWrapper);
-impl_from_impl_child_io!(process_impl, ChildStdout, ChildOutputWrapper);
-impl_from_impl_child_io!(process_impl, ChildStderr, ChildOutputWrapper);
+impl_from_impl_child_io!(process, ChildStdin, ChildInputWrapper);
+impl_from_impl_child_io!(process, ChildStdout, ChildOutputWrapper);
+impl_from_impl_child_io!(process, ChildStderr, ChildOutputWrapper);
 
-impl_from_impl_child_io!(native_mux_impl, ChildStdin, ChildInputWrapper);
-impl_from_impl_child_io!(native_mux_impl, ChildStdout, ChildOutputWrapper);
+impl_from_impl_child_io!(native_mux, ChildStdin, ChildInputWrapper);
+impl_from_impl_child_io!(native_mux, ChildStdout, ChildOutputWrapper);

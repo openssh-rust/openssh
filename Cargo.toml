@@ -28,6 +28,8 @@ all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
+default = ["process"]
+process = []
 native-mux = ["once_cell", "openssh-mux-client"]
 
 [dependencies]

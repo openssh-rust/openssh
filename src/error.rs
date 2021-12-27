@@ -12,6 +12,8 @@ pub enum Error {
     Connect(io::Error),
 
     /// Failed to run the `ssh` command locally.
+    #[cfg(feature = "process")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "process")))]
     Ssh(io::Error),
 
     /// Failed to connect to the ssh multiplex server.
@@ -81,7 +83,10 @@ impl fmt::Display for Error {
         match *self {
             Error::Master(_) => write!(f, "the master connection failed"),
             Error::Connect(_) => write!(f, "failed to connect to the remote host"),
+
+            #[cfg(feature = "process")]
             Error::Ssh(_) => write!(f, "the local ssh command could not be executed"),
+
             Error::Remote(_) => write!(f, "the remote command could not be executed"),
             Error::Disconnected => write!(f, "the connection was terminated"),
             Error::Cleanup(_) => write!(f, "failed to remove temporary ssh session directory"),
@@ -102,12 +107,14 @@ impl std::error::Error for Error {
         match *self {
             Error::Master(ref e)
             | Error::Connect(ref e)
-            | Error::Ssh(ref e)
             | Error::Remote(ref e)
             | Error::Cleanup(ref e)
             | Error::ChildIo(ref e) => Some(e),
 
             Error::RemoteProcessTerminated | Error::Disconnected => None,
+
+            #[cfg(feature = "process")]
+            Error::Ssh(ref e) => Some(e),
 
             #[cfg(feature = "native-mux")]
             Error::SshMux(ref e) => Some(e),
@@ -218,15 +225,18 @@ fn error_sanity() {
     assert_eq!(e.kind(), expect.kind());
     assert_eq!(format!("{}", e), format!("{}", expect));
 
-    let e = Error::Ssh(ioe());
-    assert!(!format!("{}", e).is_empty());
-    let e = e
-        .source()
-        .expect("source failed")
-        .downcast_ref::<io::Error>()
-        .expect("source not io");
-    assert_eq!(e.kind(), expect.kind());
-    assert_eq!(format!("{}", e), format!("{}", expect));
+    #[cfg(feature = "process")]
+    {
+        let e = Error::Ssh(ioe());
+        assert!(!format!("{}", e).is_empty());
+        let e = e
+            .source()
+            .expect("source failed")
+            .downcast_ref::<io::Error>()
+            .expect("source not io");
+        assert_eq!(e.kind(), expect.kind());
+        assert_eq!(format!("{}", e), format!("{}", expect));
+    }
 
     let e = Error::Remote(ioe());
     assert!(!format!("{}", e).is_empty());

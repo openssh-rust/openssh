@@ -25,51 +25,64 @@ fn loopback() -> IpAddr {
     "127.0.0.1".parse().unwrap()
 }
 
-#[cfg(not(feature = "native-mux"))]
-async fn session_builder_connect(builder: SessionBuilder, addr: &str) -> [Session; 1] {
-    [builder.connect(addr).await.unwrap()]
+async fn session_builder_connect(builder: SessionBuilder, addr: &str) -> Vec<Session> {
+    let mut sessions = Vec::with_capacity(2);
+
+    #[cfg(feature = "process")]
+    {
+        sessions.push(builder.connect(addr).await.unwrap());
+    }
+
+    #[cfg(feature = "native-mux")]
+    {
+        sessions.push(builder.connect_mux(addr).await.unwrap());
+    }
+
+    sessions
 }
 
-#[cfg(feature = "native-mux")]
-async fn session_builder_connect(builder: SessionBuilder, addr: &str) -> [Session; 2] {
-    [
-        builder.connect(addr).await.unwrap(),
-        builder.connect_mux(addr).await.unwrap(),
-    ]
+async fn connects() -> Vec<Session> {
+    let mut sessions = Vec::with_capacity(2);
+
+    #[cfg(feature = "process")]
+    {
+        sessions.push(Session::connect(&addr(), KnownHosts::Accept).await.unwrap());
+    }
+
+    #[cfg(feature = "native-mux")]
+    {
+        sessions.push(
+            Session::connect_mux(&addr(), KnownHosts::Accept)
+                .await
+                .unwrap(),
+        );
+    }
+
+    sessions
 }
 
-#[cfg(not(feature = "native-mux"))]
-async fn connects() -> [Session; 1] {
-    [Session::connect(&addr(), KnownHosts::Accept).await.unwrap()]
-}
+async fn connects_err(host: &str) -> Vec<Error> {
+    let mut errors = Vec::with_capacity(2);
 
-#[cfg(feature = "native-mux")]
-async fn connects() -> [Session; 2] {
-    [
-        Session::connect(&addr(), KnownHosts::Accept).await.unwrap(),
-        Session::connect_mux(&addr(), KnownHosts::Accept)
-            .await
-            .unwrap(),
-    ]
-}
+    #[cfg(feature = "process")]
+    {
+        errors.push(
+            Session::connect(host, KnownHosts::Accept)
+                .await
+                .unwrap_err(),
+        );
+    }
 
-#[cfg(not(feature = "native-mux"))]
-async fn connects_err(host: &str) -> [Error; 1] {
-    [Session::connect(host, KnownHosts::Accept)
-        .await
-        .unwrap_err()]
-}
+    #[cfg(feature = "native-mux")]
+    {
+        errors.push(
+            Session::connect_mux(host, KnownHosts::Accept)
+                .await
+                .unwrap_err(),
+        );
+    }
 
-#[cfg(feature = "native-mux")]
-async fn connects_err(host: &str) -> [Error; 2] {
-    [
-        Session::connect(host, KnownHosts::Accept)
-            .await
-            .unwrap_err(),
-        Session::connect_mux(host, KnownHosts::Accept)
-            .await
-            .unwrap_err(),
-    ]
+    errors
 }
 
 #[tokio::test]
@@ -220,7 +233,10 @@ async fn config_file() {
 #[tokio::test]
 #[cfg_attr(not(ci), ignore)]
 async fn terminate_on_drop() {
-    drop(Session::connect(&addr(), KnownHosts::Add).await.unwrap());
+    #[cfg(feature = "process")]
+    {
+        drop(Session::connect(&addr(), KnownHosts::Add).await.unwrap());
+    }
 
     #[cfg(feature = "native-mux")]
     {
@@ -541,16 +557,19 @@ async fn connect_timeout() {
     let host = "192.0.0.8";
 
     // Test process_impl
-    let t = Instant::now();
-    let res = sb.connect(host).await;
-    let duration = t.elapsed();
+    #[cfg(feature = "process")]
+    {
+        let t = Instant::now();
+        let res = sb.connect(host).await;
+        let duration = t.elapsed();
 
-    let failed = res.unwrap_err();
+        let failed = res.unwrap_err();
 
-    assert!(duration > Duration::from_secs(1));
-    assert!(duration < Duration::from_secs(2));
-    eprintln!("{:?}", failed);
-    assert!(matches!(failed, Error::Connect(ref e) if e.kind() == io::ErrorKind::TimedOut));
+        assert!(duration > Duration::from_secs(1));
+        assert!(duration < Duration::from_secs(2));
+        eprintln!("{:?}", failed);
+        assert!(matches!(failed, Error::Connect(ref e) if e.kind() == io::ErrorKind::TimedOut));
+    }
 
     // Test native-mux_impl
     #[cfg(feature = "native-mux")]
@@ -685,6 +704,7 @@ async fn process_exit_on_signal() {
     }
 }
 
+#[cfg(feature = "process")]
 #[tokio::test]
 #[cfg_attr(not(ci), ignore)]
 async fn broken_connection() {
