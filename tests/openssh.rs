@@ -3,7 +3,7 @@ use std::io;
 use std::io::Write;
 use std::net::{IpAddr, SocketAddr};
 
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
 
 use tokio::{
     net::{TcpListener, TcpStream},
@@ -83,6 +83,21 @@ async fn connects_err(host: &str) -> Vec<Error> {
     }
 
     errors
+}
+
+fn gen_rand_port(base: u16) -> u16 {
+    // somewhere in 2021
+    let base_time = SystemTime::UNIX_EPOCH + Duration::from_secs(1608336000);
+
+    loop {
+        let rand = base_time.elapsed().unwrap().as_nanos() as u16;
+
+        if let Some(port) = u16::checked_add(base, rand) {
+            if port > 1000 {
+                break port;
+            }
+        }
+    }
 }
 
 #[tokio::test]
@@ -834,7 +849,10 @@ async fn auth_failed() {
 #[cfg_attr(not(ci), ignore)]
 async fn remote_socket_forward() {
     let sessions = connects().await;
-    for (session, ports) in sessions.iter().zip(&[(9999, 1234), (9998, 1233)]) {
+    for (session, ports) in sessions.iter().zip(&[
+        (gen_rand_port(9999), gen_rand_port(1234)),
+        (gen_rand_port(9998), gen_rand_port(1233)),
+    ]) {
         let output_listener = TcpListener::bind((loopback(), ports.0)).await.unwrap();
 
         eprintln!("Requesting port forward");
@@ -885,7 +903,10 @@ async fn remote_socket_forward() {
 #[cfg_attr(not(ci), ignore)]
 async fn local_socket_forward() {
     let sessions = connects().await;
-    for (session, ports) in sessions.iter().zip([(1235, 1433), (1236, 1432)]) {
+    for (session, ports) in sessions.iter().zip([
+        (gen_rand_port(1235), gen_rand_port(1433)),
+        (gen_rand_port(1236), gen_rand_port(1432)),
+    ]) {
         eprintln!("Creating remote process");
         let cmd = format!(
             "echo -e '0\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n' | nc -l -p {} >/dev/stderr",
