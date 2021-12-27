@@ -117,12 +117,15 @@
 //!
 //! # Examples
 //!
-//! ```rust,no_run
+//! ```rust,ignore
 //! # #[tokio::main]
 //! # async fn main() -> Result<(), openssh::Error> {
 //! use openssh::{Session, KnownHosts};
 //!
 //! let session = Session::connect("me@ssh.example.com", KnownHosts::Strict).await?;
+//! // Or:
+//! let session = Session::connect_mux("me@ssh.example.com", KnownHosts::Strict).await?;
+//!
 //! let ls = session.command("ls").output().await?;
 //! eprintln!("{}", String::from_utf8(ls.stdout).expect("server output was not valid UTF-8"));
 //!

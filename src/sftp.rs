@@ -276,7 +276,7 @@ impl<'s> Sftp<'s> {
     ///
     /// # Examples
     ///
-    /// ```no_run
+    /// ```rust,ignore
     /// # use openssh::*;
     /// # #[tokio::main]
     /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -284,6 +284,9 @@ impl<'s> Sftp<'s> {
     ///
     /// // connect to a remote host and get an sftp connection
     /// let session = Session::connect("host", KnownHosts::Strict).await?;
+    /// // Or:
+    /// let session = Session::connect_mux("me@ssh.example.com", KnownHosts::Strict).await?;
+    ///
     /// let mut sftp = session.sftp();
     ///
     /// // open a file for writing
@@ -333,7 +336,7 @@ impl<'s> Sftp<'s> {
     ///
     /// # Examples
     ///
-    /// ```no_run
+    /// ```rust,ignore
     /// # use openssh::*;
     /// # #[tokio::main]
     /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -341,6 +344,9 @@ impl<'s> Sftp<'s> {
     ///
     /// // connect to a remote host and get an sftp connection
     /// let session = Session::connect("host", KnownHosts::Strict).await?;
+    /// // Or:
+    /// let session = Session::connect_mux("me@ssh.example.com", KnownHosts::Strict).await?;
+    ///
     /// let mut sftp = session.sftp();
     ///
     /// // open a file for appending
@@ -389,7 +395,7 @@ impl<'s> Sftp<'s> {
     ///
     /// # Examples
     ///
-    /// ```no_run
+    /// ```rust,ignore
     /// # use openssh::*;
     /// # #[tokio::main]
     /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -397,6 +403,9 @@ impl<'s> Sftp<'s> {
     ///
     /// // connect to a remote host and get an sftp connection
     /// let session = Session::connect("host", KnownHosts::Strict).await?;
+    /// // Or:
+    /// let session = Session::connect_mux("host", KnownHosts::Strict).await?;
+    ///
     /// let mut sftp = session.sftp();
     ///
     /// // open a file for reading
