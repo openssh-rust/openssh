@@ -34,18 +34,16 @@ export RUSTFLAGS='--cfg=ci'
 cargo clippy --all-features
 cargo build --all-features --tests
 
-sleep 3
-
 echo Running the test:
 
 export HOSTNAME=127.0.0.1
 
-cd $(dirname `realpath $0`)
-
-echo Test ssh connection
 chmod 600 .test-key
-ssh -i .test-key -v -p 2222 -l test-user $HOSTNAME \
-    -o StrictHostKeyChecking=no whoami
+
+echo Waiting for sshd to be up
+while ! ssh -i .test-key -v -p 2222 -l test-user $HOSTNAME -o StrictHostKeyChecking=no whoami; do
+    sleep 3
+done
 
 echo Set up ssh agent
 eval $(ssh-agent)
