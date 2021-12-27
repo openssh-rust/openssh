@@ -56,6 +56,5 @@ for features in process native-mux process,native-mux; do
         --no-default-features \
         --features "$features" \
         --no-fail-fast \
-        --test openssh \
         -- --test-threads=3 # Use test-threads=3 so that the output is readable
 done
