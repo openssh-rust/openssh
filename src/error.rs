@@ -38,14 +38,14 @@ pub enum Error {
     /// It is likely to be that the process is terminated by signal.
     ///
     /// **NOTE that due to a fundamental design flaw in ssh multiplex protocol,
-    /// there is no way to tell `RemoteProcessTerminated` from `Disconnect`.
+    /// there is no way to tell `RemoteProcessTerminated` from `Disconnect`.**
     ///
     /// If you really need to identify `Disconnect`, you can call `session.check()`
     /// after `wait()` returns `RemoteProcessTerminated`, however the ssh multiplex master
     /// could exit right after `wait()`, meaning the remote process actually is terminated
     /// instead of `Disconnect`ed.
     ///
-    /// It is thus recommended to create your own workaround for your particular use cases.**
+    /// It is thus recommended to create your own workaround for your particular use cases.
     RemoteProcessTerminated,
 
     /// Failed to remove temporary dir where ssh socket and output is stored.
