@@ -31,8 +31,8 @@ jobs:
    displayName: Build the doc
    strategy:
      matrix:
-       beta:
-         rust: beta
+       nightly:
+         rust: nightly
    pool:
      vmImage: ubuntu-latest
    steps:
