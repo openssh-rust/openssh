@@ -21,6 +21,11 @@ pub enum Error {
     #[cfg_attr(docsrs, doc(cfg(feature = "native-mux")))]
     SshMux(openssh_mux_client::Error),
 
+    /// Invalid command that contains null byte.
+    #[cfg(feature = "native-mux")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "native-mux")))]
+    InvalidCommand,
+
     /// The remote process failed.
     Remote(io::Error),
 
@@ -98,6 +103,9 @@ impl fmt::Display for Error {
 
             #[cfg(feature = "native-mux")]
             Error::SshMux(_) => write!(f, "failed to connect to the ssh multiplex server"),
+
+            #[cfg(feature = "native-mux")]
+            Error::InvalidCommand => write!(f, "invalid command: Command contains null byte."),
         }
     }
 }
@@ -112,6 +120,9 @@ impl std::error::Error for Error {
             | Error::ChildIo(ref e) => Some(e),
 
             Error::RemoteProcessTerminated | Error::Disconnected => None,
+
+            #[cfg(feature = "native-mux")]
+            Error::InvalidCommand => None,
 
             #[cfg(feature = "process-mux")]
             Error::Ssh(ref e) => Some(e),
