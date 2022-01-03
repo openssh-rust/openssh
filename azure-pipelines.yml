@@ -20,8 +20,8 @@ jobs:
      - script: cargo fmt -- --check
        displayName: cargo fmt --check
 
-     - script: cargo clippy --no-default-features --features process -- -D warnings -A unknown-lints
-       displayName: cargo clippy --no-default-features --features process -- -D warnings
+     - script: cargo clippy --no-default-features --features process-mux -- -D warnings -A unknown-lints
+       displayName: cargo clippy --no-default-features --features process-mux -- -D warnings
      - script: cargo clippy --no-default-features --features native-mux -- -D warnings -A unknown-lints
        displayName: cargo clippy --no-default-features --features native-mux -- -D warnings
      - script: cargo clippy --all-features -- -D warnings -A unknown-lints
@@ -76,8 +76,8 @@ jobs:
        parameters:
          rust: $(rust)
 
-     - script: cargo check --no-default-features --features process
-       displayName: cargo check --no-default-features --features process
+     - script: cargo check --no-default-features --features process-mux
+       displayName: cargo check --no-default-features --features process-mux
      - script: cargo check --no-default-features --features native-mux
        displayName: cargo check --no-default-features --features native-mux
      - script: cargo check --all-features
