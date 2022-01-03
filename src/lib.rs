@@ -154,7 +154,7 @@
 #[cfg(not(unix))]
 compile_error!("This crate can only be used on unix");
 
-#[cfg(not(any(feature = "process", feature = "native-mux")))]
+#[cfg(not(any(feature = "process-mux", feature = "native-mux")))]
 compile_error!("Either process or native-mux must be enabled!");
 
 use std::borrow::Cow;
@@ -180,7 +180,7 @@ pub use error::Error;
 mod sftp;
 pub use sftp::{Mode, RemoteFile, Sftp};
 
-#[cfg(feature = "process")]
+#[cfg(feature = "process-mux")]
 pub(crate) mod process_impl;
 
 #[cfg(feature = "native-mux")]
@@ -191,7 +191,7 @@ pub use port_forwarding::*;
 
 #[derive(Debug)]
 pub(crate) enum SessionImp {
-    #[cfg(feature = "process")]
+    #[cfg(feature = "process-mux")]
     ProcessImpl(process_impl::Session),
 
     #[cfg(feature = "native-mux")]
@@ -201,7 +201,7 @@ pub(crate) enum SessionImp {
 macro_rules! delegate {
     ($impl:expr, $var:ident, $then:block) => {{
         match $impl {
-            #[cfg(feature = "process")]
+            #[cfg(feature = "process-mux")]
             SessionImp::ProcessImpl($var) => $then,
 
             #[cfg(feature = "native-mux")]
@@ -219,7 +219,7 @@ macro_rules! delegate {
 #[derive(Debug)]
 pub struct Session(SessionImp);
 
-#[cfg(feature = "process")]
+#[cfg(feature = "process-mux")]
 impl From<process_impl::Session> for Session {
     fn from(imp: process_impl::Session) -> Self {
         Self(SessionImp::ProcessImpl(imp))
@@ -247,8 +247,8 @@ impl Session {
     /// instead.
     ///
     /// For more options, see [`SessionBuilder`].
-    #[cfg(feature = "process")]
-    #[cfg_attr(docsrs, doc(cfg(any(feature = "default", feature = "process"))))]
+    #[cfg(feature = "process-mux")]
+    #[cfg_attr(docsrs, doc(cfg(any(feature = "default", feature = "process-mux"))))]
     pub async fn connect<S: AsRef<str>>(destination: S, check: KnownHosts) -> Result<Self, Error> {
         let mut s = SessionBuilder::default();
         s.known_hosts_check(check);

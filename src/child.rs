@@ -8,13 +8,13 @@ use tokio::try_join;
 
 #[derive(Debug)]
 pub(crate) enum RemoteChildImp {
-    #[cfg(feature = "process")]
+    #[cfg(feature = "process-mux")]
     ProcessImpl(super::process_impl::RemoteChild),
 
     #[cfg(feature = "native-mux")]
     NativeMuxImpl(super::native_mux_impl::RemoteChild),
 }
-#[cfg(feature = "process")]
+#[cfg(feature = "process-mux")]
 impl From<super::process_impl::RemoteChild> for RemoteChildImp {
     fn from(imp: super::process_impl::RemoteChild) -> Self {
         RemoteChildImp::ProcessImpl(imp)
@@ -31,7 +31,7 @@ impl From<super::native_mux_impl::RemoteChild> for RemoteChildImp {
 macro_rules! delegate {
     ($impl:expr, $var:ident, $then:block) => {{
         match $impl {
-            #[cfg(feature = "process")]
+            #[cfg(feature = "process-mux")]
             RemoteChildImp::ProcessImpl($var) => $then,
 
             #[cfg(feature = "native-mux")]

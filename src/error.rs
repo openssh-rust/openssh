@@ -12,8 +12,8 @@ pub enum Error {
     Connect(io::Error),
 
     /// Failed to run the `ssh` command locally.
-    #[cfg(feature = "process")]
-    #[cfg_attr(docsrs, doc(cfg(any(feature = "default", feature = "process"))))]
+    #[cfg(feature = "process-mux")]
+    #[cfg_attr(docsrs, doc(cfg(any(feature = "default", feature = "process-mux"))))]
     Ssh(io::Error),
 
     /// Failed to connect to the ssh multiplex server.
@@ -84,7 +84,7 @@ impl fmt::Display for Error {
             Error::Master(_) => write!(f, "the master connection failed"),
             Error::Connect(_) => write!(f, "failed to connect to the remote host"),
 
-            #[cfg(feature = "process")]
+            #[cfg(feature = "process-mux")]
             Error::Ssh(_) => write!(f, "the local ssh command could not be executed"),
 
             Error::Remote(_) => write!(f, "the remote command could not be executed"),
@@ -113,7 +113,7 @@ impl std::error::Error for Error {
 
             Error::RemoteProcessTerminated | Error::Disconnected => None,
 
-            #[cfg(feature = "process")]
+            #[cfg(feature = "process-mux")]
             Error::Ssh(ref e) => Some(e),
 
             #[cfg(feature = "native-mux")]
@@ -225,7 +225,7 @@ fn error_sanity() {
     assert_eq!(e.kind(), expect.kind());
     assert_eq!(format!("{}", e), format!("{}", expect));
 
-    #[cfg(feature = "process")]
+    #[cfg(feature = "process-mux")]
     {
         let e = Error::Ssh(ioe());
         assert!(!format!("{}", e).is_empty());

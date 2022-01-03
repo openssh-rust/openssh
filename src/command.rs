@@ -8,18 +8,18 @@ use std::convert::TryFrom;
 use std::ffi::OsStr;
 use std::process;
 
-#[cfg(feature = "process")]
+#[cfg(feature = "process-mux")]
 use std::marker::PhantomData;
 
 #[derive(Debug)]
 pub(crate) enum CommandImp<'s> {
-    #[cfg(feature = "process")]
+    #[cfg(feature = "process-mux")]
     ProcessImpl(super::process_impl::Command, PhantomData<&'s Session>),
 
     #[cfg(feature = "native-mux")]
     NativeMuxImpl(super::native_mux_impl::Command<'s>),
 }
-#[cfg(feature = "process")]
+#[cfg(feature = "process-mux")]
 impl From<super::process_impl::Command> for CommandImp<'_> {
     fn from(imp: super::process_impl::Command) -> Self {
         CommandImp::ProcessImpl(imp, PhantomData)
@@ -36,7 +36,7 @@ impl<'s> From<super::native_mux_impl::Command<'s>> for CommandImp<'s> {
 macro_rules! delegate {
     ($impl:expr, $var:ident, $then:block) => {{
         match $impl {
-            #[cfg(feature = "process")]
+            #[cfg(feature = "process-mux")]
             CommandImp::ProcessImpl($var, _) => $then,
 
             #[cfg(feature = "native-mux")]
