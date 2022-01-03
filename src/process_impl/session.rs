@@ -178,7 +178,7 @@ impl Session {
 impl Drop for Session {
     fn drop(&mut self) {
         // Keep tempdir alive until the connection is established
-        let ctl = match self.ctl.take() {
+        let _ctl = match self.ctl.take() {
             Some(ctl) => ctl,
             // return since close must have already been called.
             None => return,
@@ -187,7 +187,7 @@ impl Drop for Session {
         // Use a blocking call instead of async one.
         let mut cmd = std::process::Command::new("ssh");
 
-        let res = cmd
+        let _res = cmd
             .arg("-S")
             .arg(&*self.ctl_path)
             .arg("-o")
@@ -199,14 +199,5 @@ impl Drop for Session {
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .status();
-
-        debug_assert!(
-            res.is_ok(),
-            "process_impl::Session::drop failed: {:#?}",
-            res
-        );
-
-        let res = ctl.close();
-        debug_assert!(res.is_ok(), "ctl.close() failed: {:#?}", res);
     }
 }
