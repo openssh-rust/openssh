@@ -54,4 +54,4 @@ required-features = ["native-mux"]
 
 [[example]]
 name = "tsp"
-required-features = ["process"]
+required-features = ["process-mux"]
