@@ -9,7 +9,7 @@ use tempfile::tempdir;
 
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::{
-    net::{TcpListener, TcpStream, UnixStream},
+    net::{TcpListener, UnixStream},
     time::sleep,
 };
 
@@ -976,10 +976,7 @@ async fn remote_socket_forward() {
 #[cfg_attr(not(ci), ignore)]
 async fn local_socket_forward() {
     let sessions = connects().await;
-    for (session, port) in sessions
-        .iter()
-        .zip([gen_rand_port(1433), gen_rand_port(1432)])
-    {
+    for (session, port) in sessions.iter().zip([1433, 1432]) {
         eprintln!("Creating remote process");
         let cmd = format!(
             "echo -e '0\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n' | nc -l -p {} >/dev/stderr",
