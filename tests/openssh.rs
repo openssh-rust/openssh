@@ -1,17 +1,17 @@
 use lazy_static::lazy_static;
+use regex::Regex;
+use std::borrow::Cow;
 use std::io;
 use std::io::Write;
 use std::net::{IpAddr, SocketAddr};
-
 use std::time::{Duration, SystemTime};
+use tempfile::tempdir;
 
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::{
-    net::{TcpListener, TcpStream},
+    net::{TcpListener, TcpStream, UnixStream},
     time::sleep,
 };
-
-use regex::Regex;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 use openssh::*;
 
@@ -976,14 +976,14 @@ async fn remote_socket_forward() {
 #[cfg_attr(not(ci), ignore)]
 async fn local_socket_forward() {
     let sessions = connects().await;
-    for (session, ports) in sessions.iter().zip([
-        (gen_rand_port(1235), gen_rand_port(1433)),
-        (gen_rand_port(1236), gen_rand_port(1432)),
-    ]) {
+    for (session, port) in sessions
+        .iter()
+        .zip([gen_rand_port(1433), gen_rand_port(1432)])
+    {
         eprintln!("Creating remote process");
         let cmd = format!(
             "echo -e '0\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n' | nc -l -p {} >/dev/stderr",
-            ports.1
+            port
         );
         let child = session
             .raw_command(cmd)
@@ -995,17 +995,22 @@ async fn local_socket_forward() {
         sleep(Duration::from_secs(1)).await;
 
         eprintln!("Requesting port forward");
+        let dir = tempdir().unwrap();
+        let unix_socket = dir.path().join("unix_socket_forwarded");
+
         session
             .request_port_forward(
                 ForwardType::Local,
-                Socket::TcpSocket(SocketAddr::new(loopback(), ports.0)),
-                Socket::TcpSocket(SocketAddr::new(loopback(), ports.1)),
+                Socket::UnixSocket {
+                    path: Cow::Borrowed(&unix_socket),
+                },
+                Socket::TcpSocket(SocketAddr::new(loopback(), port)),
             )
             .await
             .unwrap();
 
         eprintln!("Connecting to forwarded socket");
-        let mut output = TcpStream::connect((loopback(), ports.0)).await.unwrap();
+        let mut output = UnixStream::connect(&unix_socket).await.unwrap();
 
         eprintln!("Reading");
 
