@@ -79,10 +79,6 @@ jobs:
        parameters:
          rust: 1.52.1 # tokio 1.0 requires 1.45, openssh_mux_client requires 1.52.1
 
-     - script: cargo check --no-default-features --features process
-       displayName: cargo check --no-default-features --features process
-     - script: cargo check --no-default-features --features native-mux
-       displayName: cargo check --no-default-features --features native-mux
      - script: cargo check --all-features
        displayName: cargo check --all-features
  - job: integration
