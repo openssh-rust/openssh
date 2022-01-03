@@ -849,18 +849,19 @@ async fn auth_failed() {
 #[cfg_attr(not(ci), ignore)]
 async fn remote_socket_forward() {
     let sessions = connects().await;
-    for (session, ports) in sessions.iter().zip(&[
-        (gen_rand_port(9999), gen_rand_port(1234)),
-        (gen_rand_port(9998), gen_rand_port(1233)),
-    ]) {
-        let output_listener = TcpListener::bind((loopback(), ports.0)).await.unwrap();
+    for (session, port) in sessions
+        .iter()
+        .zip(&[gen_rand_port(1234), gen_rand_port(1233)])
+    {
+        let output_listener = TcpListener::bind((loopback(), 0)).await.unwrap();
+        let listener_port = output_listener.local_addr().unwrap().port();
 
         eprintln!("Requesting port forward");
         session
             .request_port_forward(
                 ForwardType::Remote,
-                Socket::TcpSocket(SocketAddr::new(loopback(), ports.1)),
-                Socket::TcpSocket(SocketAddr::new(loopback(), ports.0)),
+                Socket::TcpSocket(SocketAddr::new(loopback(), *port)),
+                Socket::TcpSocket(SocketAddr::new(loopback(), listener_port)),
             )
             .await
             .unwrap();
@@ -868,7 +869,7 @@ async fn remote_socket_forward() {
         eprintln!("Creating remote process");
         let cmd = format!(
             "echo -e '0\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n' | nc localhost {} >/dev/stderr",
-            ports.1
+            port
         );
         let child = session
             .raw_command(cmd)
