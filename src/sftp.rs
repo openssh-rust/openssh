@@ -276,15 +276,36 @@ impl<'s> Sftp<'s> {
     ///
     /// # Examples
     ///
-    /// ```rust,ignore
+    /// ```rust,no_run
     /// # use openssh::*;
+    ///
+    /// use std::io::prelude::*;
+    /// use tokio::io::AsyncWriteExt;
+    ///
+    /// # #[cfg(all(feature = "process-mux", not(feature = "native-mux")))]
     /// # #[tokio::main]
     /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// use std::io::prelude::*;
     ///
     /// // connect to a remote host and get an sftp connection
     /// let session = Session::connect("host", KnownHosts::Strict).await?;
-    /// // Or:
+    ///
+    /// let mut sftp = session.sftp();
+    ///
+    /// // open a file for writing
+    /// let mut w = sftp.write_to("test_file").await?;
+    ///
+    /// // write something to the file
+    /// w.write_all(b"hello world").await?;
+    ///
+    /// // flush and close the remote file, absorbing any final errors
+    /// w.close().await?;
+    /// # Ok(())
+    /// # }
+    ///
+    /// # #[cfg(feature = "native-mux")]
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// // connect to a remote host and get an sftp connection
     /// let session = Session::connect_mux("me@ssh.example.com", KnownHosts::Strict).await?;
     ///
     /// let mut sftp = session.sftp();
@@ -293,13 +314,13 @@ impl<'s> Sftp<'s> {
     /// let mut w = sftp.write_to("test_file").await?;
     ///
     /// // write something to the file
-    /// use tokio::io::AsyncWriteExt;
     /// w.write_all(b"hello world").await?;
     ///
     /// // flush and close the remote file, absorbing any final errors
     /// w.close().await?;
     /// # Ok(())
     /// # }
+    /// ```
     pub async fn write_to(
         &mut self,
         path: impl AsRef<std::path::Path>,
@@ -336,30 +357,51 @@ impl<'s> Sftp<'s> {
     ///
     /// # Examples
     ///
-    /// ```rust,ignore
+    /// ```rust,no_run
     /// # use openssh::*;
+    ///
+    /// use std::io::prelude::*;
+    /// use tokio::io::AsyncWriteExt;
+    ///
+    /// # #[cfg(all(feature = "process-mux", not(feature = "native-mux")))]
     /// # #[tokio::main]
     /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// use std::io::prelude::*;
     ///
     /// // connect to a remote host and get an sftp connection
     /// let session = Session::connect("host", KnownHosts::Strict).await?;
-    /// // Or:
-    /// let session = Session::connect_mux("me@ssh.example.com", KnownHosts::Strict).await?;
     ///
     /// let mut sftp = session.sftp();
     ///
-    /// // open a file for appending
-    /// let mut w = sftp.append_to("test_file").await?;
+    /// // open a file for writing
+    /// let mut w = sftp.write_to("test_file").await?;
     ///
-    /// // write will append to the file
-    /// use tokio::io::AsyncWriteExt;
+    /// // write something to the file
     /// w.write_all(b"hello world").await?;
     ///
     /// // flush and close the remote file, absorbing any final errors
     /// w.close().await?;
     /// # Ok(())
     /// # }
+    ///
+    /// # #[cfg(feature = "native-mux")]
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// // connect to a remote host and get an sftp connection
+    /// let session = Session::connect_mux("me@ssh.example.com", KnownHosts::Strict).await?;
+    ///
+    /// let mut sftp = session.sftp();
+    ///
+    /// // open a file for writing
+    /// let mut w = sftp.write_to("test_file").await?;
+    ///
+    /// // write something to the file
+    /// w.write_all(b"hello world").await?;
+    ///
+    /// // flush and close the remote file, absorbing any final errors
+    /// w.close().await?;
+    /// # Ok(())
+    /// # }
+    /// ```
     pub async fn append_to(
         &mut self,
         path: impl AsRef<std::path::Path>,
@@ -395,15 +437,38 @@ impl<'s> Sftp<'s> {
     ///
     /// # Examples
     ///
-    /// ```rust,ignore
+    /// ```rust,no_run
     /// # use openssh::*;
+    ///
+    /// use std::io::prelude::*;
+    /// use tokio::io::AsyncReadExt;
+    ///
+    /// # #[cfg(all(feature = "process-mux", not(feature = "native-mux")))]
     /// # #[tokio::main]
     /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// use std::io::prelude::*;
     ///
     /// // connect to a remote host and get an sftp connection
     /// let session = Session::connect("host", KnownHosts::Strict).await?;
-    /// // Or:
+    ///
+    /// let mut sftp = session.sftp();
+    ///
+    /// // open a file for reading
+    /// let mut r = sftp.read_from("/etc/hostname").await?;
+    ///
+    /// // write something to the file
+    /// let mut contents = String::new();
+    /// r.read_to_string(&mut contents).await?;
+    ///
+    /// // close the remote file, absorbing any final errors
+    /// r.close().await?;
+    /// # Ok(())
+    /// # }
+    ///
+    /// # #[cfg(feature = "native-mux")]
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///
+    /// // connect to a remote host and get an sftp connection
     /// let session = Session::connect_mux("host", KnownHosts::Strict).await?;
     ///
     /// let mut sftp = session.sftp();
@@ -412,7 +477,6 @@ impl<'s> Sftp<'s> {
     /// let mut r = sftp.read_from("/etc/hostname").await?;
     ///
     /// // write something to the file
-    /// use tokio::io::AsyncReadExt;
     /// let mut contents = String::new();
     /// r.read_to_string(&mut contents).await?;
     ///
@@ -420,6 +484,7 @@ impl<'s> Sftp<'s> {
     /// r.close().await?;
     /// # Ok(())
     /// # }
+    /// ```
     pub async fn read_from(
         &mut self,
         path: impl AsRef<std::path::Path>,
