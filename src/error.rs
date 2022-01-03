@@ -133,9 +133,7 @@ impl Error {
         //
         //     ssh: ssh error: io error
         let mut stderr = stderr.trim();
-        if stderr.starts_with("ssh: ") {
-            stderr = &stderr["ssh: ".len()..];
-        }
+        stderr = stderr.strip_prefix("ssh: ").unwrap_or(stderr);
         if stderr.starts_with("Warning: Permanently added ") {
             // added to hosts file -- let's ignore that message
             stderr = stderr.split_once("\r\n").map(|x| x.1).unwrap_or("");
