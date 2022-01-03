@@ -5,13 +5,14 @@ use super::{ChildStderr, ChildStdin, ChildStdout};
 
 use std::borrow::Cow;
 use std::ffi::OsStr;
+use std::os::unix::ffi::OsStrExt;
 use std::path::Path;
 
-use openssh_mux_client::{Connection, Session};
+use openssh_mux_client::{Connection, NonZeroByteSlice, Session};
 
 #[derive(Debug)]
 pub(crate) struct Command<'s> {
-    cmd: String,
+    cmd: Vec<u8>,
     ctl: &'s Path,
 
     stdin_v: Stdio,
@@ -22,7 +23,7 @@ pub(crate) struct Command<'s> {
 impl<'s> Command<'s> {
     pub(crate) fn new(ctl: &'s Path, cmd: String) -> Self {
         Self {
-            cmd,
+            cmd: cmd.into_bytes(),
             ctl,
 
             stdin_v: Stdio::null(),
@@ -32,8 +33,8 @@ impl<'s> Command<'s> {
     }
 
     pub(crate) fn raw_arg<S: AsRef<OsStr>>(&mut self, arg: S) {
-        self.cmd.push(' ');
-        self.cmd.push_str(&arg.as_ref().to_string_lossy());
+        self.cmd.push(b' ');
+        self.cmd.extend_from_slice(arg.as_ref().as_bytes());
     }
 
     pub(crate) fn stdin<T: Into<Stdio>>(&mut self, cfg: T) {
@@ -69,9 +70,9 @@ impl<'s> Command<'s> {
             as_raw_fd_or_null_fd(&stderr)?,
         ];
 
-        let session = Session::builder()
-            .cmd(Cow::Borrowed(self.cmd.as_str().into()))
-            .build();
+        let cmd = NonZeroByteSlice::new(&self.cmd).ok_or(Error::InvalidCommand)?;
+
+        let session = Session::builder().cmd(Cow::Borrowed(cmd)).build();
 
         let established_session = Connection::connect(self.ctl)
             .await?
