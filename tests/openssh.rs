@@ -85,21 +85,6 @@ async fn connects_err(host: &str) -> Vec<Error> {
     errors
 }
 
-fn gen_rand_port(base: u16) -> u16 {
-    // somewhere in 2021
-    let base_time = SystemTime::UNIX_EPOCH + Duration::from_secs(1608336000);
-
-    loop {
-        let rand = base_time.elapsed().unwrap().as_nanos() as u16;
-
-        if let Some(port) = u16::checked_add(base, rand) {
-            if port > 1000 {
-                break port;
-            }
-        }
-    }
-}
-
 #[tokio::test]
 #[cfg_attr(not(ci), ignore)]
 async fn it_connects() {
@@ -921,10 +906,7 @@ async fn auth_failed() {
 #[cfg_attr(not(ci), ignore)]
 async fn remote_socket_forward() {
     let sessions = connects().await;
-    for (session, port) in sessions
-        .iter()
-        .zip(&[gen_rand_port(1234), gen_rand_port(1233)])
-    {
+    for (session, port) in sessions.iter().zip(&[1234, 1233]) {
         let dir = tempdir().unwrap();
         let unix_socket = dir.path().join("unix_socket_listener");
 
