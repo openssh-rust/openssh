@@ -124,7 +124,7 @@ impl Session {
 
         // let's get this case straight:
         // we tried to tell the master to exit.
-        // the -O exit command failed.
+        // the -o exit command failed.
         // the master exited, but did not produce an error.
         // what could cause that?
         //
@@ -133,7 +133,7 @@ impl Session {
         // network dropping out). since we were told to _close_ the connection, well, we
         // have succeeded, so this should not produce an error.
         //
-        // we will still _collect_ the error that -O exit produced though,
+        // we will still _collect_ the error that -o exit produced though,
         // just for ease of debugging.
 
         if !exit.status.success() {
