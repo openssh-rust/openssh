@@ -9,7 +9,7 @@ use tempfile::tempdir;
 
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::{
-    net::{TcpListener, UnixStream},
+    net::{UnixListener, UnixStream},
     time::sleep,
 };
 
@@ -925,15 +925,19 @@ async fn remote_socket_forward() {
         .iter()
         .zip(&[gen_rand_port(1234), gen_rand_port(1233)])
     {
-        let output_listener = TcpListener::bind((loopback(), 0)).await.unwrap();
-        let listener_port = output_listener.local_addr().unwrap().port();
+        let dir = tempdir().unwrap();
+        let unix_socket = dir.path().join("unix_socket_listener");
+
+        let output_listener = UnixListener::bind(&unix_socket).unwrap();
 
         eprintln!("Requesting port forward");
         session
             .request_port_forward(
                 ForwardType::Remote,
                 Socket::TcpSocket(SocketAddr::new(loopback(), *port)),
-                Socket::TcpSocket(SocketAddr::new(loopback(), listener_port)),
+                Socket::UnixSocket {
+                    path: Cow::Borrowed(&unix_socket),
+                },
             )
             .await
             .unwrap();
