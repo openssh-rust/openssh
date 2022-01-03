@@ -28,7 +28,7 @@ fn loopback() -> IpAddr {
 async fn session_builder_connect(builder: SessionBuilder, addr: &str) -> Vec<Session> {
     let mut sessions = Vec::with_capacity(2);
 
-    #[cfg(feature = "process")]
+    #[cfg(feature = "process-mux")]
     {
         sessions.push(builder.connect(addr).await.unwrap());
     }
@@ -44,7 +44,7 @@ async fn session_builder_connect(builder: SessionBuilder, addr: &str) -> Vec<Ses
 async fn connects() -> Vec<Session> {
     let mut sessions = Vec::with_capacity(2);
 
-    #[cfg(feature = "process")]
+    #[cfg(feature = "process-mux")]
     {
         sessions.push(Session::connect(&addr(), KnownHosts::Accept).await.unwrap());
     }
@@ -64,7 +64,7 @@ async fn connects() -> Vec<Session> {
 async fn connects_err(host: &str) -> Vec<Error> {
     let mut errors = Vec::with_capacity(2);
 
-    #[cfg(feature = "process")]
+    #[cfg(feature = "process-mux")]
     {
         errors.push(
             Session::connect(host, KnownHosts::Accept)
@@ -248,7 +248,7 @@ async fn config_file() {
 #[tokio::test]
 #[cfg_attr(not(ci), ignore)]
 async fn terminate_on_drop() {
-    #[cfg(feature = "process")]
+    #[cfg(feature = "process-mux")]
     {
         drop(Session::connect(&addr(), KnownHosts::Add).await.unwrap());
     }
@@ -572,7 +572,7 @@ async fn connect_timeout() {
     let host = "192.0.0.8";
 
     // Test process_impl
-    #[cfg(feature = "process")]
+    #[cfg(feature = "process-mux")]
     {
         let t = Instant::now();
         let res = sb.connect(host).await;
@@ -719,7 +719,7 @@ async fn process_exit_on_signal() {
     }
 }
 
-#[cfg(feature = "process")]
+#[cfg(feature = "process-mux")]
 #[tokio::test]
 #[cfg_attr(not(ci), ignore)]
 async fn broken_connection() {
