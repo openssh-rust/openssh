@@ -31,9 +31,11 @@ trap cleanup EXIT
 export RUSTFLAGS='--cfg=ci'
 
 # Wait for docker mod to be installed and sshd starts up
-cargo clippy --all-features
+for features in process native-mux process,native-mux; do
+    cargo check --no-default-features --features "$features"
+done
 
-echo Running the test:
+cargo clippy --all-features
 
 export HOSTNAME=127.0.0.1
 chmod 600 .test-key
@@ -50,11 +52,8 @@ cat .test-key | ssh-add -
 echo Run tests
 rm -rf control-test config-file-test .ssh-connection*
 
-for features in process native-mux process,native-mux; do
-    echo Running test with features = $features
-    cargo test \
-        --no-default-features \
-        --features "$features" \
-        --no-fail-fast \
-        -- --test-threads=3 # Use test-threads=3 so that the output is readable
-done
+echo Running integration test
+cargo test \
+    --all-features \
+    --no-fail-fast \
+    -- --test-threads=3 # Use test-threads=3 so that the output is readable
