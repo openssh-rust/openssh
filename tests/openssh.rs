@@ -4,7 +4,7 @@ use std::borrow::Cow;
 use std::io;
 use std::io::Write;
 use std::net::{IpAddr, SocketAddr};
-use std::time::{Duration, SystemTime};
+use std::time::Duration;
 use tempfile::tempdir;
 
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
