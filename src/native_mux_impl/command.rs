@@ -4,7 +4,7 @@ use super::{as_raw_fd_or_null_fd, Stdio};
 use super::{ChildStderr, ChildStdin, ChildStdout};
 
 use std::borrow::Cow;
-use std::ffi::{CString, OsStr};
+use std::ffi::OsStr;
 use std::path::Path;
 
 use openssh_mux_client::{Connection, Session};
@@ -69,10 +69,8 @@ impl<'s> Command<'s> {
             as_raw_fd_or_null_fd(&stderr)?,
         ];
 
-        let cmd = self.cmd.clone();
-
         let session = Session::builder()
-            .cmd(Cow::Owned(CString::new(cmd).unwrap()))
+            .cmd(Cow::Borrowed(self.cmd.as_str().into()))
             .build();
 
         let established_session = Connection::connect(self.ctl)
