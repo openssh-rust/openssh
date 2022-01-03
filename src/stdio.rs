@@ -1,9 +1,10 @@
-use super::fd::{dup, Fd};
+use super::fd::dup;
 use super::Error;
 
 #[cfg(feature = "native-mux")]
 use super::native_mux_impl;
 
+use io_lifetimes::OwnedFd;
 use std::fs::File;
 use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
 use std::process;
@@ -18,7 +19,7 @@ pub(crate) enum StdioImpl {
     /// Read/Write to a newly created pipe
     Pipe,
     /// Read/Write to custom fd
-    Fd(Fd),
+    Fd(OwnedFd),
 }
 
 /// Describes what to do with a standard I/O stream for a remote child process
@@ -39,7 +40,7 @@ impl Stdio {
 }
 impl FromRawFd for Stdio {
     unsafe fn from_raw_fd(fd: RawFd) -> Self {
-        Self(StdioImpl::Fd(Fd::from_raw_fd(fd)))
+        Self(StdioImpl::Fd(OwnedFd::from_raw_fd(fd)))
     }
 }
 impl From<Stdio> for process::Stdio {
