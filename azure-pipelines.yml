@@ -27,6 +27,25 @@ jobs:
      - script: cargo clippy --all-features -- -D warnings -A unknown-lints
        displayName: cargo clippy --all-features -- -D warnings
 
+ - job: doc
+   displayName: Build the doc
+   strategy:
+     matrix:
+       beta:
+         rust: beta
+   pool:
+     vmImage: ubuntu-latest
+   steps:
+     - template: install-rust.yml@templates
+       parameters:
+         rust: $(rust)
+         components:
+           - rust-docs
+     - script: cargo doc --all-features
+       displayName: cargo doc 
+       env:
+         RUSTDOCFLAGS: --cfg docsrs
+
  - job: main
    # here, we do not run the tests that require an SSH server, since that
    # requires docker, which is only available with Linux.
