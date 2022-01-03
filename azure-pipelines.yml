@@ -63,14 +63,8 @@ jobs:
        displayName: cargo check --no-default-features --features native-mux
      - script: cargo check --all-features
        displayName: cargo check --all-features
-
-     - script: cargo test --no-default-features --features process
-       displayName: cargo test --no-default-features --features process
-     - script: cargo test --no-default-features --features native-mux
-       displayName: cargo test --no-default-features --features native-mux
      - script: cargo test --all-features
        displayName: cargo test --all-features
-
      - script: cargo doc --no-deps
        displayName: cargo doc
  # This represents the minimum Rust version supported.
