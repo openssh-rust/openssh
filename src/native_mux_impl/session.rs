@@ -75,6 +75,7 @@ impl Drop for Session {
         // Keep tempdir alive until the shutdown request is sent
         let tempdir = match self.tempdir.take() {
             Some(tempdir) => tempdir,
+            // return since close must have already been called.
             None => return,
         };
 

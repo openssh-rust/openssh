@@ -180,9 +180,11 @@ impl Drop for Session {
         // Keep tempdir alive until the connection is established
         let ctl = match self.ctl.take() {
             Some(ctl) => ctl,
+            // return since close must have already been called.
             None => return,
         };
 
+        // Use a blocking call instead of async one.
         let mut cmd = std::process::Command::new("ssh");
 
         let res = cmd
