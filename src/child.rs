@@ -150,7 +150,7 @@ impl<'s> RemoteChild<'s> {
                     .map_err(Error::ChildIo)?;
             }
 
-            Result::<_, Error>::Ok(stdout)
+            Ok::<_, Error>(stdout)
         };
 
         let child_stderr = self.stderr.take();
