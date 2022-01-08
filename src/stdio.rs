@@ -20,6 +20,8 @@ pub(crate) enum StdioImpl {
     Pipe,
     /// Read/Write to custom fd
     Fd(OwnedFd),
+
+    Inherit,
 }
 
 /// Describes what to do with a standard I/O stream for a remote child process
@@ -37,6 +39,11 @@ impl Stdio {
     pub const fn null() -> Self {
         Self(StdioImpl::Null)
     }
+
+    /// The child inherits from the corresponding parent descriptor.
+    pub const fn inherit() -> Self {
+        Self(StdioImpl::Inherit)
+    }
 }
 impl FromRawFd for Stdio {
     unsafe fn from_raw_fd(fd: RawFd) -> Self {
@@ -48,6 +55,7 @@ impl From<Stdio> for process::Stdio {
         match stdio.0 {
             StdioImpl::Null => process::Stdio::null(),
             StdioImpl::Pipe => process::Stdio::piped(),
+            StdioImpl::Inherit => process::Stdio::inherit(),
 
             // safety: StdioImpl(fd) is only constructed from known-valid and
             // owned file descriptors by virtue of the safety requirement

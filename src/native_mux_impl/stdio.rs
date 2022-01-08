@@ -75,24 +75,36 @@ fn get_null_fd() -> Result<RawFd, Error> {
     res.map(AsRawFd::as_raw_fd)
 }
 
-pub(crate) fn as_raw_fd_or_null_fd(fd: &Option<OwnedFd>) -> Result<RawFd, Error> {
-    match fd {
-        Some(fd) => Ok(AsRawFd::as_raw_fd(fd)),
-        None => get_null_fd(),
+pub(crate) enum Fd {
+    Owned(OwnedFd),
+    Borrowed(RawFd),
+    Null,
+}
+
+impl Fd {
+    pub(crate) fn as_raw_fd_or_null_fd(&self) -> Result<RawFd, Error> {
+        use Fd::*;
+
+        match self {
+            Owned(fd) => Ok(AsRawFd::as_raw_fd(fd)),
+            Borrowed(rawfd) => Ok(*rawfd),
+            Null => get_null_fd(),
+        }
     }
 }
 
 impl Stdio {
-    pub(crate) fn to_input(&self) -> Result<(Option<OwnedFd>, Option<ChildStdin>), Error> {
+    pub(crate) fn to_stdin(&self) -> Result<(Fd, Option<ChildStdin>), Error> {
         match &self.0 {
-            StdioImpl::Null => Ok((None, None)),
+            StdioImpl::Inherit => Ok((Fd::Borrowed(io::stdin().as_raw_fd()), None)),
+            StdioImpl::Null => Ok((Fd::Null, None)),
             StdioImpl::Pipe => {
                 let (read, write) = create_pipe()?;
-                Ok((Some(input_to_fd(read)), Some(write)))
+                Ok((Fd::Owned(input_to_fd(read)), Some(write)))
             }
             StdioImpl::Fd(fd) => {
                 if get_access_mode(fd)?.is_readable() {
-                    Ok((Some(try_clone(fd)?), None))
+                    Ok((Fd::Owned(try_clone(fd)?), None))
                 } else {
                     Err(Error::ChildIo(io::Error::new(
                         io::ErrorKind::Other,
@@ -103,16 +115,17 @@ impl Stdio {
         }
     }
 
-    pub(crate) fn to_output(&self) -> Result<(Option<OwnedFd>, Option<PipeRead>), Error> {
+    fn to_output(&self, rawfd: RawFd) -> Result<(Fd, Option<PipeRead>), Error> {
         match &self.0 {
-            StdioImpl::Null => Ok((None, None)),
+            StdioImpl::Inherit => Ok((Fd::Borrowed(rawfd), None)),
+            StdioImpl::Null => Ok((Fd::Null, None)),
             StdioImpl::Pipe => {
                 let (read, write) = create_pipe()?;
-                Ok((Some(output_to_fd(write)), Some(read)))
+                Ok((Fd::Owned(output_to_fd(write)), Some(read)))
             }
             StdioImpl::Fd(fd) => {
                 if get_access_mode(fd)?.is_writeable() {
-                    Ok((Some(try_clone(fd)?), None))
+                    Ok((Fd::Owned(try_clone(fd)?), None))
                 } else {
                     Err(Error::ChildIo(io::Error::new(
                         io::ErrorKind::Other,
@@ -121,6 +134,14 @@ impl Stdio {
                 }
             }
         }
+    }
+
+    pub(crate) fn to_stdout(&self) -> Result<(Fd, Option<PipeRead>), Error> {
+        self.to_output(io::stdout().as_raw_fd())
+    }
+
+    pub(crate) fn to_stderr(&self) -> Result<(Fd, Option<PipeRead>), Error> {
+        self.to_output(io::stderr().as_raw_fd())
     }
 }
 

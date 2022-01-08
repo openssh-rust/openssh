@@ -1,7 +1,6 @@
 use super::Error;
 use super::RemoteChild;
-use super::{as_raw_fd_or_null_fd, Stdio};
-use super::{ChildStderr, ChildStdin, ChildStdout};
+use super::{ChildStderr, ChildStdin, ChildStdout, Stdio};
 
 use std::borrow::Cow;
 use std::ffi::OsStr;
@@ -60,14 +59,14 @@ impl<'s> Command<'s> {
         ),
         Error,
     > {
-        let (stdin, child_stdin) = self.stdin_v.to_input()?;
-        let (stdout, child_stdout) = self.stdout_v.to_output()?;
-        let (stderr, child_stderr) = self.stderr_v.to_output()?;
+        let (stdin, child_stdin) = self.stdin_v.to_stdin()?;
+        let (stdout, child_stdout) = self.stdout_v.to_stdout()?;
+        let (stderr, child_stderr) = self.stderr_v.to_stderr()?;
 
         let stdios = [
-            as_raw_fd_or_null_fd(&stdin)?,
-            as_raw_fd_or_null_fd(&stdout)?,
-            as_raw_fd_or_null_fd(&stderr)?,
+            stdin.as_raw_fd_or_null_fd()?,
+            stdout.as_raw_fd_or_null_fd()?,
+            stderr.as_raw_fd_or_null_fd()?,
         ];
 
         let cmd = NonZeroByteSlice::new(&self.cmd).ok_or(Error::InvalidCommand)?;
