@@ -1,4 +1,3 @@
-use crate::fd::dup;
 use crate::stdio::StdioImpl;
 use crate::Error;
 use crate::Stdio;
@@ -10,11 +9,6 @@ use std::fs::{File, OpenOptions};
 use std::io;
 use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
 use tokio_pipe::{pipe, PipeRead, PipeWrite};
-
-fn try_clone(fd: &OwnedFd) -> Result<OwnedFd, Error> {
-    // safety: self.0 is guaranteed to contain a valid fd.
-    unsafe { dup(fd.as_raw_fd()) }
-}
 
 fn get_access_mode(fd: &OwnedFd) -> Result<AccessMode, Error> {
     // safety: self.0 is guaranteed to contain a valid fd.
@@ -104,7 +98,7 @@ impl Stdio {
             }
             StdioImpl::Fd(fd) => {
                 if get_access_mode(fd)?.is_readable() {
-                    Ok((Fd::Owned(try_clone(fd)?), None))
+                    Ok((Fd::Borrowed(fd.as_raw_fd()), None))
                 } else {
                     Err(Error::ChildIo(io::Error::new(
                         io::ErrorKind::Other,
@@ -125,7 +119,7 @@ impl Stdio {
             }
             StdioImpl::Fd(fd) => {
                 if get_access_mode(fd)?.is_writeable() {
-                    Ok((Fd::Owned(try_clone(fd)?), None))
+                    Ok((Fd::Borrowed(fd.as_raw_fd()), None))
                 } else {
                     Err(Error::ChildIo(io::Error::new(
                         io::ErrorKind::Other,
