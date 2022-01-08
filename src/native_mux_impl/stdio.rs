@@ -7,7 +7,7 @@ use once_cell::sync::OnceCell;
 use io_lifetimes::OwnedFd;
 use std::fs::{File, OpenOptions};
 use std::io;
-use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
+use std::os::unix::io::{AsRawFd, RawFd};
 use tokio_pipe::{pipe, PipeRead, PipeWrite};
 
 fn get_access_mode(fd: &OwnedFd) -> Result<AccessMode, Error> {
@@ -70,7 +70,9 @@ fn get_null_fd() -> Result<RawFd, Error> {
 }
 
 pub(crate) enum Fd {
-    Owned(OwnedFd),
+    PipeReadEnd(PipeRead),
+    PipeWriteEnd(PipeWrite),
+
     Borrowed(RawFd),
     Null,
 }
@@ -80,7 +82,9 @@ impl Fd {
         use Fd::*;
 
         match self {
-            Owned(fd) => Ok(AsRawFd::as_raw_fd(fd)),
+            PipeReadEnd(fd) => Ok(AsRawFd::as_raw_fd(fd)),
+            PipeWriteEnd(fd) => Ok(AsRawFd::as_raw_fd(fd)),
+
             Borrowed(rawfd) => Ok(*rawfd),
             Null => get_null_fd(),
         }
@@ -94,7 +98,7 @@ impl Stdio {
             StdioImpl::Null => Ok((Fd::Null, None)),
             StdioImpl::Pipe => {
                 let (read, write) = create_pipe()?;
-                Ok((Fd::Owned(input_to_fd(read)), Some(write)))
+                Ok((Fd::PipeReadEnd(read), Some(write)))
             }
             StdioImpl::Fd(fd) => {
                 if get_access_mode(fd)?.is_readable() {
@@ -115,7 +119,7 @@ impl Stdio {
             StdioImpl::Null => Ok((Fd::Null, None)),
             StdioImpl::Pipe => {
                 let (read, write) = create_pipe()?;
-                Ok((Fd::Owned(output_to_fd(write)), Some(read)))
+                Ok((Fd::PipeWriteEnd(write), Some(read)))
             }
             StdioImpl::Fd(fd) => {
                 if get_access_mode(fd)?.is_writeable() {
@@ -142,17 +146,3 @@ impl Stdio {
 pub(crate) type ChildStdin = PipeWrite;
 pub(crate) type ChildStdout = PipeRead;
 pub(crate) type ChildStderr = PipeRead;
-
-fn output_to_fd(output: PipeWrite) -> OwnedFd {
-    let raw_fd = output.into_raw_fd();
-
-    // safety: output is guaranteed to contain a valid fd.
-    unsafe { OwnedFd::from_raw_fd(raw_fd) }
-}
-
-fn input_to_fd(input: PipeRead) -> OwnedFd {
-    let raw_fd = input.into_raw_fd();
-
-    // safety: input is guaranteed to contain a valid fd.
-    unsafe { OwnedFd::from_raw_fd(raw_fd) }
-}
