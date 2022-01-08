@@ -221,11 +221,7 @@ impl<'s> Command<'s> {
         self
     }
 
-    /// Executes the remote command without waiting for it, returning a handle to it
-    /// instead.
-    ///
-    /// By default, stdin is empty, and stdout and stderr are discarded.
-    pub async fn spawn(&mut self) -> Result<RemoteChild<'s>, Error> {
+    async fn spawn_impl(&mut self) -> Result<RemoteChild<'s>, Error> {
         Ok(RemoteChild::new(
             self.session,
             delegate!(&mut self.imp, imp, {
@@ -249,6 +245,21 @@ impl<'s> Command<'s> {
         ))
     }
 
+    /// Executes the remote command without waiting for it, returning a handle to it
+    /// instead.
+    ///
+    /// By default, stdin is empty, and stdout and stderr are discarded.
+    pub async fn spawn(&mut self) -> Result<RemoteChild<'s>, Error> {
+        if !self.stdout_set {
+            self.stdout(Stdio::null());
+        }
+        if !self.stderr_set {
+            self.stderr(Stdio::null());
+        }
+
+        self.spawn_impl().await
+    }
+
     /// Executes the remote command, waiting for it to finish and collecting all of its output.
     ///
     /// By default, stdout and stderr are captured (and used to provide the resulting
@@ -261,7 +272,9 @@ impl<'s> Command<'s> {
             self.stderr(Stdio::piped());
         }
 
-        self.spawn().await?.wait_with_output().await
+        let res = self.spawn_impl().await?.wait_with_output().await;
+
+        res
     }
 
     /// Executes the remote command, waiting for it to finish and collecting its exit status.
