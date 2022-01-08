@@ -204,6 +204,11 @@ pub(crate) mod native_mux_impl;
 mod port_forwarding;
 pub use port_forwarding::*;
 
+/// Types to create and interact with the Remote Process
+pub mod process {
+    pub use super::{Command, RemoteChild, Stdio};
+}
+
 #[derive(Debug)]
 pub(crate) enum SessionImp {
     #[cfg(feature = "process-mux")]
