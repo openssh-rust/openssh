@@ -113,9 +113,12 @@ impl Stdio {
         }
     }
 
-    fn to_output(&self, rawfd: RawFd) -> Result<(Fd, Option<PipeRead>), Error> {
+    fn to_output(
+        &self,
+        get_inherit_rawfd: impl FnOnce() -> RawFd,
+    ) -> Result<(Fd, Option<PipeRead>), Error> {
         match &self.0 {
-            StdioImpl::Inherit => Ok((Fd::Borrowed(rawfd), None)),
+            StdioImpl::Inherit => Ok((Fd::Borrowed(get_inherit_rawfd()), None)),
             StdioImpl::Null => Ok((Fd::Null, None)),
             StdioImpl::Pipe => {
                 let (read, write) = create_pipe()?;
@@ -135,11 +138,11 @@ impl Stdio {
     }
 
     pub(crate) fn to_stdout(&self) -> Result<(Fd, Option<PipeRead>), Error> {
-        self.to_output(io::stdout().as_raw_fd())
+        self.to_output(|| io::stdout().as_raw_fd())
     }
 
     pub(crate) fn to_stderr(&self) -> Result<(Fd, Option<PipeRead>), Error> {
-        self.to_output(io::stderr().as_raw_fd())
+        self.to_output(|| io::stderr().as_raw_fd())
     }
 }
 
