@@ -20,9 +20,9 @@ pub(crate) struct Command<'s> {
 }
 
 impl<'s> Command<'s> {
-    pub(crate) fn new(ctl: &'s Path, cmd: String) -> Self {
+    pub(crate) fn new(ctl: &'s Path, cmd: Vec<u8>) -> Self {
         Self {
-            cmd: cmd.into_bytes(),
+            cmd,
             ctl,
 
             stdin_v: Stdio::null(),

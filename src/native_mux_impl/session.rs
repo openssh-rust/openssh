@@ -1,6 +1,7 @@
 use super::{Command, Error, ForwardType, Socket};
 
 use std::ffi::OsStr;
+use std::os::unix::ffi::OsStrExt;
 use std::path::Path;
 
 use openssh_mux_client::{shutdown_mux_master, Connection};
@@ -33,8 +34,7 @@ impl Session {
     }
 
     pub(crate) fn raw_command<S: AsRef<OsStr>>(&self, program: S) -> Command<'_> {
-        let program = program.as_ref().to_string_lossy();
-        Command::new(&self.ctl, program.to_string())
+        Command::new(&self.ctl, program.as_ref().as_bytes().into())
     }
 
     pub(crate) async fn request_port_forward(
