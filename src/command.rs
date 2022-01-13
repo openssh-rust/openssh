@@ -250,6 +250,8 @@ impl<'s> Command<'s> {
     ///
     /// By default, stdin is empty, and stdout and stderr are discarded.
     pub async fn spawn(&mut self) -> Result<RemoteChild<'s>, Error> {
+        // Reset stdout and stderr to null even if they are default to null,
+        // since spawn can be called after output is called.
         if !self.stdout_set {
             self.stdout(Stdio::null());
         }
@@ -272,9 +274,7 @@ impl<'s> Command<'s> {
             self.stderr(Stdio::piped());
         }
 
-        let res = self.spawn_impl().await?.wait_with_output().await;
-
-        res
+        self.spawn_impl().await?.wait_with_output().await
     }
 
     /// Executes the remote command, waiting for it to finish and collecting its exit status.
