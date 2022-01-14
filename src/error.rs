@@ -147,7 +147,7 @@ impl Error {
         stderr = stderr.strip_prefix("ssh: ").unwrap_or(stderr);
         if stderr.starts_with("Warning: Permanently added ") {
             // added to hosts file -- let's ignore that message
-            stderr = stderr.split_once("\n").map(|x| x.1.trim()).unwrap_or("");
+            stderr = stderr.split_once('\n').map(|x| x.1.trim()).unwrap_or("");
         }
         let mut kind = io::ErrorKind::ConnectionAborted;
         let mut err = stderr.splitn(2, ": ");

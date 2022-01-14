@@ -158,7 +158,7 @@ impl Session {
 
         if stderr.starts_with("Warning: Permanently added ") {
             // added to hosts file -- let's ignore that message
-            stderr = stderr.split_once("\n").map(|x| x.1.trim()).unwrap_or("");
+            stderr = stderr.split_once('\n').map(|x| x.1.trim()).unwrap_or("");
         }
 
         if stderr.is_empty() {
