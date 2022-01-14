@@ -20,7 +20,7 @@ pub(crate) enum StdioImpl {
     Pipe,
     /// Read/Write to custom fd
     Fd(OwnedFd),
-
+    /// Inherit stdin/stdout/stderr
     Inherit,
 }
 
