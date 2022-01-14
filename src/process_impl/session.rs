@@ -31,7 +31,7 @@ impl Session {
         }
     }
 
-    fn new_cmd(&self, args: &[&str]) -> process::Command {
+    fn new_cmd(&self, args: &[impl AsRef<OsStr>]) -> process::Command {
         let mut cmd = process::Command::new("ssh");
         cmd.stdin(Stdio::null())
             .arg("-S")
@@ -80,16 +80,16 @@ impl Session {
         connect_socket: impl Into<Socket<'_>>,
     ) -> Result<(), Error> {
         let flag = match forward_type.into() {
-            ForwardType::Local => "-L",
-            ForwardType::Remote => "-R",
+            ForwardType::Local => OsStr::new("-L"),
+            ForwardType::Remote => OsStr::new("-R"),
         };
 
+        let mut forwarding = listen_socket.into().as_osstr().into_owned();
+        forwarding.push(":");
+        forwarding.push(connect_socket.into().as_osstr());
+
         let port_forwarding = self
-            .new_cmd(&[
-                "-fNT",
-                flag,
-                &format!("{}:{}", &listen_socket.into(), &connect_socket.into()),
-            ])
+            .new_cmd(&[OsStr::new("-fNT"), flag, &*forwarding])
             .output()
             .await
             .map_err(Error::Ssh)?;

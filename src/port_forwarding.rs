@@ -1,9 +1,11 @@
 #[cfg(feature = "native-mux")]
 use super::native_mux_impl;
 
-use core::fmt;
+#[cfg(feature = "process-mux")]
+use std::ffi::OsStr;
 
 use std::borrow::Cow;
+use std::fmt;
 use std::io;
 use std::net::{SocketAddr, ToSocketAddrs};
 use std::path::Path;
@@ -52,6 +54,14 @@ impl Socket<'_> {
         })?;
 
         Ok(Socket::TcpSocket(addr))
+    }
+
+    #[cfg(feature = "process-mux")]
+    pub(crate) fn as_osstr(&self) -> Cow<'_, OsStr> {
+        match self {
+            Socket::UnixSocket { path } => Cow::Borrowed(path.as_os_str()),
+            Socket::TcpSocket(socket) => Cow::Owned(format!("{}", socket).into()),
+        }
     }
 }
 
