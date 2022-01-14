@@ -175,8 +175,6 @@ compile_error!("Either process or native-mux must be enabled!");
 use std::borrow::Cow;
 use std::ffi::OsStr;
 
-mod fd;
-
 mod stdio;
 pub use stdio::{ChildStderr, ChildStdin, ChildStdout, Stdio};
 

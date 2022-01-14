@@ -1,4 +1,3 @@
-use super::fd::dup;
 use super::Error;
 
 #[cfg(feature = "native-mux")]
@@ -6,11 +5,22 @@ use super::native_mux_impl;
 
 use io_lifetimes::OwnedFd;
 use std::fs::File;
+use std::io;
 use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
 use std::process;
 
 use std::convert::TryFrom;
 use std::convert::TryInto;
+
+pub(crate) unsafe fn dup(raw_fd: RawFd) -> Result<OwnedFd, Error> {
+    let res = libc::dup(raw_fd);
+    if res == -1 {
+        Err(Error::ChildIo(io::Error::last_os_error()))
+    } else {
+        // safety: dup returns a valid fd on success.
+        Ok(OwnedFd::from_raw_fd(res))
+    }
+}
 
 #[derive(Debug)]
 pub(crate) enum StdioImpl {
