@@ -164,7 +164,7 @@ impl<'s> RemoteChild<'s> {
                     .map_err(Error::ChildIo)?;
             }
 
-            Result::<_, Error>::Ok(stderr)
+            Ok::<_, Error>(stderr)
         };
 
         // Execute them concurrently to avoid the pipe buffer being filled up
