@@ -204,7 +204,7 @@ pub use port_forwarding::*;
 
 /// Types to create and interact with the Remote Process
 pub mod process {
-    pub use super::{Command, RemoteChild, Stdio};
+    pub use super::{ChildStderr, ChildStdin, ChildStdout, Command, RemoteChild, Stdio};
 }
 
 #[derive(Debug)]
