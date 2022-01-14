@@ -105,7 +105,7 @@ impl Stdio {
                     Ok((Fd::Borrowed(fd.as_raw_fd()), None))
                 } else {
                     Err(Error::ChildIo(io::Error::new(
-                        io::ErrorKind::Other,
+                        io::ErrorKind::InvalidInput,
                         "Fd stored in Stdio isn't readable",
                     )))
                 }
@@ -129,7 +129,7 @@ impl Stdio {
                     Ok((Fd::Borrowed(fd.as_raw_fd()), None))
                 } else {
                     Err(Error::ChildIo(io::Error::new(
-                        io::ErrorKind::Other,
+                        io::ErrorKind::InvalidInput,
                         "Fd stored in Stdio isn't writable",
                     )))
                 }
