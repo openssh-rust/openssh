@@ -31,8 +31,8 @@ impl Session {
         }
     }
 
-    fn new_cmd(&self, args: &[impl AsRef<OsStr>]) -> process::Command {
-        let mut cmd = process::Command::new("ssh");
+    fn new_std_cmd(&self, args: &[impl AsRef<OsStr>]) -> std::process::Command {
+        let mut cmd = std::process::Command::new("ssh");
         cmd.stdin(Stdio::null())
             .arg("-S")
             .arg(&*self.ctl_path)
@@ -41,6 +41,10 @@ impl Session {
             .args(args)
             .arg(&*self.addr);
         cmd
+    }
+
+    fn new_cmd(&self, args: &[impl AsRef<OsStr>]) -> process::Command {
+        self.new_std_cmd(args).into()
     }
 
     pub(crate) async fn check(&self) -> Result<(), Error> {
@@ -185,17 +189,8 @@ impl Drop for Session {
         };
 
         // Use a blocking call instead of async one.
-        let mut cmd = std::process::Command::new("ssh");
-
-        let _res = cmd
-            .arg("-S")
-            .arg(&*self.ctl_path)
-            .arg("-o")
-            .arg("BatchMode=yes")
-            .arg("-o")
-            .arg("exit")
-            .arg(&*self.addr)
-            .stdin(Stdio::null())
+        let _res = self
+            .new_std_cmd(&["-o", "exit"])
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .status();
