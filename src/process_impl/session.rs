@@ -188,11 +188,12 @@ impl Drop for Session {
             None => return,
         };
 
-        // Use a blocking call instead of async one.
         let _res = self
             .new_std_cmd(&["-o", "exit"])
             .stdout(Stdio::null())
             .stderr(Stdio::null())
-            .status();
+            // spawn is a non-blocking syscall, so it would not block any
+            // tokio workers.
+            .spawn();
     }
 }
