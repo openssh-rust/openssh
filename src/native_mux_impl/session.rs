@@ -1,8 +1,11 @@
 use super::{Command, Error, ForwardType, Socket};
 
 use std::ffi::OsStr;
+use std::mem::replace;
 use std::os::unix::ffi::OsStrExt;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+
+use tokio::runtime;
 
 use openssh_mux_client::{shutdown_mux_master, Connection};
 use tempfile::TempDir;
@@ -73,12 +76,25 @@ impl Session {
 impl Drop for Session {
     fn drop(&mut self) {
         // Keep tempdir alive until the shutdown request is sent
-        let _tempdir = match self.tempdir.take() {
+        let tempdir = match self.tempdir.take() {
             Some(tempdir) => tempdir,
             // return since close must have already been called.
             None => return,
         };
 
-        let _res = shutdown_mux_master(&self.ctl);
+        if let Ok(handle) = runtime::Handle::try_current() {
+            // Avoid blocking syscalls if the `drop` is executed in async context.
+            let ctl = replace(&mut self.ctl, PathBuf::new().into_boxed_path());
+            handle.spawn(async move {
+                // Keep tempdir alive until the shutdown request is sent
+                let _tempdir = tempdir;
+
+                if let Ok(mut conn) = Connection::connect(&ctl).await {
+                    let _res = conn.request_stop_listening().await;
+                }
+            });
+        } else {
+            let _res = shutdown_mux_master(&self.ctl);
+        }
     }
 }
