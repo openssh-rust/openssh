@@ -172,6 +172,18 @@ pub use child::RemoteChild;
 mod error;
 pub use error::Error;
 
+/// Sftp implementation
+///
+/// # Cancel Safety
+///
+/// If you need to know about the cancel safety of the futures produced by
+/// this module, please see the documentation in
+/// [`openssh_sftp_client::highlevel`].
+
+#[cfg(feature = "sftp")]
+#[cfg_attr(docsrs, doc(cfg(feature = "sftp")))]
+pub mod sftp;
+
 #[cfg(feature = "process-mux")]
 pub(crate) mod process_impl;
 
@@ -410,6 +422,25 @@ impl Session {
             imp.request_port_forward(forward_type, listen_socket, connect_socket)
                 .await
         })
+    }
+
+    /// Prepare to perform file operations on the remote host using
+    /// sftp protocol v3.
+    ///
+    /// See [`sftp::Sftp`] for details on how to interact with the remote files.
+    #[cfg(feature = "sftp")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "sftp")))]
+    pub async fn sftp(&self, options: sftp::SftpOptions) -> Result<sftp::Sftp<'_>, Error> {
+        let (remote_child, stdin, stdout) = delegate!(&self.0, imp, {
+            let (remote_child, stdin, stdout) = imp.sftp().await?;
+
+            let stdin: ChildStdin = stdin.try_into()?;
+            let stdout: ChildStdout = stdout.try_into()?;
+
+            (remote_child.into(), stdin, stdout)
+        });
+
+        sftp::Sftp::new(remote_child, stdin, stdout, options).await
     }
 
     /// Terminate the remote connection.

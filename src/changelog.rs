@@ -11,6 +11,9 @@ use crate::*;
 ///  - Associated function [`SessionBuilder::compression`]
 ///  - Associated function [`SessionBuilder::user_known_hosts_file`]
 ///  - Associated function [`Session::control_socket`] for non-Windows platform.
+///  - Feature `sftp`.
+///  - New mod [`sftp`], contains the new, true Sftp implementation.
+///  - Associated function [`Session::sftp`]
 ///
 /// ## Changed
 ///  - Make [`ChildStdin`] an opaque type.

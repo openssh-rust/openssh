@@ -33,8 +33,20 @@ function cleanup {
 }
 trap cleanup EXIT
 
+function cleanup {
+    ssh-agent -k
+}
+trap cleanup EXIT
+
 echo Run tests
 rm -rf control-test config-file-test .ssh-connection*
+
+# Sftp integration tests creates files and directories in /tmp.
+# Normally, these tests would remove any files and directories created in /tmp,
+# but in case they fail, these files will be left there and
+# interfere with the next integration test.
+echo "Remove all files in /tmp in the container"
+docker exec -it openssh bash -c 'rm -rf /tmp/*'
 
 echo Running integration test
 cargo test \

@@ -34,6 +34,7 @@ rustdoc-args = ["--cfg", "docsrs"]
 default = ["process-mux"]
 process-mux = []
 native-mux = ["openssh-mux-client"]
+sftp = ["openssh-sftp-client"]
 
 [dependencies]
 tempfile = "3.1.0"
@@ -48,6 +49,8 @@ once_cell = "1.8.0"
 dirs = "4.0.0"
 
 openssh-mux-client = { version = "0.14.4", optional = true }
+
+openssh-sftp-client = { version = "0.8.3", optional = true }
 
 [dev-dependencies]
 lazy_static = "1.4.0"
