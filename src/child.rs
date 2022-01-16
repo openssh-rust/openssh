@@ -39,6 +39,7 @@ macro_rules! delegate {
         }
     }};
 }
+pub(crate) use delegate;
 
 /// Representation of a running or exited remote child process.
 ///
