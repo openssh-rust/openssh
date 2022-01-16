@@ -14,6 +14,9 @@ use crate::*;
 ///  - Make [`ChildStdin`] an opaque type.
 ///  - Make [`ChildStdout`] an opaque type.
 ///  - Make [`ChildStderr`] an opaque type.
+///  - Feature `sftp`.
+///  - New mod [`sftp`], contains the new, true Sftp implementation.
+///  - Associated function [`Session::sftp`]
 #[doc(hidden)]
 pub mod unreleased {}
 

@@ -1,3 +1,6 @@
+mod common;
+use common::*;
+
 use lazy_static::lazy_static;
 use regex::Regex;
 use std::borrow::Cow;
@@ -17,10 +20,6 @@ use openssh::*;
 
 // TODO: how do we test the connection actually _failing_ so that the master reports an error?
 
-fn addr() -> String {
-    std::env::var("TEST_HOST").unwrap_or("ssh://test-user@127.0.0.1:2222".to_string())
-}
-
 fn loopback() -> IpAddr {
     "127.0.0.1".parse().unwrap()
 }
@@ -36,26 +35,6 @@ async fn session_builder_connect(builder: SessionBuilder, addr: &str) -> Vec<Ses
     #[cfg(feature = "native-mux")]
     {
         sessions.push(builder.connect_mux(addr).await.unwrap());
-    }
-
-    sessions
-}
-
-async fn connects() -> Vec<Session> {
-    let mut sessions = Vec::with_capacity(2);
-
-    #[cfg(feature = "process-mux")]
-    {
-        sessions.push(Session::connect(&addr(), KnownHosts::Accept).await.unwrap());
-    }
-
-    #[cfg(feature = "native-mux")]
-    {
-        sessions.push(
-            Session::connect_mux(&addr(), KnownHosts::Accept)
-                .await
-                .unwrap(),
-        );
     }
 
     sessions
@@ -371,141 +350,6 @@ macro_rules! assert_remote_kind {
             "{:?}",
             e
         );
-    }
-}
-
-#[tokio::test]
-#[cfg_attr(not(ci), ignore)]
-async fn sftp_can() {
-    for session in connects().await {
-        let mut sftp = session.sftp();
-
-        // first, do some access checks
-        // some things we can do
-        sftp.can(Mode::Write, "test_file").await.unwrap();
-        sftp.can(Mode::Write, ".ssh/test_file").await.unwrap();
-        sftp.can(Mode::Read, ".ssh/authorized_keys").await.unwrap();
-        sftp.can(Mode::Read, "/etc/hostname").await.unwrap();
-        // some things we cannot
-        assert_remote_kind!(
-            sftp.can(Mode::Write, "/etc/passwd").await.unwrap_err(),
-            io::ErrorKind::PermissionDenied
-        );
-        assert_remote_kind!(
-            sftp.can(Mode::Write, "no/such/file").await.unwrap_err(),
-            io::ErrorKind::NotFound
-        );
-        assert_remote_kind!(
-            sftp.can(Mode::Read, "/etc/shadow").await.unwrap_err(),
-            io::ErrorKind::PermissionDenied
-        );
-        assert_remote_kind!(
-            sftp.can(Mode::Read, "/etc/no-such-file").await.unwrap_err(),
-            io::ErrorKind::NotFound
-        );
-        assert_remote_kind!(
-            sftp.can(Mode::Write, "/etc/no-such-file")
-                .await
-                .unwrap_err(),
-            io::ErrorKind::PermissionDenied
-        );
-        assert_remote_kind!(
-            sftp.can(Mode::Write, "/no-such-file").await.unwrap_err(),
-            io::ErrorKind::PermissionDenied
-        );
-        assert_remote_kind!(
-            sftp.can(Mode::Read, "no/such/file").await.unwrap_err(),
-            io::ErrorKind::NotFound
-        );
-        // and something are just weird
-        assert_remote_kind!(
-            sftp.can(Mode::Write, ".ssh").await.unwrap_err(),
-            io::ErrorKind::AlreadyExists
-        );
-        assert_remote_kind!(
-            sftp.can(Mode::Write, "/etc").await.unwrap_err(),
-            io::ErrorKind::AlreadyExists
-        );
-        assert_remote_kind!(
-            sftp.can(Mode::Write, "/").await.unwrap_err(),
-            io::ErrorKind::AlreadyExists
-        );
-        assert_remote_kind!(
-            sftp.can(Mode::Read, "/etc").await.unwrap_err(),
-            io::ErrorKind::Other
-        );
-
-        session.close().await.unwrap();
-    }
-}
-
-#[tokio::test]
-#[cfg_attr(not(ci), ignore)]
-async fn sftp() {
-    for session in connects().await {
-        let mut sftp = session.sftp();
-
-        // first, open a file for writing
-        let mut w = sftp.write_to("test_file").await.unwrap();
-
-        // reading from a write-only file should error
-        let failed = w.read(&mut [0]).await.unwrap_err();
-        assert_eq!(failed.kind(), io::ErrorKind::UnexpectedEof);
-
-        // write something to the file
-        w.write_all(b"hello").await.unwrap();
-        w.close().await.unwrap();
-
-        // we should still be able to write it
-        sftp.can(Mode::Write, "test_file").await.unwrap();
-        // and now also read it
-        sftp.can(Mode::Read, "test_file").await.unwrap();
-
-        // open the file again for appending
-        let mut w = sftp.append_to("test_file").await.unwrap();
-
-        // reading from an append-only file should also error
-        let failed = w.read(&mut [0]).await.unwrap_err();
-        assert_eq!(failed.kind(), io::ErrorKind::UnexpectedEof);
-
-        // append something to the file
-        w.write_all(b" world").await.unwrap();
-        w.close().await.unwrap();
-
-        // then, open the same file for reading
-        let mut r = sftp.read_from("test_file").await.unwrap();
-
-        // writing to a read-only file should error
-        let failed = r.write(&[0]).await.unwrap_err();
-        assert_eq!(failed.kind(), io::ErrorKind::WriteZero);
-
-        // read back the file
-        let mut contents = String::new();
-        r.read_to_string(&mut contents).await.unwrap();
-        assert_eq!(contents, "hello world");
-        r.close().await.unwrap();
-
-        // reading a file that does not exist should error on open
-        let failed = sftp.read_from("no/such/file").await.unwrap_err();
-        assert_remote_kind!(failed, io::ErrorKind::NotFound);
-        // so should file we're not allowed to read
-        let failed = sftp.read_from("/etc/shadow").await.unwrap_err();
-        assert_remote_kind!(failed, io::ErrorKind::PermissionDenied);
-
-        // writing a file that does not exist should also error on open
-        let failed = sftp.write_to("no/such/file").await.unwrap_err();
-        assert_remote_kind!(failed, io::ErrorKind::NotFound);
-        // so should file we're not allowed to write
-        let failed = sftp.write_to("/rootfile").await.unwrap_err();
-        assert_remote_kind!(failed, io::ErrorKind::PermissionDenied);
-
-        // writing to a full disk (or the like) should also error
-        let mut w = sftp.write_to("/dev/full").await.unwrap();
-        w.write_all(b"hello world").await.unwrap();
-        let failed = w.close().await.unwrap_err();
-        assert_remote_kind!(failed, io::ErrorKind::WriteZero);
-
-        session.close().await.unwrap();
     }
 }
 
