@@ -114,6 +114,26 @@ impl Session {
         }
     }
 
+    #[cfg(feature = "sftp")]
+    pub(crate) async fn sftp(
+        &self,
+    ) -> Result<(super::RemoteChild, super::ChildStdin, super::ChildStdout), Error> {
+        let mut cmd = self.new_cmd(&["-T", "-p", "9"]);
+
+        // -s enables ssh subsystem
+        cmd.args(&["-s", "--", "sftp"]);
+
+        let mut cmd = Command::new(cmd);
+
+        cmd.stdin(Stdio::piped());
+        cmd.stdout(Stdio::piped());
+        cmd.stderr(Stdio::null());
+
+        let (remote_child, stdin, stdout, _stderr) = cmd.spawn().await?;
+
+        Ok((remote_child, stdin.unwrap(), stdout.unwrap()))
+    }
+
     pub(crate) async fn close(mut self) -> Result<(), Error> {
         let mut exit_cmd = self.new_cmd(&["-O", "exit"]);
 

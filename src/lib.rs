@@ -167,8 +167,29 @@ pub use child::RemoteChild;
 mod error;
 pub use error::Error;
 
-mod sftp;
-pub use sftp::{Mode, RemoteFile, Sftp};
+/// Scp implementation using commands such as cat, dd and etc.
+#[cfg(feature = "scp")]
+#[cfg_attr(docsrs, doc(cfg(feature = "scp")))]
+pub mod scp;
+
+/// Sftp implementation
+///
+/// # Cancel Safety
+///
+/// All `async` functions in this module are cancel safe.
+///
+/// Internally, this is archived by first writing requests into a write buffer
+/// containing `bytes::Bytes` and then flush all buffers at once periodically
+/// to archive cancel safety and improve efficiencies.
+///
+/// However, cancelling the future does not actually has any effect,
+/// since the requests are sent regardless of the cancellation.
+///
+/// Thus, if you cancel a future that changes the remote filesystem in any way,
+/// then the change would still happen regardless.
+#[cfg(feature = "sftp")]
+#[cfg_attr(docsrs, doc(cfg(feature = "sftp")))]
+pub mod sftp;
 
 #[cfg(feature = "process-mux")]
 pub(crate) mod process_impl;
@@ -403,11 +424,33 @@ impl Session {
         })
     }
 
-    /// Prepare to perform file operations on the remote host.
+    /// Prepare to perform file operations on the remote host, by using
+    /// shell command like dd, cat, tee.
     ///
-    /// See [`Sftp`] for details on how to interact with the remote files.
-    pub fn sftp(&self) -> Sftp<'_> {
-        Sftp::new(self)
+    /// See [`scp::Scp`] for details on how to interact with the remote files.
+    #[cfg(feature = "scp")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "scp")))]
+    pub fn scp(&self) -> scp::Scp<'_> {
+        scp::Scp::new(self)
+    }
+
+    /// Prepare to perform file operations on the remote host using
+    /// sftp protocol v3.
+    ///
+    /// See [`sftp::Sftp`] for details on how to interact with the remote files.
+    #[cfg(feature = "sftp")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "sftp")))]
+    pub async fn sftp(&self, options: sftp::SftpOptions) -> Result<sftp::Sftp<'_>, Error> {
+        let (remote_child, stdin, stdout) = delegate!(&self.0, imp, {
+            let (remote_child, stdin, stdout) = imp.sftp().await?;
+
+            let stdin: stdio::ChildInputWrapper = TryFrom::try_from(stdin)?;
+            let stdout: stdio::ChildOutputWrapper = TryFrom::try_from(stdout)?;
+
+            (remote_child.into(), stdin.0, stdout.0)
+        });
+
+        sftp::Sftp::new(remote_child, stdin, stdout, options).await
     }
 
     /// Terminate the remote connection.
