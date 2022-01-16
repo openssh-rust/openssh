@@ -20,10 +20,10 @@ jobs:
      - script: cargo fmt -- --check
        displayName: cargo fmt --check
 
-     - script: cargo clippy --no-default-features --features process-mux -- -D warnings -A unknown-lints
-       displayName: cargo clippy --no-default-features --features process-mux -- -D warnings
-     - script: cargo clippy --no-default-features --features native-mux -- -D warnings -A unknown-lints
-       displayName: cargo clippy --no-default-features --features native-mux -- -D warnings
+     - script: cargo clippy --no-default-features --features process-mux,scp -- -D warnings -A unknown-lints
+       displayName: cargo clippy --no-default-features --features process-mux,scp -- -D warnings
+     - script: cargo clippy --no-default-features --features native-mux,scp -- -D warnings -A unknown-lints
+       displayName: cargo clippy --no-default-features --features native-mux,scp -- -D warnings
      - script: cargo clippy --all-features -- -D warnings -A unknown-lints
        displayName: cargo clippy --all-features -- -D warnings
 
@@ -71,13 +71,12 @@ jobs:
      - template: install-rust.yml@templates
        parameters:
          rust: $(rust)
-
      - script: cargo check --no-default-features
        displayName: cargo check --no-default-features
-     - script: cargo check --no-default-features --features process-mux
-       displayName: cargo check --no-default-features --features process-mux
-     - script: cargo check --no-default-features --features native-mux
-       displayName: cargo check --no-default-features --features native-mux
+     - script: cargo check --no-default-features --features process-mux,scp
+       displayName: cargo check --no-default-features --features process-mux,scp
+     - script: cargo check --no-default-features --features native-mux,scp
+       displayName: cargo check --no-default-features --features native-mux,scp
      - script: cargo check --all-features
        displayName: cargo check --all-features
      - script: cargo test --all-features

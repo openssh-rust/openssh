@@ -375,6 +375,7 @@ macro_rules! assert_remote_kind {
 }
 
 #[tokio::test]
+#[cfg(feature = "scp")]
 #[cfg_attr(not(ci), ignore)]
 async fn sftp_can() {
     for session in connects().await {
@@ -440,6 +441,7 @@ async fn sftp_can() {
 }
 
 #[tokio::test]
+#[cfg(feature = "scp")]
 #[cfg_attr(not(ci), ignore)]
 async fn sftp() {
     for session in connects().await {
