@@ -177,6 +177,11 @@ mod scp;
 pub use scp::{Mode, RemoteFile, Scp};
 >>>>>>> 26b6b2d (Add feature scp)
 
+/// Sftp implementation
+#[cfg(feature = "sftp")]
+#[cfg_attr(docsrs, doc(cfg(feature = "sftp")))]
+pub mod sftp;
+
 #[cfg(feature = "process-mux")]
 pub(crate) mod process_impl;
 
@@ -417,6 +422,26 @@ impl Session {
     #[cfg_attr(docsrs, doc(cfg(feature = "scp")))]
     pub fn scp(&self) -> Scp<'_> {
         Scp::new(self)
+    }
+
+    /// Prepare to perform file operations on the remote host.
+    ///
+    /// See [`sftp::Sftp`] for details on how to interact with the remote files.
+    #[cfg(feature = "sftp")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "sftp")))]
+    pub async fn sftp(&self) -> Result<sftp::Sftp<'_>, Error> {
+        use std::convert::TryFrom;
+
+        let (remote_child, stdin, stdout) = delegate!(&self.0, imp, {
+            let (remote_child, stdin, stdout) = imp.sftp().await?;
+
+            let stdin: stdio::ChildInputWrapper = TryFrom::try_from(stdin)?;
+            let stdout: stdio::ChildOutputWrapper = TryFrom::try_from(stdout)?;
+
+            (remote_child.into(), stdin.0, stdout.0)
+        });
+
+        sftp::Sftp::new(self, remote_child, stdin, stdout).await
     }
 
     /// Terminate the remote connection.
