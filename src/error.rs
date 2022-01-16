@@ -58,6 +58,11 @@ pub enum Error {
 
     /// IO Error when creating/reading/writing from ChildStdin, ChildStdout, ChildStderr.
     ChildIo(io::Error),
+
+    /// Sftp error
+    #[cfg(feature = "sftp")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "sftp")))]
+    SftpError(openssh_sftp_client::Error),
 }
 
 #[cfg(feature = "native-mux")]
@@ -80,6 +85,13 @@ impl From<openssh_mux_client::Error> for Error {
             },
             _ => Error::SshMux(err),
         }
+    }
+}
+
+#[cfg(feature = "sftp")]
+impl From<openssh_sftp_client::Error> for Error {
+    fn from(err: openssh_sftp_client::Error) -> Self {
+        Error::SftpError(err)
     }
 }
 
@@ -106,6 +118,9 @@ impl fmt::Display for Error {
 
             #[cfg(feature = "native-mux")]
             Error::InvalidCommand => write!(f, "invalid command: Command contains null byte."),
+
+            #[cfg(feature = "sftp")]
+            Error::SftpError(_) => write!(f, "Sftp error"),
         }
     }
 }
@@ -129,6 +144,9 @@ impl std::error::Error for Error {
 
             #[cfg(feature = "native-mux")]
             Error::SshMux(ref e) => Some(e),
+
+            #[cfg(feature = "sftp")]
+            Error::SftpError(ref e) => Some(e),
         }
     }
 }
