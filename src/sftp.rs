@@ -1,6 +1,6 @@
 use super::{child::RemoteChildImp, ChildStdin, ChildStdout, Error, Session};
 
-use openssh_sftp_client::{connect, Extensions, Id, Limits, WriteEnd};
+use openssh_sftp_client::{connect, Extensions, Limits, WriteEnd};
 
 use tokio::task;
 
@@ -15,8 +15,6 @@ pub struct Sftp<'s> {
 
     extensions: Extensions,
     limits: Limits,
-
-    id: Option<Id<Vec<u8>>>,
 }
 
 impl<'s> Sftp<'s> {
@@ -46,18 +44,15 @@ impl<'s> Sftp<'s> {
 
         let id = write_end.create_response_id();
 
-        let (id, limits) = if extensions.limits {
-            write_end.send_limits_request(id).await?.wait().await?
+        let limits = if extensions.limits {
+            write_end.send_limits_request(id).await?.wait().await?.1
         } else {
-            (
-                id,
-                Limits {
-                    packet_len: 0,
-                    read_len: openssh_sftp_client::OPENSSH_PORTABLE_DEFAULT_DOWNLOAD_BUFLEN as u64,
-                    write_len: openssh_sftp_client::OPENSSH_PORTABLE_DEFAULT_UPLOAD_BUFLEN as u64,
-                    open_handles: 0,
-                },
-            )
+            Limits {
+                packet_len: 0,
+                read_len: openssh_sftp_client::OPENSSH_PORTABLE_DEFAULT_DOWNLOAD_BUFLEN as u64,
+                write_len: openssh_sftp_client::OPENSSH_PORTABLE_DEFAULT_UPLOAD_BUFLEN as u64,
+                open_handles: 0,
+            }
         };
 
         Ok(Self {
@@ -69,8 +64,19 @@ impl<'s> Sftp<'s> {
 
             extensions,
             limits,
-
-            id: Some(id),
         })
+    }
+
+    /// Close sftp connection
+    pub async fn close(self) -> Result<(), Error> {
+        self.read_task.await??;
+        let exit_status = crate::child::delegate!(self.child, child, { child.wait().await })?;
+        if !exit_status.success() {
+            Err(Error::SftpError(
+                openssh_sftp_client::Error::SftpServerFailure(exit_status),
+            ))
+        } else {
+            Ok(())
+        }
     }
 }
