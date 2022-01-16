@@ -1,4 +1,4 @@
-use super::{Command, Error, ForwardType, Socket};
+use super::{ChildStdin, ChildStdout, Command, Error, ForwardType, RemoteChild, Socket, Stdio};
 
 use std::ffi::OsStr;
 use std::os::unix::ffi::OsStrExt;
@@ -57,6 +57,27 @@ impl Session {
             .await?;
 
         Ok(())
+    }
+
+    #[cfg(feature = "sftp")]
+    pub(crate) async fn sftp(&self) -> Result<(RemoteChild, ChildStdin, ChildStdout), Error> {
+        let (stdin, child_stdin) = Stdio::piped().to_stdin()?;
+        let (stdout, child_stdout) = Stdio::piped().to_stdout()?;
+        let stderr = Stdio::null().to_stderr()?.0;
+
+        let stdios = [
+            stdin.as_raw_fd_or_null_fd()?,
+            stdout.as_raw_fd_or_null_fd()?,
+            stderr.as_raw_fd_or_null_fd()?,
+        ];
+
+        let established_session = Connection::connect(&self.ctl).await?.sftp(&stdios).await?;
+
+        Ok((
+            RemoteChild::new(established_session),
+            child_stdin.unwrap(),
+            child_stdout.unwrap(),
+        ))
     }
 
     pub(crate) async fn close(mut self) -> Result<(), Error> {
