@@ -63,6 +63,11 @@ pub enum Error {
     #[cfg(feature = "sftp")]
     #[cfg_attr(docsrs, doc(cfg(feature = "sftp")))]
     SftpError(openssh_sftp_client::Error),
+
+    /// tokio join error
+    #[cfg(feature = "sftp")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "sftp")))]
+    TaskJoinError(tokio::task::JoinError),
 }
 
 #[cfg(feature = "native-mux")]
@@ -95,6 +100,13 @@ impl From<openssh_sftp_client::Error> for Error {
     }
 }
 
+#[cfg(feature = "sftp")]
+impl From<tokio::task::JoinError> for Error {
+    fn from(err: tokio::task::JoinError) -> Self {
+        Error::TaskJoinError(err)
+    }
+}
+
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
@@ -121,6 +133,9 @@ impl fmt::Display for Error {
 
             #[cfg(feature = "sftp")]
             Error::SftpError(_) => write!(f, "Sftp error"),
+
+            #[cfg(feature = "sftp")]
+            Error::TaskJoinError(_) => write!(f, "Failed to join tokio task"),
         }
     }
 }
@@ -147,6 +162,9 @@ impl std::error::Error for Error {
 
             #[cfg(feature = "sftp")]
             Error::SftpError(ref e) => Some(e),
+
+            #[cfg(feature = "sftp")]
+            Error::TaskJoinError(ref e) => Some(e),
         }
     }
 }
