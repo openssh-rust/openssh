@@ -25,9 +25,9 @@ impl Command {
             cmd,
             ctl,
 
-            stdin_v: Stdio::null(),
-            stdout_v: Stdio::null(),
-            stderr_v: Stdio::null(),
+            stdin_v: Stdio::inherit(),
+            stdout_v: Stdio::inherit(),
+            stderr_v: Stdio::inherit(),
         }
     }
 

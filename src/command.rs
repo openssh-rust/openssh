@@ -85,7 +85,7 @@ pub struct Command<'s> {
 impl<'s> Command<'s> {
     pub(crate) fn new(session: &'s super::Session, imp: CommandImp) -> Self {
         // All implementations of Command initializes stdin, stdout and stderr
-        // to Stdio::null()
+        // to Stdio::inherit()
         Self {
             session,
             imp,
@@ -245,15 +245,15 @@ impl<'s> Command<'s> {
     /// Executes the remote command without waiting for it, returning a handle to it
     /// instead.
     ///
-    /// By default, stdin is empty, and stdout and stderr are discarded.
+    /// By default, stdin, stdout and stderr are inherited.
     pub async fn spawn(&mut self) -> Result<RemoteChild<'s>, Error> {
         // Reset stdout and stderr to null even if they are default to null,
         // since spawn can be called after output is called.
         if !self.stdout_set {
-            self.stdout(Stdio::null());
+            self.stdout(Stdio::inherit());
         }
         if !self.stderr_set {
-            self.stderr(Stdio::null());
+            self.stderr(Stdio::inherit());
         }
 
         self.spawn_impl().await
@@ -276,7 +276,7 @@ impl<'s> Command<'s> {
 
     /// Executes the remote command, waiting for it to finish and collecting its exit status.
     ///
-    /// By default, stdin is empty, and stdout and stderr are discarded.
+    /// By default, stdin, stdout and stderr are inherited.
     pub async fn status(&mut self) -> Result<process::ExitStatus, Error> {
         self.spawn().await?.wait().await
     }
