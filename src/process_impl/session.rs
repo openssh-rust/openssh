@@ -192,8 +192,6 @@ impl Drop for Session {
             .new_std_cmd(&["-o", "exit"])
             .stdout(Stdio::null())
             .stderr(Stdio::null())
-            // spawn is a non-blocking syscall, so it would not block any
-            // tokio workers.
-            .spawn();
+            .status();
     }
 }
