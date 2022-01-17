@@ -29,16 +29,12 @@ jobs:
 
  - job: doc
    displayName: Build the doc
-   strategy:
-     matrix:
-       nightly:
-         rust: nightly
    pool:
      vmImage: ubuntu-latest
    steps:
      - template: install-rust.yml@templates
        parameters:
-         rust: $(rust)
+         rust: nightly
          components:
            - rust-docs
      - script: cargo doc --all-features
