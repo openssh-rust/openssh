@@ -30,7 +30,7 @@ rustdoc-args = ["--cfg", "docsrs"]
 [features]
 default = ["process-mux"]
 process-mux = []
-native-mux = ["once_cell", "openssh-mux-client", "tokio/rt"]
+native-mux = ["once_cell", "openssh-mux-client"]
 
 [dependencies]
 tempfile = "3.1.0"
