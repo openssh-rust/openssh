@@ -57,7 +57,7 @@ impl Socket<'_> {
     }
 
     #[cfg(feature = "process-mux")]
-    pub(crate) fn as_osstr(&self) -> Cow<'_, OsStr> {
+    pub(crate) fn as_os_str(&self) -> Cow<'_, OsStr> {
         match self {
             Socket::UnixSocket { path } => Cow::Borrowed(path.as_os_str()),
             Socket::TcpSocket(socket) => Cow::Owned(format!("{}", socket).into()),

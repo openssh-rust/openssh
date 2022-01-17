@@ -88,9 +88,9 @@ impl Session {
             ForwardType::Remote => OsStr::new("-R"),
         };
 
-        let mut forwarding = listen_socket.into().as_osstr().into_owned();
+        let mut forwarding = listen_socket.into().as_os_str().into_owned();
         forwarding.push(":");
-        forwarding.push(connect_socket.into().as_osstr());
+        forwarding.push(connect_socket.into().as_os_str());
 
         let port_forwarding = self
             .new_cmd(&[OsStr::new("-fNT"), flag, &*forwarding])
