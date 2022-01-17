@@ -20,10 +20,10 @@ pub(crate) struct Command {
 }
 
 impl Command {
-    pub(crate) fn new(ctl: &Box<Path>, cmd: Vec<u8>) -> Self {
+    pub(crate) fn new(ctl: Box<Path>, cmd: Vec<u8>) -> Self {
         Self {
             cmd,
-            ctl: Box::clone(ctl),
+            ctl,
 
             stdin_v: Stdio::null(),
             stdout_v: Stdio::null(),
