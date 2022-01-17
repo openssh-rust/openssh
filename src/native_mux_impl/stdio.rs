@@ -4,52 +4,10 @@ use crate::Stdio;
 
 use once_cell::sync::OnceCell;
 
-use io_lifetimes::OwnedFd;
 use std::fs::{File, OpenOptions};
 use std::io;
 use std::os::unix::io::{AsRawFd, RawFd};
 use tokio_pipe::{pipe, PipeRead, PipeWrite};
-
-fn get_access_mode(fd: &OwnedFd) -> Result<AccessMode, Error> {
-    // safety: self.0 is guaranteed to contain a valid fd.
-    let res = unsafe { libc::fcntl(fd.as_raw_fd(), libc::F_GETFL) };
-
-    if res == -1 {
-        Err(Error::ChildIo(io::Error::last_os_error()))
-    } else {
-        Ok(AccessMode(res & libc::O_ACCMODE))
-    }
-}
-
-#[derive(Debug, Copy, Clone)]
-struct AccessMode(libc::c_int);
-
-impl AccessMode {
-    /// Return true if the fd can only be read.
-    const fn is_rdonly(&self) -> bool {
-        self.0 == libc::O_RDONLY
-    }
-
-    /// Return true if the fd can only be write.
-    const fn is_wronly(&self) -> bool {
-        self.0 == libc::O_WRONLY
-    }
-
-    /// Return true if the fd is readable and writeable.
-    const fn is_rdwr(&self) -> bool {
-        self.0 == libc::O_RDWR
-    }
-
-    /// Return true if the fd can be read.
-    const fn is_readable(&self) -> bool {
-        self.is_rdonly() || self.is_rdwr()
-    }
-
-    /// Return true if the fd can be write.
-    const fn is_writeable(&self) -> bool {
-        self.is_wronly() || self.is_rdwr()
-    }
-}
 
 fn create_pipe() -> Result<(PipeRead, PipeWrite), Error> {
     pipe().map_err(Error::ChildIo)
@@ -100,16 +58,7 @@ impl Stdio {
                 let (read, write) = create_pipe()?;
                 Ok((Fd::PipeReadEnd(read), Some(write)))
             }
-            StdioImpl::Fd(fd) => {
-                if get_access_mode(fd)?.is_readable() {
-                    Ok((Fd::Borrowed(fd.as_raw_fd()), None))
-                } else {
-                    Err(Error::ChildIo(io::Error::new(
-                        io::ErrorKind::InvalidInput,
-                        "Fd stored in Stdio isn't readable",
-                    )))
-                }
-            }
+            StdioImpl::Fd(fd) => Ok((Fd::Borrowed(fd.as_raw_fd()), None)),
         }
     }
 
@@ -124,16 +73,7 @@ impl Stdio {
                 let (read, write) = create_pipe()?;
                 Ok((Fd::PipeWriteEnd(write), Some(read)))
             }
-            StdioImpl::Fd(fd) => {
-                if get_access_mode(fd)?.is_writeable() {
-                    Ok((Fd::Borrowed(fd.as_raw_fd()), None))
-                } else {
-                    Err(Error::ChildIo(io::Error::new(
-                        io::ErrorKind::InvalidInput,
-                        "Fd stored in Stdio isn't writable",
-                    )))
-                }
-            }
+            StdioImpl::Fd(fd) => Ok((Fd::Borrowed(fd.as_raw_fd()), None)),
         }
     }
 
