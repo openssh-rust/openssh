@@ -20,25 +20,21 @@ jobs:
      - script: cargo fmt -- --check
        displayName: cargo fmt --check
 
-     - script: cargo clippy --no-default-features --features process-mux -- -D warnings -A unknown-lints
-       displayName: cargo clippy --no-default-features --features process-mux -- -D warnings
-     - script: cargo clippy --no-default-features --features native-mux -- -D warnings -A unknown-lints
-       displayName: cargo clippy --no-default-features --features native-mux -- -D warnings
+     - script: cargo clippy --no-default-features --features process-mux,scp,sftp -- -D warnings -A unknown-lints
+       displayName: cargo clippy --no-default-features --features process-mux,scp,sftp -- -D warnings
+     - script: cargo clippy --no-default-features --features native-mux,scp,sftp -- -D warnings -A unknown-lints
+       displayName: cargo clippy --no-default-features --features native-mux,scp,sftp -- -D warnings
      - script: cargo clippy --all-features -- -D warnings -A unknown-lints
        displayName: cargo clippy --all-features -- -D warnings
 
  - job: doc
    displayName: Build the doc
-   strategy:
-     matrix:
-       nightly:
-         rust: nightly
    pool:
      vmImage: ubuntu-latest
    steps:
      - template: install-rust.yml@templates
        parameters:
-         rust: $(rust)
+         rust: nightly
          components:
            - rust-docs
      - script: cargo doc --all-features
@@ -76,10 +72,10 @@ jobs:
        parameters:
          rust: $(rust)
 
-     - script: cargo check --no-default-features --features process-mux
-       displayName: cargo check --no-default-features --features process-mux
-     - script: cargo check --no-default-features --features native-mux
-       displayName: cargo check --no-default-features --features native-mux
+     - script: cargo check --no-default-features --features process-mux,scp,sftp
+       displayName: cargo check --no-default-features --features process-mux,scp,sftp
+     - script: cargo check --no-default-features --features native-mux,scp,sftp
+       displayName: cargo check --no-default-features --features native-mux,scp,sftp
      - script: cargo check --all-features
        displayName: cargo check --all-features
      - script: cargo test --all-features
