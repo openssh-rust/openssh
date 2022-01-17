@@ -118,22 +118,6 @@
 //! # Examples
 //!
 //! ```rust,no_run
-//! # #[cfg(all(feature = "process-mux", not(feature = "native-mux")))]
-//! # #[tokio::main]
-//! # async fn main() -> Result<(), openssh::Error> {
-//! use openssh::{Session, KnownHosts};
-//!
-//! let session = Session::connect("me@ssh.example.com", KnownHosts::Strict).await?;
-//!
-//! let ls = session.command("ls").output().await?;
-//! eprintln!("{}", String::from_utf8(ls.stdout).expect("server output was not valid UTF-8"));
-//!
-//! let whoami = session.command("whoami").output().await?;
-//! assert_eq!(whoami.stdout, b"me\n");
-//!
-//! session.close().await?;
-//! # Ok(()) }
-//!
 //! # #[cfg(feature = "native-mux")]
 //! # #[tokio::main]
 //! # async fn main() -> Result<(), openssh::Error> {
