@@ -704,143 +704,78 @@ async fn process_exit_on_signal() {
     }
 }
 
-#[cfg(feature = "process-mux")]
 #[tokio::test]
 #[cfg_attr(not(ci), ignore)]
-async fn broken_connection_process_impl() {
-    let session = Session::connect(&addr(), KnownHosts::Accept).await.unwrap();
+async fn broken_connection() {
+    for session in connects().await {
+        let sleeping = session.command("sleep").arg("1000").spawn().await.unwrap();
 
-    let sleeping = session.command("sleep").arg("1000").spawn().await.unwrap();
+        // get ID of remote ssh process
+        let ppid = session
+            .command("echo")
+            .raw_arg("$PPID")
+            .output()
+            .await
+            .unwrap();
+        eprintln!("ppid: {:?}", ppid);
+        let ppid: u32 = String::from_utf8(ppid.stdout)
+            .unwrap()
+            .trim()
+            .parse()
+            .unwrap();
 
-    // get ID of remote ssh process
-    let ppid = session
-        .command("echo")
-        .raw_arg("$PPID")
-        .output()
-        .await
-        .unwrap();
-    eprintln!("ppid: {:?}", ppid);
-    let ppid: u32 = String::from_utf8(ppid.stdout)
-        .unwrap()
-        .trim()
-        .parse()
-        .unwrap();
+        // and kill it -- this kills the master connection
+        let killed = session
+            .command("kill")
+            .arg("-9")
+            .arg(&format!("{}", ppid))
+            .output()
+            .await
+            .unwrap_err();
+        eprintln!("{:?}", killed);
+        assert!(matches!(killed, Error::RemoteProcessTerminated));
 
-    // and kill it -- this kills the master connection
-    let killed = session
-        .command("kill")
-        .arg("-9")
-        .arg(&format!("{}", ppid))
-        .output()
-        .await
-        .unwrap_err();
-    eprintln!("{:?}", killed);
-    assert!(matches!(killed, Error::RemoteProcessTerminated));
+        // this fails because the master connection is gone
+        let failed = session
+            .command("echo")
+            .arg("foo")
+            .output()
+            .await
+            .unwrap_err();
+        eprintln!("{:?}", failed);
+        assert!(matches!(
+            failed,
+            Error::RemoteProcessTerminated | Error::Disconnected
+        ));
 
-    // this fails because the master connection is gone
-    let failed = session
-        .command("echo")
-        .arg("foo")
-        .output()
-        .await
-        .unwrap_err();
-    eprintln!("{:?}", failed);
-    assert!(matches!(failed, Error::RemoteProcessTerminated));
+        // so does this
+        let failed = session
+            .command("echo")
+            .arg("foo")
+            .status()
+            .await
+            .unwrap_err();
+        eprintln!("{:?}", failed);
+        assert!(matches!(
+            failed,
+            Error::RemoteProcessTerminated | Error::Disconnected
+        ));
 
-    // so does this
-    let failed = session
-        .command("echo")
-        .arg("foo")
-        .status()
-        .await
-        .unwrap_err();
-    eprintln!("{:?}", failed);
-    assert!(matches!(failed, Error::RemoteProcessTerminated));
+        // the spawned child we're waiting for must also have failed
+        let failed = sleeping.wait_with_output().await.unwrap_err();
+        eprintln!("{:?}", failed);
+        assert!(matches!(failed, Error::RemoteProcessTerminated));
 
-    // the spawned child we're waiting for must also have failed
-    let failed = sleeping.wait_with_output().await.unwrap_err();
-    eprintln!("{:?}", failed);
-    assert!(matches!(failed, Error::RemoteProcessTerminated));
+        // check should obviously fail
+        let failed = session.check().await.unwrap_err();
+        assert!(matches!(failed, Error::Disconnected), "{:?}", failed);
 
-    // check should obviously fail
-    let failed = session.check().await.unwrap_err();
-    assert!(matches!(failed, Error::Disconnected), "{:?}", failed);
-
-    // what should close do in this instance?
-    // probably not return an error, since the connection _is_ closed.
-    session.close().await.unwrap();
-}
-
-#[cfg(feature = "native-mux")]
-#[tokio::test]
-#[cfg_attr(not(ci), ignore)]
-async fn broken_connection_native_impl() {
-    let session = Session::connect_mux(&addr(), KnownHosts::Accept)
-        .await
-        .unwrap();
-
-    let sleeping = session.command("sleep").arg("1000").spawn().await.unwrap();
-
-    // get ID of remote ssh process
-    let ppid = session
-        .command("echo")
-        .raw_arg("$PPID")
-        .output()
-        .await
-        .unwrap();
-    eprintln!("ppid: {:?}", ppid);
-    let ppid: u32 = String::from_utf8(ppid.stdout)
-        .unwrap()
-        .trim()
-        .parse()
-        .unwrap();
-
-    // and kill it -- this kills the master connection
-    let killed = session
-        .command("kill")
-        .arg("-9")
-        .arg(&format!("{}", ppid))
-        .output()
-        .await
-        .unwrap_err();
-    eprintln!("{:?}", killed);
-    assert!(matches!(killed, Error::RemoteProcessTerminated));
-
-    // this fails because the master connection is gone
-    let failed = session
-        .command("echo")
-        .arg("foo")
-        .output()
-        .await
-        .unwrap_err();
-    eprintln!("{:?}", failed);
-    assert!(matches!(failed, Error::Disconnected));
-
-    // so does this
-    let failed = session
-        .command("echo")
-        .arg("foo")
-        .status()
-        .await
-        .unwrap_err();
-    eprintln!("{:?}", failed);
-    assert!(matches!(failed, Error::Disconnected));
-
-    // the spawned child we're waiting for must also have failed
-    //
-    // Due to the defect of ssh multiplex protocol mentioned in Error::Disconnected,
-    // we cannot tell Error::Disconnected from Error::RemoteProcessTerminated here.
-    let failed = sleeping.wait_with_output().await.unwrap_err();
-    eprintln!("{:?}", failed);
-    assert!(matches!(failed, Error::RemoteProcessTerminated));
-
-    // check should obviously fail
-    let failed = session.check().await.unwrap_err();
-    assert!(matches!(failed, Error::Disconnected), "{:?}", failed);
-
-    // Due to the disconnection, ssh multiplex master has already exited.
-    // So attempting to shutdown it will result in error.
-    session.close().await.unwrap_err();
+        // For process_impl, close would return without any error.
+        //
+        // For native_mux_impl, close would return an error for it cannot
+        // connect to the ssh multiplex master.
+        let _res = session.close().await;
+    }
 }
 
 #[tokio::test]
