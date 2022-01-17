@@ -33,7 +33,7 @@ impl Session {
         Ok(())
     }
 
-    pub(crate) fn raw_command<S: AsRef<OsStr>>(&self, program: S) -> Command<'_> {
+    pub(crate) fn raw_command<S: AsRef<OsStr>>(&self, program: S) -> Command {
         Command::new(&self.ctl, program.as_ref().as_bytes().into())
     }
 

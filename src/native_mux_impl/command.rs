@@ -10,20 +10,20 @@ use std::path::Path;
 use openssh_mux_client::{Connection, NonZeroByteSlice, Session};
 
 #[derive(Debug)]
-pub(crate) struct Command<'s> {
+pub(crate) struct Command {
     cmd: Vec<u8>,
-    ctl: &'s Path,
+    ctl: Box<Path>,
 
     stdin_v: Stdio,
     stdout_v: Stdio,
     stderr_v: Stdio,
 }
 
-impl<'s> Command<'s> {
-    pub(crate) fn new(ctl: &'s Path, cmd: Vec<u8>) -> Self {
+impl Command {
+    pub(crate) fn new(ctl: &Box<Path>, cmd: Vec<u8>) -> Self {
         Self {
             cmd,
-            ctl,
+            ctl: Box::clone(ctl),
 
             stdin_v: Stdio::null(),
             stdout_v: Stdio::null(),
@@ -73,7 +73,7 @@ impl<'s> Command<'s> {
 
         let session = Session::builder().cmd(Cow::Borrowed(cmd)).build();
 
-        let established_session = Connection::connect(self.ctl)
+        let established_session = Connection::connect(&self.ctl)
             .await?
             .open_new_session(&session, &stdios)
             .await?;

@@ -8,27 +8,24 @@ use std::convert::TryFrom;
 use std::ffi::OsStr;
 use std::process;
 
-#[cfg(feature = "process-mux")]
-use std::marker::PhantomData;
-
 #[derive(Debug)]
-pub(crate) enum CommandImp<'s> {
+pub(crate) enum CommandImp {
     #[cfg(feature = "process-mux")]
-    ProcessImpl(super::process_impl::Command, PhantomData<&'s Session>),
+    ProcessImpl(super::process_impl::Command),
 
     #[cfg(feature = "native-mux")]
-    NativeMuxImpl(super::native_mux_impl::Command<'s>),
+    NativeMuxImpl(super::native_mux_impl::Command),
 }
 #[cfg(feature = "process-mux")]
-impl From<super::process_impl::Command> for CommandImp<'_> {
+impl From<super::process_impl::Command> for CommandImp {
     fn from(imp: super::process_impl::Command) -> Self {
-        CommandImp::ProcessImpl(imp, PhantomData)
+        CommandImp::ProcessImpl(imp)
     }
 }
 
 #[cfg(feature = "native-mux")]
-impl<'s> From<super::native_mux_impl::Command<'s>> for CommandImp<'s> {
-    fn from(imp: super::native_mux_impl::Command<'s>) -> Self {
+impl<'s> From<super::native_mux_impl::Command> for CommandImp {
+    fn from(imp: super::native_mux_impl::Command) -> Self {
         CommandImp::NativeMuxImpl(imp)
     }
 }
@@ -37,7 +34,7 @@ macro_rules! delegate {
     ($impl:expr, $var:ident, $then:block) => {{
         match $impl {
             #[cfg(feature = "process-mux")]
-            CommandImp::ProcessImpl($var, _) => $then,
+            CommandImp::ProcessImpl($var) => $then,
 
             #[cfg(feature = "native-mux")]
             CommandImp::NativeMuxImpl($var) => $then,
@@ -79,14 +76,14 @@ macro_rules! delegate {
 #[derive(Debug)]
 pub struct Command<'s> {
     session: &'s Session,
-    imp: CommandImp<'s>,
+    imp: CommandImp,
 
     stdout_set: bool,
     stderr_set: bool,
 }
 
 impl<'s> Command<'s> {
-    pub(crate) fn new(session: &'s super::Session, imp: CommandImp<'s>) -> Self {
+    pub(crate) fn new(session: &'s super::Session, imp: CommandImp) -> Self {
         // All implementations of Command initializes stdin, stdout and stderr
         // to Stdio::null()
         Self {
