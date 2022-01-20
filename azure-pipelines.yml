@@ -72,6 +72,8 @@ jobs:
        parameters:
          rust: $(rust)
 
+     - script: cargo check --no-default-features
+       displayName: cargo check --no-default-features
      - script: cargo check --no-default-features --features process-mux
        displayName: cargo check --no-default-features --features process-mux
      - script: cargo check --no-default-features --features native-mux
