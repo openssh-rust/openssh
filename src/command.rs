@@ -30,6 +30,7 @@ impl<'s> From<super::native_mux_impl::Command> for CommandImp {
     }
 }
 
+#[cfg(any(feature = "process-mux", feature = "native-mux"))]
 macro_rules! delegate {
     ($impl:expr, $var:ident, $then:block) => {{
         match $impl {
@@ -39,6 +40,13 @@ macro_rules! delegate {
             #[cfg(feature = "native-mux")]
             CommandImp::NativeMuxImpl($var) => $then,
         }
+    }};
+}
+
+#[cfg(not(any(feature = "process-mux", feature = "native-mux")))]
+macro_rules! delegate {
+    ($impl:expr, $var:ident, $then:block) => {{
+        panic!("Neither feature process-mux nor native-mux is enabled")
     }};
 }
 

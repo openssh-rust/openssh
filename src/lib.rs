@@ -197,6 +197,7 @@ pub(crate) enum SessionImp {
     NativeMuxImpl(native_mux_impl::Session),
 }
 
+#[cfg(any(feature = "process-mux", feature = "native-mux"))]
 macro_rules! delegate {
     ($impl:expr, $var:ident, $then:block) => {{
         match $impl {
@@ -206,6 +207,13 @@ macro_rules! delegate {
             #[cfg(feature = "native-mux")]
             SessionImp::NativeMuxImpl($var) => $then,
         }
+    }};
+}
+
+#[cfg(not(any(feature = "process-mux", feature = "native-mux")))]
+macro_rules! delegate {
+    ($impl:expr, $var:ident, $then:block) => {{
+        panic!("Neither feature process-mux nor native-mux is enabled")
     }};
 }
 
