@@ -30,10 +30,7 @@ trap cleanup EXIT
 
 export RUSTFLAGS='--cfg=ci'
 
-# Wait for docker mod to be installed and sshd starts up
-for features in process-mux native-mux process-mux,native-mux; do
-    cargo check --no-default-features --features "$features"
-done
+cargo hack check --feature-powerset
 
 cargo clippy --all-features
 
