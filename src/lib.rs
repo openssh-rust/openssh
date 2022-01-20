@@ -153,9 +153,6 @@
 #[cfg(not(unix))]
 compile_error!("This crate can only be used on unix");
 
-#[cfg(not(any(feature = "process-mux", feature = "native-mux")))]
-compile_error!("Either process or native-mux must be enabled!");
-
 use std::borrow::Cow;
 use std::ffi::OsStr;
 
