@@ -19,23 +19,25 @@ use tokio::process;
 
 /// The returned `&'static Path` can be coreced to any lifetime.
 fn get_default_control_dir<'a>() -> &'a Path {
-    static DEFAULT_CONTROL_DIR: OnceCell<Box<Path>> = OnceCell::new();
+    static DEFAULT_CONTROL_DIR: OnceCell<Option<Box<Path>>> = OnceCell::new();
 
-    DEFAULT_CONTROL_DIR.get_or_init(|| {
-        if let Some(xdg_state_home) = env::var_os("XDG_STATE_HOME") {
-            let xdg_state_home: PathBuf = xdg_state_home.into();
-            xdg_state_home.into_boxed_path()
-        } else if let Some(home) = env::var_os("HOME") {
-            let mut path: PathBuf = home.into();
-            path.reserve_exact(13);
-            path.push(".local");
-            path.push("state");
-            path.into_boxed_path()
-        } else {
-            let path: PathBuf = "/tmp".into();
-            path.into_boxed_path()
-        }
-    })
+    DEFAULT_CONTROL_DIR
+        .get_or_init(|| {
+            if let Some(xdg_state_home) = env::var_os("XDG_STATE_HOME") {
+                let xdg_state_home: PathBuf = xdg_state_home.into();
+                Some(xdg_state_home.into_boxed_path())
+            } else if let Some(home) = env::var_os("HOME") {
+                let mut path: PathBuf = home.into();
+                path.reserve_exact(13);
+                path.push(".local");
+                path.push("state");
+                Some(path.into_boxed_path())
+            } else {
+                None
+            }
+        })
+        .as_deref()
+        .unwrap_or_else(|| Path::new("/tmp"))
 }
 
 /// Build a [`Session`] with options.
