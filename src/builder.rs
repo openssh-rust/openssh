@@ -7,13 +7,36 @@ use super::process_impl;
 use super::native_mux_impl;
 
 use std::borrow::Cow;
+use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::str;
 
+use once_cell::sync::OnceCell;
 use tempfile::{Builder, TempDir};
 use tokio::process;
+
+/// The returned `&'static Path` can be coreced to any lifetime.
+fn get_default_control_dir<'a>() -> &'a Path {
+    static DEFAULT_CONTROL_DIR: OnceCell<Box<Path>> = OnceCell::new();
+
+    DEFAULT_CONTROL_DIR.get_or_init(|| {
+        if let Some(xdg_state_home) = env::var_os("XDG_STATE_HOME") {
+            let xdg_state_home: PathBuf = xdg_state_home.into();
+            xdg_state_home.into_boxed_path()
+        } else if let Some(home) = env::var_os("HOME") {
+            let mut path: PathBuf = home.into();
+            path.reserve_exact(13);
+            path.push(".local");
+            path.push("state");
+            path.into_boxed_path()
+        } else {
+            let path: PathBuf = "/tmp".into();
+            path.into_boxed_path()
+        }
+    })
+}
 
 /// Build a [`Session`] with options.
 #[derive(Debug, Clone)]
@@ -195,8 +218,10 @@ impl SessionBuilder {
     }
 
     async fn launch_master(&self, destination: &str) -> Result<TempDir, Error> {
-        let defaultdir = Path::new("./");
-        let socketdir = self.control_dir.as_deref().unwrap_or(defaultdir);
+        let socketdir = self
+            .control_dir
+            .as_deref()
+            .unwrap_or_else(get_default_control_dir);
         let dir = Builder::new()
             .prefix(".ssh-connection")
             .tempdir_in(socketdir)
