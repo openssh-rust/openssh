@@ -14,11 +14,6 @@ pub(crate) struct Command {
 
 impl Command {
     pub(crate) fn new(mut builder: process::Command) -> Self {
-        builder
-            .stdin(Stdio::inherit())
-            .stdout(Stdio::inherit())
-            .stderr(Stdio::inherit());
-
         // Disconnects the ssh session at `RemoteChild::drop`, but does
         // not kill the remote process.
         builder.kill_on_drop(true);
