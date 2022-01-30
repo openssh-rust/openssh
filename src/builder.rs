@@ -13,6 +13,7 @@ use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::str;
 
+use dirs::home_dir;
 use once_cell::sync::OnceCell;
 use tempfile::{Builder, TempDir};
 use tokio::process;
@@ -26,8 +27,7 @@ fn get_default_control_dir<'a>() -> Result<&'a Path, Error> {
             if let Some(xdg_state_home) = env::var_os("XDG_STATE_HOME") {
                 let xdg_state_home: PathBuf = xdg_state_home.into();
                 Ok(Some(xdg_state_home.into_boxed_path()))
-            } else if let Some(home) = env::var_os("HOME") {
-                let mut path: PathBuf = home.into();
+            } else if let Some(mut path) = home_dir() {
                 path.reserve_exact(13);
                 path.push(".local");
                 path.push("state");
