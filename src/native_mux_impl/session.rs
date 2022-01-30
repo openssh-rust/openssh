@@ -79,6 +79,6 @@ impl Drop for Session {
             None => return,
         };
 
-        let _res = shutdown_mux_master(&self.ctl);
+        let _ = shutdown_mux_master(&self.ctl);
     }
 }
