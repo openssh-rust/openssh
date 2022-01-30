@@ -115,7 +115,7 @@ impl Session {
     }
 
     pub(crate) async fn close(mut self) -> Result<(), Error> {
-        let mut exit_cmd = self.new_cmd(&["-o", "exit"]);
+        let mut exit_cmd = self.new_cmd(&["-O", "exit"]);
 
         // Take self.ctl so that drop would do nothing
         let ctl = self.ctl.take().unwrap();
@@ -188,8 +188,8 @@ impl Drop for Session {
             None => return,
         };
 
-        let _res = self
-            .new_std_cmd(&["-o", "exit"])
+        let _ = self
+            .new_std_cmd(&["-O", "exit"])
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .status();
