@@ -771,7 +771,7 @@ async fn broken_connection() {
         assert!(matches!(failed, Error::Disconnected), "{:?}", failed);
 
         // Since the ssh multiplex server has exited due to remote sshd process
-        // being forciably killed, `session.close()` should fail here.
+        // being forcibly killed, `session.close()` should fail here.
         session.close().await.unwrap_err();
     }
 }
