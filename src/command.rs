@@ -46,7 +46,7 @@ macro_rules! delegate {
 #[cfg(not(any(feature = "process-mux", feature = "native-mux")))]
 macro_rules! delegate {
     ($impl:expr, $var:ident, $then:block) => {{
-        panic!("Neither feature process-mux nor native-mux is enabled")
+        unreachable!("Neither feature process-mux nor native-mux is enabled")
     }};
 }
 
