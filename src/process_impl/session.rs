@@ -132,13 +132,13 @@ impl Session {
         // the master exited, but did not produce an error.
         // what could cause that?
         //
-        // If the remote sshd process is acciendentally killed, then
+        // If the remote sshd process is accidentally killed, then
         // the local ssh multiplex server would exit without anything printed
         // to the log, and the -o exit command failed to connect to
         // the multiplex server.
         //
-        // Check `broken_connection` test in `tests/openssh.rs` for an example of this
-        // scenaior.
+        // Check `broken_connection` test in `tests/openssh.rs` for an example
+        // of this scenario.
         if !exit.status.success() {
             let exit_err = String::from_utf8_lossy(&exit.stderr);
             let err = exit_err.trim();
