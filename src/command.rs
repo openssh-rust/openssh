@@ -186,11 +186,11 @@ impl<'s> Command<'s> {
 
     /// Configuration for the remote process's standard input (stdin) handle.
     ///
-    /// Defaults to [`null`] when used with `spawn` or `status`, and
-    /// defaults to [`piped`] when used with `output`.
+    /// Defaults to [`inherit`] when used with `spawn` or `status`, and
+    /// defaults to [`null`] when used with `output`.
     ///
+    /// [`inherit`]: struct.Stdio.html#method.inherit
     /// [`null`]: struct.Stdio.html#method.null
-    /// [`piped`]: struct.Stdio.html#method.piped
     pub fn stdin<T: Into<Stdio>>(&mut self, cfg: T) -> &mut Self {
         delegate!(&mut self.imp, imp, {
             imp.stdin(cfg.into());
@@ -201,10 +201,10 @@ impl<'s> Command<'s> {
 
     /// Configuration for the remote process's standard output (stdout) handle.
     ///
-    /// Defaults to [`null`] when used with `spawn` or `status`, and
+    /// Defaults to [`inherit`] when used with `spawn` or `status`, and
     /// defaults to [`piped`] when used with `output`.
     ///
-    /// [`null`]: struct.Stdio.html#method.null
+    /// [`inherit`]: struct.Stdio.html#method.inherit
     /// [`piped`]: struct.Stdio.html#method.piped
     pub fn stdout<T: Into<Stdio>>(&mut self, cfg: T) -> &mut Self {
         delegate!(&mut self.imp, imp, {
@@ -216,10 +216,10 @@ impl<'s> Command<'s> {
 
     /// Configuration for the remote process's standard error (stderr) handle.
     ///
-    /// Defaults to [`null`] when used with `spawn` or `status`, and
+    /// Defaults to [`inherit`] when used with `spawn` or `status`, and
     /// defaults to [`piped`] when used with `output`.
     ///
-    /// [`null`]: struct.Stdio.html#method.null
+    /// [`inherit`]: struct.Stdio.html#method.inherit
     /// [`piped`]: struct.Stdio.html#method.piped
     pub fn stderr<T: Into<Stdio>>(&mut self, cfg: T) -> &mut Self {
         delegate!(&mut self.imp, imp, {
