@@ -1,9 +1,18 @@
 use super::{Error, Session};
+
+#[cfg(feature = "process-mux")]
+use super::process_impl;
+
+#[cfg(feature = "native-mux")]
+use super::native_mux_impl;
+
 use std::borrow::Cow;
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
-use tempfile::Builder;
-use tokio::io::AsyncReadExt;
+use std::str;
+
+use tempfile::{Builder, TempDir};
 use tokio::process;
 
 /// Build a [`Session`] with options.
@@ -105,7 +114,8 @@ impl SessionBuilder {
         self
     }
 
-    /// Connect to the host at the given `host` over SSH.
+    /// Connect to the host at the given `host` over SSH using process impl, which will
+    /// spawn a new ssh process for each `Child` created.
     ///
     /// The format of `destination` is the same as the `destination` argument to `ssh`. It may be
     /// specified as either `[user@]hostname` or a URI of the form `ssh://[user@]hostname[:port]`.
@@ -115,15 +125,40 @@ impl SessionBuilder {
     /// If connecting requires interactive authentication based on `STDIN` (such as reading a
     /// password), the connection will fail. Consider setting up keypair-based authentication
     /// instead.
+    #[cfg(feature = "process-mux")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "process-mux")))]
     pub async fn connect<S: AsRef<str>>(&self, destination: S) -> Result<Session, Error> {
         let destination = destination.as_ref();
         let (builder, destination) = self.resolve(destination);
-        builder.just_connect(destination).await
+        let tempdir = builder.launch_master(destination).await?;
+        Ok(process_impl::Session::new(tempdir, destination).into())
+    }
+
+    /// Connect to the host at the given `host` over SSH using native mux, which will
+    /// create a new local socket connection for each `Child` created.
+    ///
+    /// See the crate-level documentation for more details on the difference between native and process-based mux.
+    ///
+    /// The format of `destination` is the same as the `destination` argument to `ssh`. It may be
+    /// specified as either `[user@]hostname` or a URI of the form `ssh://[user@]hostname[:port]`.
+    /// A username or port that is specified in the connection string overrides the one set in the
+    /// builder (but does not change the builder).
+    ///
+    /// If connecting requires interactive authentication based on `STDIN` (such as reading a
+    /// password), the connection will fail. Consider setting up keypair-based authentication
+    /// instead.
+    #[cfg(feature = "native-mux")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "native-mux")))]
+    pub async fn connect_mux<S: AsRef<str>>(&self, destination: S) -> Result<Session, Error> {
+        let destination = destination.as_ref();
+        let (builder, destination) = self.resolve(destination);
+        let tempdir = builder.launch_master(destination).await?;
+        Ok(native_mux_impl::Session::new(tempdir).into())
     }
 
     fn resolve<'a, 'b>(&'a self, mut destination: &'b str) -> (Cow<'a, Self>, &'b str) {
-        // the "new" ssh://user@host:port form is not supported by all versions of ssh, so we
-        // always translate it into the option form.
+        // the "new" ssh://user@host:port form is not supported by all versions of ssh,
+        // so we always translate it into the option form.
         let mut user = None;
         let mut port = None;
         if destination.starts_with("ssh://") {
@@ -159,20 +194,23 @@ impl SessionBuilder {
         (Cow::Owned(with_overrides), destination)
     }
 
-    pub(crate) async fn just_connect<S: AsRef<str>>(&self, host: S) -> Result<Session, Error> {
-        let destination = host.as_ref();
-
-        let defaultdir = Path::new("./").to_path_buf();
-        let socketdir = self.control_dir.as_ref().unwrap_or(&defaultdir);
+    async fn launch_master(&self, destination: &str) -> Result<TempDir, Error> {
+        let defaultdir = Path::new("./");
+        let socketdir = self.control_dir.as_deref().unwrap_or(defaultdir);
         let dir = Builder::new()
             .prefix(".ssh-connection")
             .tempdir_in(socketdir)
             .map_err(Error::Master)?;
+
+        let log = dir.path().join("log");
+
         let mut init = process::Command::new("ssh");
 
         init.stdin(Stdio::null())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .arg("-E")
+            .arg(&log)
             .arg("-S")
             .arg(dir.path().join("master"))
             .arg("-M")
@@ -214,29 +252,16 @@ impl SessionBuilder {
 
         init.arg(destination);
 
-        // eprintln!("{:?}", init);
-
         // we spawn and immediately wait, because the process is supposed to fork.
-        // note that we cannot use .output, since it _also_ tries to read all of stdout/stderr.
-        // if the call _didn't_ error, then the backgrounded ssh client will still hold onto those
-        // handles, and it's still running, so those reads will hang indefinitely.
-        let mut child = init.spawn().map_err(Error::Connect)?;
-        let stdout = child.stdout.take().unwrap();
-        let mut stderr = child.stderr.take().unwrap();
-        let status = child.wait().await.map_err(Error::Connect)?;
+        let status = init.status().await.map_err(Error::Connect)?;
 
         if !status.success() {
-            let mut err = String::new();
-            stderr.read_to_string(&mut err).await.unwrap();
-            return Err(Error::interpret_ssh_error(&err));
-        }
+            let output = fs::read_to_string(log).map_err(Error::Connect)?;
 
-        Ok(Session {
-            ctl: dir,
-            addr: String::from(destination),
-            terminated: false,
-            master: std::sync::Mutex::new(Some((stdout, stderr))),
-        })
+            Err(Error::interpret_ssh_error(&output))
+        } else {
+            Ok(dir)
+        }
     }
 }
 

@@ -1,10 +1,11 @@
-use super::{Error, Session};
+use super::{Error, Session, Stdio};
+
 use std::io;
-use std::process::Stdio;
 use std::{
     pin::Pin,
     task::{Context, Poll},
 };
+
 use tokio::io::AsyncWriteExt;
 
 // TODO: it would _probably_ be better to actually use sftp here, since I'm pretty sure it has some
@@ -275,27 +276,31 @@ impl<'s> Sftp<'s> {
     ///
     /// # Examples
     ///
-    /// ```no_run
+    /// ```rust,no_run
     /// # use openssh::*;
+    ///
+    /// use std::io::prelude::*;
+    /// use tokio::io::AsyncWriteExt;
+    ///
+    /// # #[cfg(feature = "native-mux")]
     /// # #[tokio::main]
     /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// use std::io::prelude::*;
-    ///
     /// // connect to a remote host and get an sftp connection
-    /// let session = Session::connect("host", KnownHosts::Strict).await?;
+    /// let session = Session::connect_mux("me@ssh.example.com", KnownHosts::Strict).await?;
+    ///
     /// let mut sftp = session.sftp();
     ///
     /// // open a file for writing
     /// let mut w = sftp.write_to("test_file").await?;
     ///
     /// // write something to the file
-    /// use tokio::io::AsyncWriteExt;
     /// w.write_all(b"hello world").await?;
     ///
     /// // flush and close the remote file, absorbing any final errors
     /// w.close().await?;
     /// # Ok(())
     /// # }
+    /// ```
     pub async fn write_to(
         &mut self,
         path: impl AsRef<std::path::Path>,
@@ -313,7 +318,8 @@ impl<'s> Sftp<'s> {
             .arg(path)
             .stdin(Stdio::piped())
             .stderr(Stdio::piped())
-            .spawn()?;
+            .spawn()
+            .await?;
 
         Ok(RemoteFile {
             cat,
@@ -331,27 +337,31 @@ impl<'s> Sftp<'s> {
     ///
     /// # Examples
     ///
-    /// ```no_run
+    /// ```rust,no_run
     /// # use openssh::*;
+    ///
+    /// use std::io::prelude::*;
+    /// use tokio::io::AsyncWriteExt;
+    ///
+    /// # #[cfg(feature = "native-mux")]
     /// # #[tokio::main]
     /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// use std::io::prelude::*;
-    ///
     /// // connect to a remote host and get an sftp connection
-    /// let session = Session::connect("host", KnownHosts::Strict).await?;
+    /// let session = Session::connect_mux("me@ssh.example.com", KnownHosts::Strict).await?;
+    ///
     /// let mut sftp = session.sftp();
     ///
-    /// // open a file for appending
-    /// let mut w = sftp.append_to("test_file").await?;
+    /// // open a file for writing
+    /// let mut w = sftp.write_to("test_file").await?;
     ///
-    /// // write will append to the file
-    /// use tokio::io::AsyncWriteExt;
+    /// // write something to the file
     /// w.write_all(b"hello world").await?;
     ///
     /// // flush and close the remote file, absorbing any final errors
     /// w.close().await?;
     /// # Ok(())
     /// # }
+    /// ```
     pub async fn append_to(
         &mut self,
         path: impl AsRef<std::path::Path>,
@@ -370,7 +380,8 @@ impl<'s> Sftp<'s> {
             .arg(path)
             .stdin(Stdio::piped())
             .stderr(Stdio::piped())
-            .spawn()?;
+            .spawn()
+            .await?;
 
         Ok(RemoteFile {
             cat,
@@ -386,21 +397,25 @@ impl<'s> Sftp<'s> {
     ///
     /// # Examples
     ///
-    /// ```no_run
+    /// ```rust,no_run
     /// # use openssh::*;
+    ///
+    /// use std::io::prelude::*;
+    /// use tokio::io::AsyncReadExt;
+    ///
+    /// # #[cfg(feature = "native-mux")]
     /// # #[tokio::main]
     /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// use std::io::prelude::*;
     ///
     /// // connect to a remote host and get an sftp connection
-    /// let session = Session::connect("host", KnownHosts::Strict).await?;
+    /// let session = Session::connect_mux("host", KnownHosts::Strict).await?;
+    ///
     /// let mut sftp = session.sftp();
     ///
     /// // open a file for reading
     /// let mut r = sftp.read_from("/etc/hostname").await?;
     ///
     /// // write something to the file
-    /// use tokio::io::AsyncReadExt;
     /// let mut contents = String::new();
     /// r.read_to_string(&mut contents).await?;
     ///
@@ -408,6 +423,7 @@ impl<'s> Sftp<'s> {
     /// r.close().await?;
     /// # Ok(())
     /// # }
+    /// ```
     pub async fn read_from(
         &mut self,
         path: impl AsRef<std::path::Path>,
@@ -425,7 +441,8 @@ impl<'s> Sftp<'s> {
             .arg(path)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
-            .spawn()?;
+            .spawn()
+            .await?;
 
         Ok(RemoteFile {
             cat,
@@ -520,9 +537,11 @@ impl tokio::io::AsyncWrite for RemoteFile<'_> {
 
         Pin::new(self.cat.stdin().as_mut().unwrap()).poll_write(cx, buf)
     }
+
     fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
         Pin::new(self.cat.stdin().as_mut().unwrap()).poll_flush(cx)
     }
+
     fn poll_shutdown(
         mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,

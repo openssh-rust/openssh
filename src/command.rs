@@ -1,10 +1,54 @@
+use super::stdio::{ChildInputWrapper, ChildOutputWrapper};
 use super::RemoteChild;
+use super::Stdio;
 use super::{Error, Session};
+
 use std::borrow::Cow;
+use std::convert::TryFrom;
 use std::ffi::OsStr;
-use std::io;
-use std::process::Stdio;
-use tokio::process;
+use std::process;
+
+#[derive(Debug)]
+pub(crate) enum CommandImp {
+    #[cfg(feature = "process-mux")]
+    ProcessImpl(super::process_impl::Command),
+
+    #[cfg(feature = "native-mux")]
+    NativeMuxImpl(super::native_mux_impl::Command),
+}
+#[cfg(feature = "process-mux")]
+impl From<super::process_impl::Command> for CommandImp {
+    fn from(imp: super::process_impl::Command) -> Self {
+        CommandImp::ProcessImpl(imp)
+    }
+}
+
+#[cfg(feature = "native-mux")]
+impl<'s> From<super::native_mux_impl::Command> for CommandImp {
+    fn from(imp: super::native_mux_impl::Command) -> Self {
+        CommandImp::NativeMuxImpl(imp)
+    }
+}
+
+#[cfg(any(feature = "process-mux", feature = "native-mux"))]
+macro_rules! delegate {
+    ($impl:expr, $var:ident, $then:block) => {{
+        match $impl {
+            #[cfg(feature = "process-mux")]
+            CommandImp::ProcessImpl($var) => $then,
+
+            #[cfg(feature = "native-mux")]
+            CommandImp::NativeMuxImpl($var) => $then,
+        }
+    }};
+}
+
+#[cfg(not(any(feature = "process-mux", feature = "native-mux")))]
+macro_rules! delegate {
+    ($impl:expr, $var:ident, $then:block) => {{
+        unreachable!("Neither feature process-mux nor native-mux is enabled")
+    }};
+}
 
 /// A remote process builder, providing fine-grained control over how a new remote process should
 /// be spawned.
@@ -40,29 +84,31 @@ use tokio::process;
 #[derive(Debug)]
 pub struct Command<'s> {
     session: &'s Session,
-    builder: process::Command,
+    imp: CommandImp,
+
     stdin_set: bool,
     stdout_set: bool,
     stderr_set: bool,
 }
 
 impl<'s> Command<'s> {
-    pub(crate) fn new(session: &'s Session, prefix: process::Command) -> Self {
+    pub(crate) fn new(session: &'s super::Session, imp: CommandImp) -> Self {
+        // All implementations of Command initializes stdin, stdout and stderr
+        // to Stdio::inherit()
         Self {
             session,
-            builder: prefix,
+            imp,
+
             stdin_set: false,
             stdout_set: false,
             stderr_set: false,
         }
     }
-}
 
-impl<'s> Command<'s> {
     /// Adds an argument to pass to the remote program.
     ///
     /// Before it is passed to the remote host, `arg` is escaped so that special characters aren't
-    /// evaluated by the remote shell. If you do not want this behavior, use [`raw_arg`].
+    /// evaluated by the remote shell. If you do not want this behavior, use [`raw_arg`](Command::raw_arg).
     ///
     /// Only one argument can be passed per use. So instead of:
     ///
@@ -83,20 +129,21 @@ impl<'s> Command<'s> {
     ///
     /// To pass multiple arguments see [`args`](Command::args).
     pub fn arg<S: AsRef<str>>(&mut self, arg: S) -> &mut Self {
-        self.raw_arg(&*shell_escape::unix::escape(Cow::Borrowed(arg.as_ref())));
-        self
+        self.raw_arg(&*shell_escape::unix::escape(Cow::Borrowed(arg.as_ref())))
     }
 
     /// Adds an argument to pass to the remote program.
     ///
-    /// Unlike [`arg`], this method does not shell-escape `arg`. The argument is passed as written
+    /// Unlike [`arg`](Command::arg), this method does not shell-escape `arg`. The argument is passed as written
     /// to `ssh`, which will pass it again as an argument to the remote shell. Since the remote
     /// shell may do argument parsing, characters such as spaces and `*` may be interpreted by the
     /// remote shell.
     ///
     /// To pass multiple unescaped arguments see [`raw_args`](Command::raw_args).
     pub fn raw_arg<S: AsRef<OsStr>>(&mut self, arg: S) -> &mut Self {
-        self.builder.arg(arg);
+        delegate!(&mut self.imp, imp, {
+            imp.raw_arg(arg);
+        });
         self
     }
 
@@ -104,7 +151,7 @@ impl<'s> Command<'s> {
     ///
     /// Before they are passed to the remote host, each argument in `args` is escaped so that
     /// special characters aren't evaluated by the remote shell. If you do not want this behavior,
-    /// use [`raw_args`].
+    /// use [`raw_args`](Command::raw_args).
     ///
     /// To pass a single argument see [`arg`](Command::arg).
     pub fn args<I, S>(&mut self, args: I) -> &mut Self
@@ -113,15 +160,14 @@ impl<'s> Command<'s> {
         S: AsRef<str>,
     {
         for arg in args {
-            self.builder
-                .arg(&*shell_escape::unix::escape(Cow::Borrowed(arg.as_ref())));
+            self.arg(arg);
         }
         self
     }
 
     /// Adds multiple arguments to pass to the remote program.
     ///
-    /// Unlike [`args`], this method does not shell-escape `args`. The arguments are passed as
+    /// Unlike [`args`](Command::args), this method does not shell-escape `args`. The arguments are passed as
     /// written to `ssh`, which will pass them again as arguments to the remote shell. However,
     /// since the remote shell may do argument parsing, characters such as spaces and `*` may be
     /// interpreted by the remote shell.
@@ -132,123 +178,121 @@ impl<'s> Command<'s> {
         I: IntoIterator<Item = S>,
         S: AsRef<OsStr>,
     {
-        self.builder.args(args);
+        for arg in args {
+            self.raw_arg(arg);
+        }
         self
     }
 
     /// Configuration for the remote process's standard input (stdin) handle.
     ///
-    /// Defaults to [`null`] when used with `spawn` or `status`, and
-    /// defaults to [`piped`] when used with `output`.
+    /// Defaults to [`inherit`] when used with `spawn` or `status`, and
+    /// defaults to [`null`] when used with `output`.
     ///
+    /// [`inherit`]: struct.Stdio.html#method.inherit
     /// [`null`]: struct.Stdio.html#method.null
-    /// [`piped`]: struct.Stdio.html#method.piped
     pub fn stdin<T: Into<Stdio>>(&mut self, cfg: T) -> &mut Self {
-        self.builder.stdin(cfg);
+        delegate!(&mut self.imp, imp, {
+            imp.stdin(cfg.into());
+        });
         self.stdin_set = true;
         self
     }
 
     /// Configuration for the remote process's standard output (stdout) handle.
     ///
-    /// Defaults to [`null`] when used with `spawn` or `status`, and
+    /// Defaults to [`inherit`] when used with `spawn` or `status`, and
     /// defaults to [`piped`] when used with `output`.
     ///
-    /// [`null`]: struct.Stdio.html#method.null
+    /// [`inherit`]: struct.Stdio.html#method.inherit
     /// [`piped`]: struct.Stdio.html#method.piped
     pub fn stdout<T: Into<Stdio>>(&mut self, cfg: T) -> &mut Self {
-        self.builder.stdout(cfg);
+        delegate!(&mut self.imp, imp, {
+            imp.stdout(cfg.into());
+        });
         self.stdout_set = true;
         self
     }
 
     /// Configuration for the remote process's standard error (stderr) handle.
     ///
-    /// Defaults to [`null`] when used with `spawn` or `status`, and
+    /// Defaults to [`inherit`] when used with `spawn` or `status`, and
     /// defaults to [`piped`] when used with `output`.
     ///
-    /// [`null`]: struct.Stdio.html#method.null
+    /// [`inherit`]: struct.Stdio.html#method.inherit
     /// [`piped`]: struct.Stdio.html#method.piped
     pub fn stderr<T: Into<Stdio>>(&mut self, cfg: T) -> &mut Self {
-        self.builder.stderr(cfg);
+        delegate!(&mut self.imp, imp, {
+            imp.stderr(cfg.into());
+        });
         self.stderr_set = true;
         self
     }
 
-    /// Executes the remote command without waiting for it, returning a handle to it instead.
+    async fn spawn_impl(&mut self) -> Result<RemoteChild<'s>, Error> {
+        Ok(RemoteChild::new(
+            self.session,
+            delegate!(&mut self.imp, imp, {
+                let (imp, stdin, stdout, stderr) = imp.spawn().await?;
+                (
+                    imp.into(),
+                    stdin
+                        .map(TryFrom::try_from)
+                        .transpose()?
+                        .map(|wrapper: ChildInputWrapper| wrapper.0),
+                    stdout
+                        .map(TryFrom::try_from)
+                        .transpose()?
+                        .map(|wrapper: ChildOutputWrapper| wrapper.0),
+                    stderr
+                        .map(TryFrom::try_from)
+                        .transpose()?
+                        .map(|wrapper: ChildOutputWrapper| wrapper.0),
+                )
+            }),
+        ))
+    }
+
+    /// Executes the remote command without waiting for it, returning a handle to it
+    /// instead.
     ///
-    /// By default, stdin is empty, and stdout and stderr are discarded.
-    pub fn spawn(&mut self) -> Result<RemoteChild<'s>, Error> {
-        // Make defaults match our defaults.
+    /// By default, stdin, stdout and stderr are inherited.
+    pub async fn spawn(&mut self) -> Result<RemoteChild<'s>, Error> {
         if !self.stdin_set {
-            self.builder.stdin(Stdio::null());
+            self.stdin(Stdio::inherit());
         }
         if !self.stdout_set {
-            self.builder.stdout(Stdio::null());
+            self.stdout(Stdio::inherit());
         }
         if !self.stderr_set {
-            self.builder.stderr(Stdio::null());
+            self.stderr(Stdio::inherit());
         }
-        // Then launch!
-        let child = self.builder.spawn().map_err(Error::Ssh)?;
 
-        Ok(RemoteChild {
-            session: self.session,
-            channel: Some(child),
-        })
+        self.spawn_impl().await
     }
 
     /// Executes the remote command, waiting for it to finish and collecting all of its output.
     ///
-    /// By default, stdout and stderr are captured (and used to provide the resulting output).
-    /// Stdin is set to `Stdio::null`, and any attempt by the child process to read from
-    /// the stdin stream will result in the stream immediately closing.
-    pub async fn output(&mut self) -> Result<std::process::Output, Error> {
-        // Make defaults match our defaults.
+    /// By default, stdout and stderr are captured (and used to provide the resulting
+    /// output) and stdin is set to `Stdio::null()`.
+    pub async fn output(&mut self) -> Result<process::Output, Error> {
         if !self.stdin_set {
-            self.builder.stdin(Stdio::null());
+            self.stdin(Stdio::null());
         }
         if !self.stdout_set {
-            self.builder.stdout(Stdio::piped());
+            self.stdout(Stdio::piped());
         }
         if !self.stderr_set {
-            self.builder.stderr(Stdio::piped());
+            self.stderr(Stdio::piped());
         }
-        // Then launch!
-        let output = self.builder.output().await.map_err(Error::Ssh)?;
-        match output.status.code() {
-            Some(255) => Err(Error::Disconnected),
-            Some(127) => Err(Error::Remote(io::Error::new(
-                io::ErrorKind::NotFound,
-                &*String::from_utf8_lossy(&output.stderr),
-            ))),
-            _ => Ok(output),
-        }
+
+        self.spawn_impl().await?.wait_with_output().await
     }
 
     /// Executes the remote command, waiting for it to finish and collecting its exit status.
     ///
-    /// By default, stdin is empty, and stdout and stderr are discarded.
-    pub async fn status(&mut self) -> Result<std::process::ExitStatus, Error> {
-        // Make defaults match our defaults.
-        if !self.stdin_set {
-            self.builder.stdin(Stdio::null());
-        }
-        if !self.stdout_set {
-            self.builder.stdout(Stdio::null());
-        }
-        if !self.stderr_set {
-            self.builder.stderr(Stdio::null());
-        }
-        // Then launch!
-        let status = self.builder.status().await.map_err(Error::Ssh)?;
-        match status.code() {
-            Some(255) => Err(Error::Disconnected),
-            Some(127) => Err(Error::Remote(io::Error::new(
-                io::ErrorKind::NotFound,
-                "remote command not found",
-            ))),
-            _ => Ok(status),
-        }
+    /// By default, stdin, stdout and stderr are inherited.
+    pub async fn status(&mut self) -> Result<process::ExitStatus, Error> {
+        self.spawn().await?.wait().await
     }
 }
