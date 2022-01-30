@@ -86,6 +86,7 @@ pub struct Command<'s> {
     session: &'s Session,
     imp: CommandImp,
 
+    stdin_set: bool,
     stdout_set: bool,
     stderr_set: bool,
 }
@@ -98,6 +99,7 @@ impl<'s> Command<'s> {
             session,
             imp,
 
+            stdin_set: false,
             stdout_set: false,
             stderr_set: false,
         }
@@ -193,6 +195,7 @@ impl<'s> Command<'s> {
         delegate!(&mut self.imp, imp, {
             imp.stdin(cfg.into());
         });
+        self.stdin_set = true;
         self
     }
 
@@ -255,8 +258,9 @@ impl<'s> Command<'s> {
     ///
     /// By default, stdin, stdout and stderr are inherited.
     pub async fn spawn(&mut self) -> Result<RemoteChild<'s>, Error> {
-        // Reset stdout and stderr to null even if they are default to null,
-        // since spawn can be called after output is called.
+        if !self.stdin_set {
+            self.stdin(Stdio::inherit());
+        }
         if !self.stdout_set {
             self.stdout(Stdio::inherit());
         }
@@ -272,6 +276,9 @@ impl<'s> Command<'s> {
     /// By default, stdout and stderr are captured (and used to provide the resulting
     /// output) and stdin is set to `Stdio::null()`.
     pub async fn output(&mut self) -> Result<process::Output, Error> {
+        if !self.stdin_set {
+            self.stdin(Stdio::null());
+        }
         if !self.stdout_set {
             self.stdout(Stdio::piped());
         }
