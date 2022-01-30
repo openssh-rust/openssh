@@ -770,11 +770,9 @@ async fn broken_connection() {
         let failed = session.check().await.unwrap_err();
         assert!(matches!(failed, Error::Disconnected), "{:?}", failed);
 
-        // For process_impl, close would return without any error.
-        //
-        // For native_mux_impl, close would return an error for it cannot
-        // connect to the ssh multiplex master.
-        let _res = session.close().await;
+        // Since the ssh multiplex server has exited due to remote sshd process
+        // being forciably killed, `session.close()` should fail here.
+        session.close().await.unwrap_err();
     }
 }
 

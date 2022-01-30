@@ -132,18 +132,18 @@ impl Session {
         // the master exited, but did not produce an error.
         // what could cause that?
         //
-        // the only thing I can think of at the moment is that the remote end cleanly
-        // closed the connection, probably by virtue of being killed (but without the
-        // network dropping out). since we were told to _close_ the connection, well, we
-        // have succeeded, so this should not produce an error.
+        // If the remote sshd process is acciendentally killed, then
+        // the local ssh multiplex server would exit without anything printed
+        // to the log, and the -o exit command failed to connect to
+        // the multiplex server.
         //
-        // we will still _collect_ the error that -o exit produced though,
-        // just for ease of debugging.
-
+        // Check `broken_connection` test in `tests/openssh.rs` for an example of this
+        // scenaior.
         if !exit.status.success() {
-            let _exit_err = String::from_utf8_lossy(&exit.stderr);
-            let _err = _exit_err.trim();
-            // eprintln!("{}", _err);
+            let exit_err = String::from_utf8_lossy(&exit.stderr);
+            let err = exit_err.trim();
+
+            return Err(Error::Ssh(io::Error::new(io::ErrorKind::Other, err)));
         }
 
         ctl.close().map_err(Error::Cleanup)?;
