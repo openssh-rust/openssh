@@ -142,7 +142,10 @@ impl Session {
             let exit_err = String::from_utf8_lossy(&exit.stderr);
             let err = exit_err.trim();
 
-            return Err(Error::Ssh(io::Error::new(io::ErrorKind::Other, err)));
+            return Err(Error::Ssh(io::Error::new(
+                io::ErrorKind::ConnectionAborted,
+                err,
+            )));
         }
 
         ctl.close().map_err(Error::Cleanup)?;
