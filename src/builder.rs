@@ -18,26 +18,32 @@ use tempfile::{Builder, TempDir};
 use tokio::process;
 
 /// The returned `&'static Path` can be coreced to any lifetime.
-fn get_default_control_dir<'a>() -> &'a Path {
+fn get_default_control_dir<'a>() -> Result<&'a Path, Error> {
     static DEFAULT_CONTROL_DIR: OnceCell<Option<Box<Path>>> = OnceCell::new();
 
     DEFAULT_CONTROL_DIR
-        .get_or_init(|| {
+        .get_or_try_init(|| {
             if let Some(xdg_state_home) = env::var_os("XDG_STATE_HOME") {
                 let xdg_state_home: PathBuf = xdg_state_home.into();
-                Some(xdg_state_home.into_boxed_path())
+                Ok(Some(xdg_state_home.into_boxed_path()))
             } else if let Some(home) = env::var_os("HOME") {
                 let mut path: PathBuf = home.into();
                 path.reserve_exact(13);
                 path.push(".local");
                 path.push("state");
-                Some(path.into_boxed_path())
+
+                fs::create_dir_all(&path).map_err(Error::Connect)?;
+
+                Ok(Some(path.into_boxed_path()))
             } else {
-                None
+                Ok(None)
             }
         })
-        .as_deref()
-        .unwrap_or_else(|| Path::new("/tmp"))
+        .map(|default_control_dir| {
+            default_control_dir
+                .as_deref()
+                .unwrap_or_else(|| Path::new("/tmp"))
+        })
 }
 
 /// Build a [`Session`] with options.
@@ -220,10 +226,12 @@ impl SessionBuilder {
     }
 
     async fn launch_master(&self, destination: &str) -> Result<TempDir, Error> {
-        let socketdir = self
-            .control_dir
-            .as_deref()
-            .unwrap_or_else(get_default_control_dir);
+        let socketdir = if let Some(socketdir) = self.control_dir.as_ref() {
+            socketdir
+        } else {
+            get_default_control_dir()?
+        };
+
         let dir = Builder::new()
             .prefix(".ssh-connection")
             .tempdir_in(socketdir)
