@@ -78,6 +78,8 @@ impl<'s> Sftp<'s> {
 
     /// Close sftp connection
     pub async fn close(self) -> Result<(), Error> {
+        self.write_end.flush().await?;
+
         self.read_task.await??;
 
         let res: Result<ExitStatus, Error> =
