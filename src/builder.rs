@@ -12,8 +12,31 @@ use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::str;
 
+use dirs::state_dir;
+use once_cell::sync::OnceCell;
 use tempfile::{Builder, TempDir};
 use tokio::process;
+
+/// The returned `&'static Path` can be coreced to any lifetime.
+fn get_default_control_dir<'a>() -> Result<&'a Path, Error> {
+    static DEFAULT_CONTROL_DIR: OnceCell<Option<Box<Path>>> = OnceCell::new();
+
+    DEFAULT_CONTROL_DIR
+        .get_or_try_init(|| {
+            if let Some(state_dir) = state_dir() {
+                fs::create_dir_all(&state_dir).map_err(Error::Connect)?;
+
+                Ok(Some(state_dir.into_boxed_path()))
+            } else {
+                Ok(None)
+            }
+        })
+        .map(|default_control_dir| {
+            default_control_dir
+                .as_deref()
+                .unwrap_or_else(|| Path::new("./"))
+        })
+}
 
 /// Build a [`Session`] with options.
 #[derive(Debug, Clone)]
@@ -195,8 +218,12 @@ impl SessionBuilder {
     }
 
     async fn launch_master(&self, destination: &str) -> Result<TempDir, Error> {
-        let defaultdir = Path::new("./");
-        let socketdir = self.control_dir.as_deref().unwrap_or(defaultdir);
+        let socketdir = if let Some(socketdir) = self.control_dir.as_ref() {
+            socketdir
+        } else {
+            get_default_control_dir()?
+        };
+
         let dir = Builder::new()
             .prefix(".ssh-connection")
             .tempdir_in(socketdir)
