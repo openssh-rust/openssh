@@ -78,7 +78,6 @@ impl<'sftp, 's> OpenOptions<'sftp, 's> {
         let id = sftp.get_thread_local_cached_id();
 
         let awaitable = write_end.send_open_file_request(id, params)?;
-        write_end.flush().await?;
 
         let (id, handle) = awaitable.wait().await?;
 
@@ -127,8 +126,6 @@ impl File<'_, '_> {
         let awaitable =
             self.write_end
                 .send_fsetstat_request(id, Cow::Borrowed(&self.handle), attrs)?;
-
-        self.write_end.flush().await?;
 
         let id = awaitable.wait().await?.0;
         self.cache_id_mut(id);
