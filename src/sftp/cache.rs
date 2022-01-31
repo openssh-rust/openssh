@@ -1,4 +1,6 @@
+use std::any::type_name;
 use std::cell::Cell;
+use std::fmt;
 
 pub(super) struct Cache<T>(Cell<Option<T>>);
 
@@ -13,5 +15,11 @@ impl<T> Cache<T> {
 
     pub(super) fn set(&self, value: T) {
         self.0.set(Some(value));
+    }
+}
+
+impl<T> fmt::Debug for Cache<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Cache<{}>", type_name::<T>())
     }
 }
