@@ -152,7 +152,7 @@ impl<'s> Sftp<'s> {
         self.thread_local_cache.get_or(|| Cache::new(None)).set(id);
     }
 
-    pub fn options(&self) -> OpenOptions<'_, '_> {
+    pub fn open_options(&self) -> OpenOptions<'_, '_> {
         OpenOptions::new(self)
     }
 }
