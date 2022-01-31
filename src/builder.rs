@@ -34,7 +34,7 @@ fn get_default_control_dir<'a>() -> Result<&'a Path, Error> {
         .map(|default_control_dir| {
             default_control_dir
                 .as_deref()
-                .unwrap_or_else(|| Path::new("/tmp"))
+                .unwrap_or_else(|| Path::new("./"))
         })
 }
 
