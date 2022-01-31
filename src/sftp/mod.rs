@@ -155,4 +155,17 @@ impl<'s> Sftp<'s> {
     pub fn open_options(&self) -> OpenOptions<'_, '_> {
         OpenOptions::new(self)
     }
+
+    /// Forcibly flush the write buffer.
+    ///
+    /// By default, it is flushed every 10ms.
+    ///
+    /// # Cancel Safety
+    ///
+    /// This function is cancel safe.
+    pub async fn flush(&self) -> Result<(), Error> {
+        self.write_end.flush().await?;
+
+        Ok(())
+    }
 }
