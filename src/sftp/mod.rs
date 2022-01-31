@@ -5,6 +5,9 @@ use std::process::ExitStatus;
 use openssh_sftp_client::{connect, Extensions, Limits};
 use tokio::task;
 
+mod cache;
+use cache::Cache;
+
 mod file;
 pub use file::{File, OpenOptions};
 
