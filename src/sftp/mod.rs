@@ -13,8 +13,11 @@ use cache::Cache;
 mod file;
 pub use file::{File, OpenOptions};
 
-type WriteEnd = openssh_sftp_client::WriteEnd<Vec<u8>>;
-type Id = openssh_sftp_client::Id<Vec<u8>>;
+type Buffer = Vec<u8>;
+
+type WriteEnd = openssh_sftp_client::WriteEnd<Buffer>;
+type SharedData = openssh_sftp_client::SharedData<Buffer>;
+type Id = openssh_sftp_client::Id<Buffer>;
 
 /// Duration to wait before flushing the write buffer.
 const FLUSH_TIMEOUT: Duration = Duration::from_millis(10);
@@ -42,7 +45,7 @@ pub struct Sftp<'s> {
     session: &'s Session,
     child: RemoteChildImp,
 
-    write_end: WriteEnd,
+    shared_data: SharedData,
     read_task: task::JoinHandle<Result<(), Error>>,
 
     extensions: Extensions,
@@ -118,7 +121,7 @@ impl<'s> Sftp<'s> {
             session,
             child,
 
-            write_end,
+            shared_data: write_end.into_shared_data(),
             read_task,
 
             extensions,
@@ -130,7 +133,7 @@ impl<'s> Sftp<'s> {
 
     /// Close sftp connection
     pub async fn close(self) -> Result<(), Error> {
-        self.write_end.flush().await?;
+        self.shared_data.flush().await?;
 
         self.read_task.await??;
 
@@ -148,14 +151,14 @@ impl<'s> Sftp<'s> {
     }
 
     pub(crate) fn write_end(&self) -> WriteEnd {
-        self.write_end.clone()
+        WriteEnd::new(self.shared_data.clone())
     }
 
     pub(crate) fn get_thread_local_cached_id(&self) -> Id {
         self.thread_local_cache
             .get()
             .and_then(Cache::take)
-            .unwrap_or_else(|| self.write_end.create_response_id())
+            .unwrap_or_else(|| self.shared_data.create_response_id())
     }
 
     /// Give back id to the thread local cache.
@@ -175,7 +178,7 @@ impl<'s> Sftp<'s> {
     ///
     /// This function is cancel safe.
     pub async fn flush(&self) -> Result<(), Error> {
-        self.write_end.flush().await?;
+        self.shared_data.flush().await?;
 
         Ok(())
     }
