@@ -75,7 +75,7 @@ impl<'sftp, 's> OpenOptions<'sftp, 's> {
 
         let sftp = self.sftp;
         let mut write_end = sftp.write_end();
-        let id = write_end.create_response_id();
+        let id = sftp.get_thread_local_cached_id();
 
         let awaitable = write_end.send_open_file_request(id, params)?;
         write_end.flush().await?;
@@ -103,7 +103,19 @@ impl File<'_, '_> {
     fn get_id_mut(&mut self) -> Id {
         self.id
             .take()
-            .unwrap_or_else(|| self.write_end.create_response_id())
+            .unwrap_or_else(|| self.sftp.get_thread_local_cached_id())
+    }
+
+    fn cache_id(&self, id: Id) {
+        self.sftp.cache_id(id);
+    }
+
+    fn cache_id_mut(&mut self, id: Id) {
+        if self.id.is_none() {
+            self.id = Some(id);
+        } else {
+            self.cache_id(id);
+        }
     }
 }
 
