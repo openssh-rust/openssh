@@ -46,7 +46,9 @@ impl<'s> Sftp<'s> {
         let id = write_end.create_response_id();
 
         let limits = if extensions.limits {
-            write_end.send_limits_request(id).await?.wait().await?.1
+            let awaitable = write_end.send_limits_request(id)?;
+            write_end.flush().await?;
+            awaitable.wait().await?.1
         } else {
             Limits {
                 packet_len: 0,
