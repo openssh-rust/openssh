@@ -72,6 +72,17 @@ impl<'s> Sftp<'s> {
                 // flushed.
                 let mut flushed = false;
 
+                // There is only 3 references to the shared data:
+                //  - the read end
+                //  - the shared data stored in sftp
+                //  - one write_end
+                //
+                // In this case, the buffer should be flushed since
+                // it will not be able to group any writes.
+                if read_end.shared_data_strong_count() <= 3 {
+                    flushed = read_end.flush_write_end_buffer().await?;
+                }
+
                 // If attempt to read in more than new_requests_submit, then
                 // `read_in_one_packet` might block forever.
                 for _ in 0..new_requests_submit {
