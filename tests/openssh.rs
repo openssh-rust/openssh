@@ -377,62 +377,60 @@ macro_rules! assert_remote_kind {
 #[tokio::test]
 #[cfg(feature = "scp")]
 #[cfg_attr(not(ci), ignore)]
-async fn sftp_can() {
+async fn scp_can() {
     for session in connects().await {
-        let mut sftp = session.sftp();
+        let mut scp = session.scp();
 
         // first, do some access checks
         // some things we can do
-        sftp.can(Mode::Write, "test_file").await.unwrap();
-        sftp.can(Mode::Write, ".ssh/test_file").await.unwrap();
-        sftp.can(Mode::Read, ".ssh/authorized_keys").await.unwrap();
-        sftp.can(Mode::Read, "/etc/hostname").await.unwrap();
+        scp.can(Mode::Write, "test_file").await.unwrap();
+        scp.can(Mode::Write, ".ssh/test_file").await.unwrap();
+        scp.can(Mode::Read, ".ssh/authorized_keys").await.unwrap();
+        scp.can(Mode::Read, "/etc/hostname").await.unwrap();
         // some things we cannot
         assert_remote_kind!(
-            sftp.can(Mode::Write, "/etc/passwd").await.unwrap_err(),
+            scp.can(Mode::Write, "/etc/passwd").await.unwrap_err(),
             io::ErrorKind::PermissionDenied
         );
         assert_remote_kind!(
-            sftp.can(Mode::Write, "no/such/file").await.unwrap_err(),
+            scp.can(Mode::Write, "no/such/file").await.unwrap_err(),
             io::ErrorKind::NotFound
         );
         assert_remote_kind!(
-            sftp.can(Mode::Read, "/etc/shadow").await.unwrap_err(),
+            scp.can(Mode::Read, "/etc/shadow").await.unwrap_err(),
             io::ErrorKind::PermissionDenied
         );
         assert_remote_kind!(
-            sftp.can(Mode::Read, "/etc/no-such-file").await.unwrap_err(),
+            scp.can(Mode::Read, "/etc/no-such-file").await.unwrap_err(),
             io::ErrorKind::NotFound
         );
         assert_remote_kind!(
-            sftp.can(Mode::Write, "/etc/no-such-file")
-                .await
-                .unwrap_err(),
+            scp.can(Mode::Write, "/etc/no-such-file").await.unwrap_err(),
             io::ErrorKind::PermissionDenied
         );
         assert_remote_kind!(
-            sftp.can(Mode::Write, "/no-such-file").await.unwrap_err(),
+            scp.can(Mode::Write, "/no-such-file").await.unwrap_err(),
             io::ErrorKind::PermissionDenied
         );
         assert_remote_kind!(
-            sftp.can(Mode::Read, "no/such/file").await.unwrap_err(),
+            scp.can(Mode::Read, "no/such/file").await.unwrap_err(),
             io::ErrorKind::NotFound
         );
         // and something are just weird
         assert_remote_kind!(
-            sftp.can(Mode::Write, ".ssh").await.unwrap_err(),
+            scp.can(Mode::Write, ".ssh").await.unwrap_err(),
             io::ErrorKind::AlreadyExists
         );
         assert_remote_kind!(
-            sftp.can(Mode::Write, "/etc").await.unwrap_err(),
+            scp.can(Mode::Write, "/etc").await.unwrap_err(),
             io::ErrorKind::AlreadyExists
         );
         assert_remote_kind!(
-            sftp.can(Mode::Write, "/").await.unwrap_err(),
+            scp.can(Mode::Write, "/").await.unwrap_err(),
             io::ErrorKind::AlreadyExists
         );
         assert_remote_kind!(
-            sftp.can(Mode::Read, "/etc").await.unwrap_err(),
+            scp.can(Mode::Read, "/etc").await.unwrap_err(),
             io::ErrorKind::Other
         );
 
@@ -443,12 +441,12 @@ async fn sftp_can() {
 #[tokio::test]
 #[cfg(feature = "scp")]
 #[cfg_attr(not(ci), ignore)]
-async fn sftp() {
+async fn scp() {
     for session in connects().await {
-        let mut sftp = session.sftp();
+        let mut scp = session.scp();
 
         // first, open a file for writing
-        let mut w = sftp.write_to("test_file").await.unwrap();
+        let mut w = scp.write_to("test_file").await.unwrap();
 
         // reading from a write-only file should error
         let failed = w.read(&mut [0]).await.unwrap_err();
@@ -459,12 +457,12 @@ async fn sftp() {
         w.close().await.unwrap();
 
         // we should still be able to write it
-        sftp.can(Mode::Write, "test_file").await.unwrap();
+        scp.can(Mode::Write, "test_file").await.unwrap();
         // and now also read it
-        sftp.can(Mode::Read, "test_file").await.unwrap();
+        scp.can(Mode::Read, "test_file").await.unwrap();
 
         // open the file again for appending
-        let mut w = sftp.append_to("test_file").await.unwrap();
+        let mut w = scp.append_to("test_file").await.unwrap();
 
         // reading from an append-only file should also error
         let failed = w.read(&mut [0]).await.unwrap_err();
@@ -475,7 +473,7 @@ async fn sftp() {
         w.close().await.unwrap();
 
         // then, open the same file for reading
-        let mut r = sftp.read_from("test_file").await.unwrap();
+        let mut r = scp.read_from("test_file").await.unwrap();
 
         // writing to a read-only file should error
         let failed = r.write(&[0]).await.unwrap_err();
@@ -488,21 +486,21 @@ async fn sftp() {
         r.close().await.unwrap();
 
         // reading a file that does not exist should error on open
-        let failed = sftp.read_from("no/such/file").await.unwrap_err();
+        let failed = scp.read_from("no/such/file").await.unwrap_err();
         assert_remote_kind!(failed, io::ErrorKind::NotFound);
         // so should file we're not allowed to read
-        let failed = sftp.read_from("/etc/shadow").await.unwrap_err();
+        let failed = scp.read_from("/etc/shadow").await.unwrap_err();
         assert_remote_kind!(failed, io::ErrorKind::PermissionDenied);
 
         // writing a file that does not exist should also error on open
-        let failed = sftp.write_to("no/such/file").await.unwrap_err();
+        let failed = scp.write_to("no/such/file").await.unwrap_err();
         assert_remote_kind!(failed, io::ErrorKind::NotFound);
         // so should file we're not allowed to write
-        let failed = sftp.write_to("/rootfile").await.unwrap_err();
+        let failed = scp.write_to("/rootfile").await.unwrap_err();
         assert_remote_kind!(failed, io::ErrorKind::PermissionDenied);
 
         // writing to a full disk (or the like) should also error
-        let mut w = sftp.write_to("/dev/full").await.unwrap();
+        let mut w = scp.write_to("/dev/full").await.unwrap();
         w.write_all(b"hello world").await.unwrap();
         let failed = w.close().await.unwrap_err();
         assert_remote_kind!(failed, io::ErrorKind::WriteZero);
