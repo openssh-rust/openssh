@@ -32,7 +32,7 @@ default = ["process-mux"]
 process-mux = []
 native-mux = ["openssh-mux-client"]
 scp = []
-sftp = ["openssh-sftp-client", "thread_local", "tokio/rt"]
+sftp = ["openssh-sftp-client", "thread_local", "tokio/rt", "tokio/time"]
 
 [dependencies]
 tempfile = "3.1.0"
