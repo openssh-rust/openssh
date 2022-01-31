@@ -285,13 +285,13 @@ impl<'s> Scp<'s> {
     /// # #[cfg(feature = "native-mux")]
     /// # #[tokio::main]
     /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// // connect to a remote host and get an sftp connection
+    /// // connect to a remote host and get an scp connection
     /// let session = Session::connect_mux("me@ssh.example.com", KnownHosts::Strict).await?;
     ///
-    /// let mut sftp = session.sftp();
+    /// let mut scp = session.scp();
     ///
     /// // open a file for writing
-    /// let mut w = sftp.write_to("test_file").await?;
+    /// let mut w = scp.write_to("test_file").await?;
     ///
     /// // write something to the file
     /// w.write_all(b"hello world").await?;
@@ -346,13 +346,13 @@ impl<'s> Scp<'s> {
     /// # #[cfg(feature = "native-mux")]
     /// # #[tokio::main]
     /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// // connect to a remote host and get an sftp connection
+    /// // connect to a remote host and get an scp connection
     /// let session = Session::connect_mux("me@ssh.example.com", KnownHosts::Strict).await?;
     ///
-    /// let mut sftp = session.sftp();
+    /// let mut scp = session.scp();
     ///
     /// // open a file for writing
-    /// let mut w = sftp.write_to("test_file").await?;
+    /// let mut w = scp.write_to("test_file").await?;
     ///
     /// // write something to the file
     /// w.write_all(b"hello world").await?;
@@ -407,13 +407,13 @@ impl<'s> Scp<'s> {
     /// # #[tokio::main]
     /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
     ///
-    /// // connect to a remote host and get an sftp connection
+    /// // connect to a remote host and get an scp connection
     /// let session = Session::connect_mux("host", KnownHosts::Strict).await?;
     ///
-    /// let mut sftp = session.sftp();
+    /// let mut scp = session.scp();
     ///
     /// // open a file for reading
-    /// let mut r = sftp.read_from("/etc/hostname").await?;
+    /// let mut r = scp.read_from("/etc/hostname").await?;
     ///
     /// // write something to the file
     /// let mut contents = String::new();
