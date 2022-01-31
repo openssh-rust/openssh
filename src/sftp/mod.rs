@@ -1,10 +1,11 @@
 use super::{child::RemoteChildImp, ChildStdin, ChildStdout, Error, Session};
 
 use std::process::ExitStatus;
+use std::time::Duration;
 
-use openssh_sftp_client::{connect, Extensions, Limits};
+use openssh_sftp_client::{connect, Extensions, Limits, ReadEnd};
 use thread_local::ThreadLocal;
-use tokio::task;
+use tokio::{task, time};
 
 mod cache;
 use cache::Cache;
@@ -14,6 +15,26 @@ pub use file::{File, OpenOptions};
 
 type WriteEnd = openssh_sftp_client::WriteEnd<Vec<u8>>;
 type Id = openssh_sftp_client::Id<Vec<u8>>;
+
+/// Duration to wait before flushing the write buffer.
+const FLUSH_TIMEOUT: Duration = Duration::from_millis(10);
+
+async fn flush_if_necessary(
+    flushed: &mut bool,
+    read_end: &mut ReadEnd<Vec<u8>>,
+) -> Result<(), Error> {
+    if !*flushed {
+        // New requests are now in the write buffer and might be
+        // flushed.
+        // Wait for new response and flush the buffer if timeout.
+        match time::timeout(FLUSH_TIMEOUT, read_end.ready_for_read()).await {
+            Ok(res) => res?,
+            Err(_) => *flushed = read_end.flush_write_end_buffer().await?,
+        };
+    }
+
+    Ok(())
+}
 
 /// A file-oriented channel to a remote host.
 #[derive(Debug)]
@@ -47,9 +68,15 @@ impl<'s> Sftp<'s> {
                     break Ok::<_, Error>(());
                 }
 
+                // whether all of the `new_requests_submit` pending requests is
+                // flushed.
+                let mut flushed = false;
+
                 // If attempt to read in more than new_requests_submit, then
                 // `read_in_one_packet` might block forever.
                 for _ in 0..new_requests_submit {
+                    flush_if_necessary(&mut flushed, &mut read_end).await?;
+
                     read_end.read_in_one_packet().await?;
                 }
             }
