@@ -80,9 +80,7 @@ impl<'sftp, 's> OpenOptions<'sftp, 's> {
         let mut write_end = sftp.write_end();
         let id = sftp.get_thread_local_cached_id();
 
-        let awaitable = write_end.send_open_file_request(id, params)?;
-
-        let (id, handle) = awaitable.wait().await?;
+        let (id, handle) = write_end.send_open_file_request(id, params)?.wait().await?;
 
         Ok(File {
             sftp,
@@ -129,11 +127,13 @@ impl File<'_, '_> {
         let mut attrs = FileAttrs::new();
         attrs.set_size(size);
 
-        let awaitable =
-            self.write_end
-                .send_fsetstat_request(id, Cow::Borrowed(&self.handle), attrs)?;
+        let id = self
+            .write_end
+            .send_fsetstat_request(id, Cow::Borrowed(&self.handle), attrs)?
+            .wait()
+            .await?
+            .0;
 
-        let id = awaitable.wait().await?.0;
         self.cache_id_mut(id);
 
         Ok(())
