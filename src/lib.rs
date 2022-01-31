@@ -171,15 +171,10 @@ pub use child::RemoteChild;
 mod error;
 pub use error::Error;
 
-<<<<<<< HEAD
-mod sftp;
-pub use sftp::{Mode, RemoteFile, Sftp};
-=======
 #[cfg(feature = "scp")]
 mod scp;
 #[cfg(feature = "scp")]
 pub use scp::{Mode, RemoteFile, Scp};
->>>>>>> 26b6b2d (Add feature scp)
 
 /// Sftp implementation
 #[cfg(feature = "sftp")]
