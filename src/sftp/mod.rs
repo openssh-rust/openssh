@@ -2,8 +2,14 @@ use super::{child::RemoteChildImp, ChildStdin, ChildStdout, Error, Session};
 
 use std::process::ExitStatus;
 
-use openssh_sftp_client::{connect, Extensions, Limits, WriteEnd};
+use openssh_sftp_client::{connect, Extensions, Limits};
 use tokio::task;
+
+mod file;
+pub use file::{File, OpenOptions};
+
+type WriteEnd = openssh_sftp_client::WriteEnd<Vec<u8>>;
+type Id = openssh_sftp_client::Id<Vec<u8>>;
 
 /// A file-oriented channel to a remote host.
 #[derive(Debug)]
@@ -11,7 +17,7 @@ pub struct Sftp<'s> {
     session: &'s Session,
     child: RemoteChildImp,
 
-    write_end: WriteEnd<Vec<u8>>,
+    write_end: WriteEnd,
     read_task: task::JoinHandle<Result<(), Error>>,
 
     extensions: Extensions,
@@ -85,5 +91,13 @@ impl<'s> Sftp<'s> {
         } else {
             Ok(())
         }
+    }
+
+    pub(crate) fn write_end(&self) -> WriteEnd {
+        self.write_end.clone()
+    }
+
+    pub fn options(&self) -> OpenOptions<'_, '_> {
+        OpenOptions::new(self)
     }
 }
