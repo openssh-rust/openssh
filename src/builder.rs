@@ -7,13 +7,12 @@ use super::process_impl;
 use super::native_mux_impl;
 
 use std::borrow::Cow;
-use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::str;
 
-use dirs::home_dir;
+use dirs::state_dir;
 use once_cell::sync::OnceCell;
 use tempfile::{Builder, TempDir};
 use tokio::process;
@@ -24,17 +23,10 @@ fn get_default_control_dir<'a>() -> Result<&'a Path, Error> {
 
     DEFAULT_CONTROL_DIR
         .get_or_try_init(|| {
-            if let Some(xdg_state_home) = env::var_os("XDG_STATE_HOME") {
-                let xdg_state_home: PathBuf = xdg_state_home.into();
-                Ok(Some(xdg_state_home.into_boxed_path()))
-            } else if let Some(mut path) = home_dir() {
-                path.reserve_exact(13);
-                path.push(".local");
-                path.push("state");
+            if let Some(state_dir) = state_dir() {
+                fs::create_dir_all(&state_dir).map_err(Error::Connect)?;
 
-                fs::create_dir_all(&path).map_err(Error::Connect)?;
-
-                Ok(Some(path.into_boxed_path()))
+                Ok(Some(state_dir.into_boxed_path()))
             } else {
                 Ok(None)
             }
