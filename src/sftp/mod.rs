@@ -3,6 +3,7 @@ use super::{child::RemoteChildImp, ChildStdin, ChildStdout, Error, Session};
 use std::process::ExitStatus;
 
 use openssh_sftp_client::{connect, Extensions, Limits};
+use thread_local::ThreadLocal;
 use tokio::task;
 
 mod cache;
@@ -25,6 +26,8 @@ pub struct Sftp<'s> {
 
     extensions: Extensions,
     limits: Limits,
+
+    thread_local_cache: ThreadLocal<Cache<Id>>,
 }
 
 impl<'s> Sftp<'s> {
@@ -54,18 +57,24 @@ impl<'s> Sftp<'s> {
 
         let id = write_end.create_response_id();
 
-        let limits = if extensions.limits {
+        let (id, limits) = if extensions.limits {
             let awaitable = write_end.send_limits_request(id)?;
             write_end.flush().await?;
-            awaitable.wait().await?.1
+            awaitable.wait().await?
         } else {
-            Limits {
-                packet_len: 0,
-                read_len: openssh_sftp_client::OPENSSH_PORTABLE_DEFAULT_DOWNLOAD_BUFLEN as u64,
-                write_len: openssh_sftp_client::OPENSSH_PORTABLE_DEFAULT_UPLOAD_BUFLEN as u64,
-                open_handles: 0,
-            }
+            (
+                id,
+                Limits {
+                    packet_len: 0,
+                    read_len: openssh_sftp_client::OPENSSH_PORTABLE_DEFAULT_DOWNLOAD_BUFLEN as u64,
+                    write_len: openssh_sftp_client::OPENSSH_PORTABLE_DEFAULT_UPLOAD_BUFLEN as u64,
+                    open_handles: 0,
+                },
+            )
         };
+
+        let thread_local_cache = ThreadLocal::new();
+        thread_local_cache.get_or(|| Cache::new(Some(id)));
 
         Ok(Self {
             session,
@@ -76,6 +85,8 @@ impl<'s> Sftp<'s> {
 
             extensions,
             limits,
+
+            thread_local_cache,
         })
     }
 
@@ -100,6 +111,18 @@ impl<'s> Sftp<'s> {
 
     pub(crate) fn write_end(&self) -> WriteEnd {
         self.write_end.clone()
+    }
+
+    pub(crate) fn get_thread_local_cached_id(&self) -> Id {
+        self.thread_local_cache
+            .get()
+            .and_then(Cache::take)
+            .unwrap_or_else(|| self.write_end.create_response_id())
+    }
+
+    /// Give back id to the thread local cache.
+    pub(crate) fn cache_id(&self, id: Id) {
+        self.thread_local_cache.get_or(|| Cache::new(None)).set(id);
     }
 
     pub fn options(&self) -> OpenOptions<'_, '_> {
