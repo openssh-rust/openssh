@@ -1,7 +1,8 @@
 use super::{child::RemoteChildImp, ChildStdin, ChildStdout, Error, Session};
 
-use openssh_sftp_client::{connect, Extensions, Limits, WriteEnd};
+use std::process::ExitStatus;
 
+use openssh_sftp_client::{connect, Extensions, Limits, WriteEnd};
 use tokio::task;
 
 /// A file-oriented channel to a remote host.
@@ -70,7 +71,11 @@ impl<'s> Sftp<'s> {
     /// Close sftp connection
     pub async fn close(self) -> Result<(), Error> {
         self.read_task.await??;
-        let exit_status = crate::child::delegate!(self.child, child, { child.wait().await })?;
+
+        let res: Result<ExitStatus, Error> =
+            crate::child::delegate!(self.child, child, { child.wait().await });
+        let exit_status = res?;
+
         if !exit_status.success() {
             Err(Error::SftpError(
                 openssh_sftp_client::Error::SftpServerFailure(exit_status),
