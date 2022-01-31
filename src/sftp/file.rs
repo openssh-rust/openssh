@@ -117,6 +117,24 @@ impl File<'_, '_> {
             self.cache_id(id);
         }
     }
+
+    pub async fn set_len(&mut self, size: u64) -> Result<(), Error> {
+        let id = self.get_id_mut();
+
+        let mut attrs = FileAttrs::new();
+        attrs.set_size(size);
+
+        let awaitable =
+            self.write_end
+                .send_fsetstat_request(id, Cow::Borrowed(&self.handle), attrs)?;
+
+        self.write_end.flush().await?;
+
+        let id = awaitable.wait().await?.0;
+        self.cache_id_mut(id);
+
+        Ok(())
+    }
 }
 
 impl Drop for File<'_, '_> {
