@@ -56,6 +56,9 @@ impl<'sftp, 's> OpenOptions<'sftp, 's> {
         self
     }
 
+    /// # Cancel Safety
+    ///
+    /// This function is cancel safe.
     pub async fn open(&self, path: impl AsRef<Path>) -> Result<File<'_, '_>, Error> {
         let filename = Cow::Borrowed(path.as_ref());
 
@@ -117,6 +120,9 @@ impl File<'_, '_> {
         }
     }
 
+    /// # Cancel Safety
+    ///
+    /// This function is cancel safe.
     pub async fn set_len(&mut self, size: u64) -> Result<(), Error> {
         let id = self.get_id_mut();
 
