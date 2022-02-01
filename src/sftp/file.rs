@@ -18,6 +18,8 @@ use openssh_sftp_client::{
     HandleOwned,
 };
 
+const MAX_WRITE_SIZE: usize = u32::MAX as usize;
+
 fn sftp_to_io_error(sftp_err: SftpError) -> io::Error {
     match sftp_err {
         SftpError::IOError(io_error) => io_error,
@@ -354,7 +356,7 @@ impl AsyncWrite for File<'_, '_> {
         }
 
         // sftp v3 cannot send more than u32::MAX data at once.
-        let buf = &buf[..min(buf.len(), u32::MAX as usize)];
+        let buf = &buf[..min(buf.len(), MAX_WRITE_SIZE)];
 
         // Dereference it here once so that there will be only
         // one mutable borrow to self.
@@ -428,7 +430,68 @@ impl AsyncWrite for File<'_, '_> {
         self.poll_flush(cx)
     }
 
-    // TODO: impl vector API
+    fn poll_write_vectored(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        bufs: &[IoSlice<'_>],
+    ) -> Poll<io::Result<usize>> {
+        if !self.is_writable {
+            return Poll::Ready(Err(io::Error::new(
+                io::ErrorKind::Other,
+                "This file does not support writing",
+            )));
+        }
+
+        if bufs[0].len() > MAX_WRITE_SIZE {
+            return self.poll_write(cx, &*bufs[0]);
+        }
+
+        let mut end = 1;
+        let mut n = bufs[0].len();
+
+        for buf in &bufs[1..] {
+            let cnt = n + buf.len();
+
+            if cnt > MAX_WRITE_SIZE {
+                break;
+            }
+
+            n = cnt;
+            end += 1;
+        }
+
+        // Dereference it here once so that there will be only
+        // one mutable borrow to self.
+        let this = &mut *self;
+
+        // Get id, buffer and offset to avoid reference to this.
+        let id = this.get_id_mut();
+        let offset = this.offset;
+
+        // Reference it here to make it clear that we are
+        // using different part of Self.
+        let write_end = &mut this.write_end;
+        let handle = &this.handle;
+
+        let future = write_end
+            .send_write_request_buffered_vectored(id, Cow::Borrowed(handle), offset, &bufs[..end])
+            .map_err(sftp_to_io_error)?
+            .wait();
+
+        self.write_futures.push_back(future);
+        // Since a new future is pushed, flushing is again required.
+        self.need_flush = true;
+
+        // Adjust offset and reset self.future
+        Poll::Ready(
+            self.start_seek(io::SeekFrom::Current(n.try_into().unwrap()))
+                .map(|_| n),
+        )
+    }
+
+    fn is_write_vectored(&self) -> bool {
+        true
+    }
 }
 
 impl Drop for File<'_, '_> {
