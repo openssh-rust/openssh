@@ -197,6 +197,25 @@ impl File<'_, '_> {
         Ok(())
     }
 
+    pub async fn sync_all(&mut self) -> Result<(), Error> {
+        if !self.sftp.extensions.fsync {
+            return Err(SftpError::UnsupportedExtension(&"fsync").into());
+        }
+
+        let id = self.get_id_mut();
+
+        let id = self
+            .write_end
+            .send_fsync_request(id, Cow::Borrowed(&self.handle))?
+            .wait()
+            .await?
+            .0;
+
+        self.cache_id_mut(id);
+
+        Ok(())
+    }
+
     pub fn try_clone(&self) -> io::Result<Self> {
         Ok(self.clone())
     }
