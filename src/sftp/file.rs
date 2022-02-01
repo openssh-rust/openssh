@@ -9,7 +9,6 @@ use std::io::{self, IoSlice};
 use std::mem;
 use std::path::Path;
 use std::pin::Pin;
-use std::ptr::NonNull;
 use std::task::{Context, Poll};
 
 use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite, ReadBuf};
@@ -125,17 +124,10 @@ impl<'sftp, 's> OpenOptions<'sftp, 's> {
             offset: 0,
             need_flush: false,
 
-            future: FileFuture::None,
+            read_future: None,
             write_futures: VecDeque::new(),
         })
     }
-}
-
-#[derive(Debug)]
-enum FileFuture<Buffer: Send + Sync> {
-    None,
-    Data(AwaitableDataFuture<Buffer>),
-    Status(AwaitableStatusFuture<Buffer>),
 }
 
 #[derive(Debug)]
@@ -152,7 +144,7 @@ pub struct File<'sftp, 's> {
     buffer: Vec<u8>,
     offset: u64,
 
-    future: FileFuture<Buffer>,
+    read_future: Option<AwaitableDataFuture<Buffer>>,
     write_futures: VecDeque<AwaitableStatusFuture<Buffer>>,
 }
 
@@ -243,7 +235,7 @@ impl AsyncSeek for File<'_, '_> {
         }
 
         // Reset future since they are invalidated by change of offset.
-        self.future = FileFuture::None;
+        self.read_future = None;
 
         Ok(())
     }
@@ -271,7 +263,7 @@ impl AsyncRead for File<'_, '_> {
             return Poll::Ready(Ok(()));
         }
 
-        let future = if let FileFuture::Data(future) = &mut self.future {
+        let future = if let Some(future) = &mut self.read_future {
             // Get the active future.
             //
             // The future might read more/less than remaining,
@@ -294,6 +286,7 @@ impl AsyncRead for File<'_, '_> {
             let write_end = &mut this.write_end;
             let handle = &this.handle;
 
+            // Start the future
             let future = write_end
                 .send_read_request(
                     id,
@@ -305,13 +298,11 @@ impl AsyncRead for File<'_, '_> {
                 .map_err(sftp_to_io_error)?
                 .wait();
 
-            // Start the future
-            self.future = FileFuture::Data(future);
-            if let FileFuture::Data(future) = &mut self.future {
-                future
-            } else {
-                std::unreachable!("FileFuture::Data is just assigned to self.future!")
-            }
+            // Store it in self.read_future
+            self.read_future = Some(future);
+            self.read_future
+                .as_mut()
+                .expect("FileFuture::Data is just assigned to self.future!")
         };
 
         // Wait for the future
@@ -328,7 +319,7 @@ impl AsyncRead for File<'_, '_> {
 
             buffer
         } else {
-            std::unreachable!("Expected Data::Buffer")
+            std::unreachable!("Expect Data::Buffer")
         };
 
         // Filled the buffer
