@@ -363,11 +363,6 @@ impl AsyncRead for File<'_, '_> {
 }
 
 impl AsyncWrite for File<'_, '_> {
-    // TODO:
-    //
-    // This is unsafe!
-    //
-    // buf could be modified between the interval.
     fn poll_write(
         mut self: Pin<&mut Self>,
         _cx: &mut Context<'_>,
