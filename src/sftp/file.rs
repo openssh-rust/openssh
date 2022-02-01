@@ -35,15 +35,6 @@ macro_rules! ready {
     };
 }
 
-macro_rules! poll_try {
-    ($e:expr) => {
-        match $e {
-            Ok(t) => t,
-            Err(err) => return Poll::Ready(Err(err)),
-        }
-    };
-}
-
 #[derive(Debug)]
 pub struct OpenOptions<'sftp, 's> {
     sftp: &'sftp Sftp<'s>,
@@ -417,12 +408,12 @@ impl AsyncWrite for File<'_, '_> {
             // WriteEnd::flush return true if flush succeeds, false if not.
             //
             // If it succeeds, then we no longer need to flush it.
-            this.need_flush = !poll_try!(ready!(
+            this.need_flush = !ready!(
                 // Future returned by WriteEnd::flush does not contain
                 // self-reference, so it can be optimized and placed
                 // on stack.
                 Pin::new(&mut Box::pin(this.write_end.flush())).poll(cx)
-            ));
+            )?;
         }
 
         loop {
@@ -438,7 +429,7 @@ impl AsyncWrite for File<'_, '_> {
                 .expect("futures should have at least one elements in it");
 
             // propagate error and recycle id
-            this.cache_id_mut(poll_try!(res.map_err(sftp_to_io_error)).0);
+            this.cache_id_mut(res.map_err(sftp_to_io_error)?.0);
         }
     }
 
