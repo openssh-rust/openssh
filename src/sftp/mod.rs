@@ -8,6 +8,8 @@ use openssh_sftp_client::{connect, Extensions, Limits};
 use thread_local::ThreadLocal;
 use tokio::{task, time, try_join};
 
+pub use openssh_sftp_client::Permissions;
+
 mod cache;
 use cache::Cache;
 

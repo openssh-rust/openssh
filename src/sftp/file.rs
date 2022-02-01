@@ -1,4 +1,4 @@
-use super::{Buffer, Data, Error, Id, Sftp, WriteEnd};
+use super::{Buffer, Data, Error, Id, Permissions, Sftp, WriteEnd};
 
 use std::borrow::Cow;
 use std::cmp::min;
@@ -223,6 +223,32 @@ impl File<'_, '_> {
         let id = self
             .write_end
             .send_fsync_request(id, Cow::Borrowed(&self.handle))?
+            .wait()
+            .await?
+            .0;
+
+        self.cache_id_mut(id);
+
+        Ok(())
+    }
+
+    pub async fn set_permissions(&mut self, perm: Permissions) -> Result<(), Error> {
+        if !self.is_writable {
+            return Err(SftpError::from(io::Error::new(
+                io::ErrorKind::Other,
+                "This file is not opened for writing",
+            ))
+            .into());
+        }
+
+        let id = self.get_id_mut();
+
+        let mut attrs = FileAttrs::new();
+        attrs.set_permissions(perm);
+
+        let id = self
+            .write_end
+            .send_fsetstat_request(id, Cow::Borrowed(&self.handle), attrs)?
             .wait()
             .await?
             .0;
