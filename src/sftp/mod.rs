@@ -231,6 +231,13 @@ impl<'s> Sftp<'s> {
             .await
     }
 
+    /// # Cancel Safety
+    ///
+    /// This function is cancel safe.
+    pub async fn open(&self, path: impl AsRef<Path>) -> Result<File<'_, '_>, Error> {
+        self.options().read(true).open(path).await
+    }
+
     /// Forcibly flush the write buffer.
     ///
     /// By default, it is flushed every 0.9 ms.
