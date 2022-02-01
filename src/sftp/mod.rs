@@ -15,7 +15,7 @@ pub use openssh_sftp_client::{FileType, Permissions, UnixTimeStamp};
 mod cache;
 use cache::Cache;
 
-pub mod file;
+mod file;
 pub use file::{File, MetaData, OpenOptions};
 
 type Buffer = Vec<u8>;
