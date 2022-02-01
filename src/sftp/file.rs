@@ -313,17 +313,19 @@ impl AsyncRead for File<'_, '_> {
         let (id, data) = ready!(Pin::new(future).poll(cx)).map_err(sftp_to_io_error)?;
 
         self.cache_id_mut(id);
-        let buffer = if let Data::Buffer(buffer) = data {
-            // since remaining != 0, all AwaitableDataFuture created
-            // must at least read in one byte.
-            debug_assert!(!buffer.is_empty());
+        let buffer = match data {
+            Data::Buffer(buffer) => {
+                // since remaining != 0, all AwaitableDataFuture created
+                // must at least read in one byte.
+                debug_assert!(!buffer.is_empty());
 
-            // sftp v3 can at most read in u32::MAX bytes.
-            debug_assert!(buffer.len() <= (u32::MAX as usize));
+                // sftp v3 can at most read in u32::MAX bytes.
+                debug_assert!(buffer.len() <= (u32::MAX as usize));
 
-            buffer
-        } else {
-            std::unreachable!("Expect Data::Buffer")
+                buffer
+            }
+            Data::Eof => return Poll::Ready(Ok(())),
+            _ => std::unreachable!("Expect Data::Buffer"),
         };
 
         // Filled the buffer
