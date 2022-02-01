@@ -2,6 +2,7 @@ use super::{child::RemoteChildImp, ChildStdin, ChildStdout, Error, Session};
 
 use std::io;
 use std::marker::PhantomData;
+use std::path::Path;
 use std::process::ExitStatus;
 use std::time::Duration;
 
@@ -216,6 +217,18 @@ impl<'s> Sftp<'s> {
     /// Return a new [`OpenOptions`] object.
     pub fn options(&self) -> OpenOptions<'_, '_> {
         OpenOptions::new(self)
+    }
+
+    /// # Cancel Safety
+    ///
+    /// This function is cancel safe.
+    pub async fn create(&self, path: impl AsRef<Path>) -> Result<File<'_, '_>, Error> {
+        self.options()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(path)
+            .await
     }
 
     /// Forcibly flush the write buffer.
