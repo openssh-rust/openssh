@@ -326,7 +326,7 @@ impl AsyncRead for File<'_, '_> {
                 debug_assert!(!buffer.is_empty());
 
                 // sftp v3 can at most read in u32::MAX bytes.
-                debug_assert!(buffer.len() <= (u32::MAX as usize));
+                debug_assert!(buffer.len() <= self.max_read_len());
 
                 buffer
             }
