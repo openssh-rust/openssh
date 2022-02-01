@@ -324,11 +324,7 @@ impl AsyncRead for File<'_, '_> {
         };
 
         // Wait for the future
-        let (id, data) = if let Poll::Ready(res) = Pin::new(future).poll(cx) {
-            res.map_err(sftp_to_io_error)?
-        } else {
-            return Poll::Pending;
-        };
+        let (id, data) = ready!(Pin::new(future).poll(cx)).map_err(sftp_to_io_error)?;
 
         self.cache_id_mut(id);
         let buffer = if let Data::Buffer(buffer) = data {
