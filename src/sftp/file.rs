@@ -196,6 +196,10 @@ impl File<'_, '_> {
 
         Ok(())
     }
+
+    pub fn try_clone(&self) -> io::Result<Self> {
+        Ok(self.clone())
+    }
 }
 
 impl Clone for File<'_, '_> {
