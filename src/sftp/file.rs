@@ -1,17 +1,28 @@
-use super::{Buffer, Error, Id, Sftp, WriteEnd};
+use super::{Buffer, Data, Error, Id, Sftp, WriteEnd};
 
 use std::borrow::Cow;
+use std::cmp::min;
 use std::convert::TryInto;
+use std::future::Future;
 use std::io;
+use std::mem;
 use std::path::Path;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-use tokio::io::AsyncSeek;
+use tokio::io::{AsyncRead, AsyncSeek, ReadBuf};
 
 use openssh_sftp_client::{
-    AwaitableDataFuture, AwaitableStatusFuture, CreateFlags, FileAttrs, HandleOwned,
+    AwaitableDataFuture, AwaitableStatusFuture, CreateFlags, Error as SftpError, FileAttrs,
+    HandleOwned,
 };
+
+fn sftp_to_io_error(sftp_err: SftpError) -> io::Error {
+    match sftp_err {
+        SftpError::IOError(io_error) => io_error,
+        sftp_err => io::Error::new(io::ErrorKind::Other, sftp_err),
+    }
+}
 
 #[derive(Debug)]
 pub struct OpenOptions<'sftp, 's> {
@@ -222,6 +233,106 @@ impl AsyncSeek for File<'_, '_> {
 
     fn poll_complete(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<u64>> {
         Poll::Ready(Ok(self.offset))
+    }
+}
+
+impl AsyncRead for File<'_, '_> {
+    fn poll_read(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        read_buf: &mut ReadBuf<'_>,
+    ) -> Poll<io::Result<()>> {
+        if !self.is_readable {
+            return Poll::Ready(Err(io::Error::new(
+                io::ErrorKind::Other,
+                "This file does not support reading",
+            )));
+        }
+
+        let remaining = read_buf.remaining();
+        if remaining == 0 {
+            return Poll::Ready(Ok(()));
+        }
+
+        let future = if let FileFuture::Data(future) = &mut self.future {
+            // Get the active future.
+            //
+            // The future might read more/less than remaining,
+            // but the offset must be equal to self.offset,
+            // since AsyncSeek::start_seek would reset self.future
+            // if self.offset is changed.
+            future
+        } else {
+            // Dereference it here once so that there will be only
+            // one mutable borrow to self.
+            let this = &mut *self;
+
+            // Get id, buffer and offset to avoid reference to this.
+            let id = this.get_id_mut();
+            let buffer = mem::take(&mut this.buffer);
+            let offset = this.offset;
+
+            // Reference it here to make it clear that we are
+            // using different part of Self.
+            let write_end = &mut this.write_end;
+            let handle = &this.handle;
+
+            let future = write_end
+                .send_read_request(
+                    id,
+                    Cow::Borrowed(handle),
+                    offset,
+                    min(remaining, u32::MAX as usize).try_into().unwrap(),
+                    Some(buffer),
+                )
+                .map_err(sftp_to_io_error)?
+                .wait();
+
+            // Start the future
+            self.future = FileFuture::Data(future);
+            if let FileFuture::Data(future) = &mut self.future {
+                future
+            } else {
+                std::unreachable!("FileFuture::Data is just assigned to self.future!")
+            }
+        };
+
+        // Wait for the future
+        let (id, data) = if let Poll::Ready(res) = Pin::new(future).poll(cx) {
+            res.map_err(sftp_to_io_error)?
+        } else {
+            return Poll::Pending;
+        };
+
+        self.cache_id_mut(id);
+        let buffer = if let Data::Buffer(buffer) = data {
+            // since remaining != 0, all AwaitableDataFuture created
+            // must at least read in one byte.
+            debug_assert!(!buffer.is_empty());
+
+            // sftp v3 can at most read in u32::MAX bytes.
+            debug_assert!(buffer.len() <= (u32::MAX as usize));
+
+            buffer
+        } else {
+            std::unreachable!("Expected Data::Buffer")
+        };
+
+        // Filled the buffer
+        let n = min(remaining, buffer.len());
+
+        // Since remaining != 0 and buffer.len() != 0, n != 0.
+        debug_assert_ne!(n, 0);
+
+        read_buf.put_slice(&buffer[..n]);
+
+        // Reuse the buffer
+        if buffer.capacity() >= self.buffer.capacity() {
+            self.buffer = buffer;
+        }
+
+        // Adjust offset and reset self.future
+        Poll::Ready(self.start_seek(io::SeekFrom::Current(n.try_into().unwrap())))
     }
 }
 

@@ -19,6 +19,7 @@ type Buffer = Vec<u8>;
 type WriteEnd = openssh_sftp_client::WriteEnd<Buffer>;
 type SharedData = openssh_sftp_client::SharedData<Buffer>;
 type Id = openssh_sftp_client::Id<Buffer>;
+type Data = openssh_sftp_client::Data<Buffer>;
 
 /// Duration to wait before flushing the write buffer.
 const FLUSH_INTERVAL: Duration = Duration::from_micros(900);
