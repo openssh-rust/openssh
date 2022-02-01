@@ -4,7 +4,7 @@ use std::io;
 use std::process::ExitStatus;
 use std::time::Duration;
 
-use openssh_sftp_client::{connect, Extensions, Limits, ReadEnd};
+use openssh_sftp_client::{connect, Extensions, Limits};
 use thread_local::ThreadLocal;
 use tokio::{task, time, try_join};
 
