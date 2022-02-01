@@ -1,6 +1,7 @@
 use super::{child::RemoteChildImp, ChildStdin, ChildStdout, Error, Session};
 
 use std::io;
+use std::marker::PhantomData;
 use std::process::ExitStatus;
 use std::time::Duration;
 
@@ -38,7 +39,7 @@ async fn flush(shared_data: &SharedData) -> Result<(), Error> {
 /// A file-oriented channel to a remote host.
 #[derive(Debug)]
 pub struct Sftp<'s> {
-    session: &'s Session,
+    phantom_data: PhantomData<&'s Session>,
     child: RemoteChildImp,
 
     shared_data: SharedData,
@@ -53,7 +54,6 @@ pub struct Sftp<'s> {
 
 impl<'s> Sftp<'s> {
     pub(crate) async fn new(
-        session: &'s Session,
         child: RemoteChildImp,
         stdin: ChildStdin,
         stdout: ChildStdout,
@@ -148,7 +148,7 @@ impl<'s> Sftp<'s> {
         thread_local_cache.get_or(|| Cache::new(Some(id)));
 
         Ok(Self {
-            session,
+            phantom_data: PhantomData,
             child,
 
             shared_data: write_end.into_shared_data(),
