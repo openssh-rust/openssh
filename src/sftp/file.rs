@@ -9,6 +9,7 @@ use std::io::{self, IoSlice};
 use std::mem;
 use std::path::Path;
 use std::pin::Pin;
+use std::sync::Arc;
 use std::task::{Context, Poll};
 
 use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite, ReadBuf};
@@ -114,7 +115,7 @@ impl<'sftp, 's> OpenOptions<'sftp, 's> {
         Ok(File {
             sftp,
             write_end,
-            handle,
+            handle: Arc::new(handle),
             id: Some(id),
 
             is_readable: self.options.get_read(),
@@ -134,7 +135,7 @@ impl<'sftp, 's> OpenOptions<'sftp, 's> {
 pub struct File<'sftp, 's> {
     sftp: &'sftp Sftp<'s>,
     write_end: WriteEnd,
-    handle: HandleOwned,
+    handle: Arc<HandleOwned>,
     id: Option<Id>,
 
     is_readable: bool,
@@ -194,6 +195,27 @@ impl File<'_, '_> {
         self.cache_id_mut(id);
 
         Ok(())
+    }
+}
+
+impl Clone for File<'_, '_> {
+    fn clone(&self) -> Self {
+        Self {
+            sftp: self.sftp,
+            write_end: self.write_end.clone(),
+            handle: self.handle.clone(),
+            id: None,
+
+            is_readable: self.is_readable,
+            is_writable: self.is_writable,
+
+            buffer: Vec::new(),
+            offset: self.offset,
+            need_flush: false,
+
+            read_future: None,
+            write_futures: VecDeque::new(),
+        }
     }
 }
 
@@ -541,9 +563,12 @@ impl AsyncWrite for File<'_, '_> {
 
 impl Drop for File<'_, '_> {
     fn drop(&mut self) {
-        let id = self.get_id_mut();
-        let _ = self
-            .write_end
-            .send_close_request(id, Cow::Borrowed(&self.handle));
+        if Arc::strong_count(&self.handle) == 1 {
+            // This is the last reference to the arc
+            let id = self.get_id_mut();
+            let _ = self
+                .write_end
+                .send_close_request(id, Cow::Borrowed(&self.handle));
+        }
     }
 }
