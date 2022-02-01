@@ -457,6 +457,10 @@ impl AsyncWrite for File<'_, '_> {
             )));
         }
 
+        if bufs.is_empty() {
+            return Poll::Ready(Ok(0));
+        }
+
         if bufs[0].len() > self.max_write_len() {
             return self.poll_write(cx, &*bufs[0]);
         }
