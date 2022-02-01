@@ -18,8 +18,6 @@ use openssh_sftp_client::{
     HandleOwned,
 };
 
-const MAX_WRITE_SIZE: usize = u32::MAX as usize;
-
 fn sftp_to_io_error(sftp_err: SftpError) -> io::Error {
     match sftp_err {
         SftpError::IOError(io_error) => io_error,
@@ -167,6 +165,10 @@ impl File<'_, '_> {
         } else {
             self.cache_id(id);
         }
+    }
+
+    fn max_write_len(&self) -> usize {
+        min(self.sftp.limits.write_len, usize::MAX as u64) as usize
     }
 
     /// # Cancel Safety
@@ -356,7 +358,7 @@ impl AsyncWrite for File<'_, '_> {
         }
 
         // sftp v3 cannot send more than u32::MAX data at once.
-        let buf = &buf[..min(buf.len(), MAX_WRITE_SIZE)];
+        let buf = &buf[..min(buf.len(), self.max_write_len())];
 
         // Dereference it here once so that there will be only
         // one mutable borrow to self.
@@ -442,7 +444,7 @@ impl AsyncWrite for File<'_, '_> {
             )));
         }
 
-        if bufs[0].len() > MAX_WRITE_SIZE {
+        if bufs[0].len() > self.max_write_len() {
             return self.poll_write(cx, &*bufs[0]);
         }
 
@@ -452,7 +454,7 @@ impl AsyncWrite for File<'_, '_> {
         for buf in &bufs[1..] {
             let cnt = n + buf.len();
 
-            if cnt > MAX_WRITE_SIZE {
+            if cnt > self.max_write_len() {
                 break;
             }
 
