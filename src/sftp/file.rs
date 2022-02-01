@@ -1,7 +1,7 @@
 use super::{Buffer, Data, Error, Id, Permissions, Sftp, WriteEnd};
 
 use std::borrow::Cow;
-use std::cmp::min;
+use std::cmp::{min, Ordering};
 use std::collections::VecDeque;
 use std::convert::TryInto;
 use std::future::Future;
@@ -302,10 +302,9 @@ impl AsyncSeek for File<'_, '_> {
                     "Seeking from the end is unsupported",
                 ));
             }
-            Current(n) => {
-                if n == 0 {
-                    return Ok(());
-                } else if n > 0 {
+            Current(n) => match n.cmp(&0) {
+                Ordering::Equal => return Ok(()),
+                Ordering::Greater => {
                     self.offset =
                         self.offset
                             .checked_add(n.try_into().unwrap())
@@ -315,7 +314,8 @@ impl AsyncSeek for File<'_, '_> {
                                     "Overflow occured during seeking",
                                 )
                             })?;
-                } else {
+                }
+                Ordering::Less => {
                     self.offset = self
                         .offset
                         .checked_sub((-n).try_into().unwrap())
@@ -326,7 +326,7 @@ impl AsyncSeek for File<'_, '_> {
                             )
                         })?;
                 }
-            }
+            },
         }
 
         // Reset future since they are invalidated by change of offset.
