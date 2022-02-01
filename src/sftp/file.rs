@@ -447,7 +447,7 @@ impl AsyncWrite for File<'_, '_> {
 
     fn poll_write_vectored(
         mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
+        _cx: &mut Context<'_>,
         bufs: &[IoSlice<'_>],
     ) -> Poll<io::Result<usize>> {
         if !self.is_writable {
@@ -461,17 +461,19 @@ impl AsyncWrite for File<'_, '_> {
             return Poll::Ready(Ok(0));
         }
 
-        if bufs[0].len() > self.max_write_len() {
-            return self.poll_write(cx, &*bufs[0]);
-        }
+        let max_write_len = self.max_write_len();
 
-        let mut end = 1;
-        let mut n = bufs[0].len();
+        let mut end = 0;
+        let mut n = 0;
 
-        for buf in &bufs[1..] {
+        // loop 'buf
+        //
+        // This loop would skip empty `IoSlice`s.
+        for buf in bufs {
             let cnt = n + buf.len();
 
-            if cnt > self.max_write_len() {
+            // branch '1
+            if cnt > max_write_len {
                 break;
             }
 
@@ -479,9 +481,29 @@ impl AsyncWrite for File<'_, '_> {
             end += 1;
         }
 
-        if n == 0 {
-            return Poll::Ready(Ok(0));
-        }
+        let buf = if end < bufs.len() {
+            let buf = &bufs[end];
+            // In this branch, the loop 'buf terminate due to branch '1,
+            // thus
+            //
+            //     n + buf.len() > max_write_len,
+            //     buf.len() > max_write_len - n.
+            //
+            // And (max_write_len - n) also cannot be 0, otherwise
+            // branch '1 will not be executed.
+            let buf = &buf[..(max_write_len - n)];
+
+            n = max_write_len;
+
+            [IoSlice::new(buf)]
+        } else {
+            if n == 0 {
+                return Poll::Ready(Ok(0));
+            }
+
+            [IoSlice::new(&[])]
+        };
+        let buffers = [&bufs[..end], &buf];
 
         // Dereference it here once so that there will be only
         // one mutable borrow to self.
@@ -497,7 +519,7 @@ impl AsyncWrite for File<'_, '_> {
         let handle = &this.handle;
 
         let future = write_end
-            .send_write_request_buffered_vectored(id, Cow::Borrowed(handle), offset, &bufs[..end])
+            .send_write_request_buffered_vectored2(id, Cow::Borrowed(handle), offset, &buffers)
             .map_err(sftp_to_io_error)?
             .wait();
 
