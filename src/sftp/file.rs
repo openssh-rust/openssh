@@ -1,9 +1,17 @@
-use super::{Error, Id, Sftp, WriteEnd};
+use super::{Buffer, Error, Id, Sftp, WriteEnd};
 
 use std::borrow::Cow;
+use std::convert::TryInto;
+use std::io;
 use std::path::Path;
+use std::pin::Pin;
+use std::task::{Context, Poll};
 
-use openssh_sftp_client::{CreateFlags, FileAttrs, HandleOwned};
+use tokio::io::AsyncSeek;
+
+use openssh_sftp_client::{
+    AwaitableDataFuture, AwaitableStatusFuture, CreateFlags, FileAttrs, HandleOwned,
+};
 
 #[derive(Debug)]
 pub struct OpenOptions<'sftp, 's> {
@@ -87,8 +95,22 @@ impl<'sftp, 's> OpenOptions<'sftp, 's> {
             write_end,
             handle,
             id: Some(id),
+
+            is_readable: self.options.get_read(),
+            is_writable: self.options.get_write(),
+
+            buffer: Vec::new(),
+            offset: 0,
+            future: FileFuture::None,
         })
     }
+}
+
+#[derive(Debug)]
+enum FileFuture<Buffer: Send + Sync> {
+    None,
+    Data(AwaitableDataFuture<Buffer>),
+    Status(AwaitableStatusFuture<Buffer>),
 }
 
 #[derive(Debug)]
@@ -97,6 +119,13 @@ pub struct File<'sftp, 's> {
     write_end: WriteEnd,
     handle: HandleOwned,
     id: Option<Id>,
+
+    is_readable: bool,
+    is_writable: bool,
+
+    buffer: Vec<u8>,
+    offset: u64,
+    future: FileFuture<Buffer>,
 }
 
 impl File<'_, '_> {
@@ -137,6 +166,62 @@ impl File<'_, '_> {
         self.cache_id_mut(id);
 
         Ok(())
+    }
+}
+
+impl AsyncSeek for File<'_, '_> {
+    fn start_seek(mut self: Pin<&mut Self>, position: io::SeekFrom) -> io::Result<()> {
+        use io::SeekFrom::*;
+
+        match position {
+            Start(pos) => {
+                if pos == self.offset {
+                    return Ok(());
+                }
+
+                self.offset = pos;
+            }
+            End(_) => {
+                return Err(io::Error::new(
+                    io::ErrorKind::Unsupported,
+                    "Seeking from the end is unsupported",
+                ));
+            }
+            Current(n) => {
+                if n == 0 {
+                    return Ok(());
+                } else if n > 0 {
+                    self.offset =
+                        self.offset
+                            .checked_add(n.try_into().unwrap())
+                            .ok_or_else(|| {
+                                io::Error::new(
+                                    io::ErrorKind::InvalidData,
+                                    "Overflow occured during seeking",
+                                )
+                            })?;
+                } else {
+                    self.offset = self
+                        .offset
+                        .checked_sub((-n).try_into().unwrap())
+                        .ok_or_else(|| {
+                            io::Error::new(
+                                io::ErrorKind::InvalidData,
+                                "Underflow occured during seeking",
+                            )
+                        })?;
+                }
+            }
+        }
+
+        // Reset future since they are invalidated by change of offset.
+        self.future = FileFuture::None;
+
+        Ok(())
+    }
+
+    fn poll_complete(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<u64>> {
+        Poll::Ready(Ok(self.offset))
     }
 }
 
