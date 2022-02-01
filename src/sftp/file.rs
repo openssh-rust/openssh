@@ -352,6 +352,7 @@ impl AsyncRead for File<'_, '_> {
     }
 }
 
+/// `File::poll_write` only writes data to the buffer.
 impl AsyncWrite for File<'_, '_> {
     fn poll_write(
         mut self: Pin<&mut Self>,
