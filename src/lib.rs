@@ -436,7 +436,7 @@ impl Session {
             (remote_child.into(), stdin.0, stdout.0)
         });
 
-        sftp::Sftp::new(self, remote_child, stdin, stdout).await
+        sftp::Sftp::new(remote_child, stdin, stdout).await
     }
 
     /// Terminate the remote connection.
