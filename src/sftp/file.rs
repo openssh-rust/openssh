@@ -302,7 +302,7 @@ impl AsyncRead for File<'_, '_> {
                     id,
                     Cow::Borrowed(handle),
                     offset,
-                    min(remaining, u32::MAX as usize).try_into().unwrap(),
+                    remaining.try_into().unwrap_or(u32::MAX),
                     Some(buffer),
                 )
                 .map_err(sftp_to_io_error)?
