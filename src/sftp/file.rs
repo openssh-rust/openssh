@@ -35,6 +35,7 @@ macro_rules! ready {
     };
 }
 
+/// Options and flags which can be used to configure how a file is opened.
 #[derive(Debug)]
 pub struct OpenOptions<'sftp, 's> {
     sftp: &'sftp Sftp<'s>,
@@ -55,32 +56,89 @@ impl<'sftp, 's> OpenOptions<'sftp, 's> {
         }
     }
 
+    /// Sets the option for read access.
+    ///
+    /// This option, when true, will indicate that the file
+    /// should be read-able if opened.
     pub fn read(&mut self, read: bool) -> &mut Self {
         self.options = self.options.read(read);
         self
     }
 
+    /// Sets the option for write access.
+    ///
+    /// This option, when true, will indicate that the file
+    /// should be write-able if opened.
+    ///
+    /// If the file already exists, any write calls on it
+    /// will overwrite its contents, without truncating it.
     pub fn write(&mut self, write: bool) -> &mut Self {
         self.options = self.options.write(write);
         self
     }
 
+    /// Sets the option for the append mode.
+    ///
+    /// This option, when `true`, means that writes will append
+    /// to a file instead of overwriting previous contents.
+    ///
+    /// Note that setting `.write(true).append(true)` has
+    /// the same effect as setting only `.append(true)`.
+    ///
+    /// For most filesystems, the operating system guarantees that
+    /// all writes are atomic: no writes get mangled because
+    /// another process writes at the same time.
+    ///
+    /// One maybe obvious note when using append-mode:
+    ///
+    /// make sure that all data that belongs together is written
+    /// to the file in one operation.
+    ///
+    /// This can be done by concatenating strings before passing them to
+    /// [`File::poll_write`] or [`File::poll_write_vectored`] and
+    /// calling [`File::poll_flush`] when the message is complete.
+    ///
+    /// Note
+    ///
+    /// This function doesn’t create the file if it doesn’t exist.
+    /// Use the [`OpenOptions::create`] method to do so.
     pub fn append(&mut self, append: bool) -> &mut Self {
         self.options = self.options.append(append);
         self
     }
 
+    /// Sets the option for truncating a previous file.
+    ///
+    /// If a file is successfully opened with this option
+    /// set it will truncate the file to `0` length if it already exists.
+    ///
     /// Only take effect if [`OpenOptions::create`] is set to `true`.
     pub fn truncate(&mut self, truncate: bool) -> &mut Self {
         self.truncate = truncate;
         self
     }
 
+    /// Sets the option to create a new file, or open it if it already exists.
     pub fn create(&mut self, create: bool) -> &mut Self {
         self.create = create;
         self
     }
 
+    /// Sets the option to create a new file, failing if it already exists.
+    ///
+    /// No file is allowed to exist at the target location,
+    /// also no (dangling) symlink.
+    ///
+    /// In this way, if the call succeeds, the file returned
+    /// is guaranteed to be new.
+    ///
+    /// This option is useful because it is atomic.
+    ///
+    /// Otherwise between checking whether a file exists and
+    /// creating a new one, the file may have been
+    /// created by another process (a TOCTOU race condition / attack).
+    ///
+    /// If `.create_new(true)` is set, `.create()` and `.truncate()` are ignored.
     pub fn create_new(&mut self, create_new: bool) -> &mut Self {
         self.create_new = create_new;
         self
@@ -131,6 +189,7 @@ impl<'sftp, 's> OpenOptions<'sftp, 's> {
     }
 }
 
+/// A reference to the remote file.
 #[derive(Debug)]
 pub struct File<'sftp, 's> {
     sftp: &'sftp Sftp<'s>,
@@ -176,6 +235,16 @@ impl File<'_, '_> {
         min(self.sftp.limits.read_len, usize::MAX as u64) as usize
     }
 
+    /// Truncates or extends the underlying file, updating the size
+    /// of this file to become size.
+    ///
+    /// If the size is less than the current file’s size, then the file
+    /// will be shrunk.
+    ///
+    /// If it is greater than the current file’s size, then the file
+    /// will be extended to size and have all of the intermediate data
+    /// filled in with 0s.
+    ///
     /// # Cancel Safety
     ///
     /// This function is cancel safe.
@@ -205,6 +274,14 @@ impl File<'_, '_> {
         Ok(())
     }
 
+    /// Attempts to sync all OS-internal metadata to disk.
+    ///
+    /// This function will attempt to ensure that all in-core data
+    /// reaches the filesystem before returning.
+    ///
+    /// # Cancel Safety
+    ///
+    /// This function is cancel safe.
     pub async fn sync_all(&mut self) -> Result<(), Error> {
         if !self.sftp.extensions.fsync {
             return Err(SftpError::UnsupportedExtension(&"fsync").into());
@@ -232,6 +309,11 @@ impl File<'_, '_> {
         Ok(())
     }
 
+    /// Changes the permissions on the underlying file.
+    ///
+    /// # Cancel Safety
+    ///
+    /// This function is cancel safe.
     pub async fn set_permissions(&mut self, perm: Permissions) -> Result<(), Error> {
         if !self.is_writable {
             return Err(SftpError::from(io::Error::new(
@@ -258,6 +340,10 @@ impl File<'_, '_> {
         Ok(())
     }
 
+    /// Creates a new [`File`] instance that shares the same underlying
+    /// file handle as the existing File instance.
+    ///
+    /// Reads, writes, and seeks can be performed independently.
     pub fn try_clone(&self) -> io::Result<Self> {
         Ok(self.clone())
     }
