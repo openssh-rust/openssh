@@ -9,13 +9,13 @@ use openssh_sftp_client::{connect, Extensions, Limits};
 use thread_local::ThreadLocal;
 use tokio::{task, time, try_join};
 
-pub use openssh_sftp_client::Permissions;
+pub use openssh_sftp_client::{FileType, Permissions, UnixTimeStamp};
 
 mod cache;
 use cache::Cache;
 
 mod file;
-pub use file::{File, OpenOptions};
+pub use file::{File, MetaData, OpenOptions};
 
 type Buffer = Vec<u8>;
 

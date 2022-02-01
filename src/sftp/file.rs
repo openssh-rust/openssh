@@ -1,4 +1,4 @@
-use super::{Buffer, Data, Error, Id, Permissions, Sftp, WriteEnd};
+use super::{Buffer, Data, Error, FileType, Id, Permissions, Sftp, UnixTimeStamp, WriteEnd};
 
 use std::borrow::Cow;
 use std::cmp::{min, Ordering};
@@ -338,6 +338,29 @@ impl File<'_, '_> {
         self.cache_id_mut(id);
 
         Ok(())
+    }
+
+    /// Queries metadata about the underlying file.
+    pub async fn metadata(&mut self) -> Result<MetaData, Error> {
+        if !self.is_readable {
+            return Err(SftpError::from(io::Error::new(
+                io::ErrorKind::Other,
+                "This file is not opened for reading",
+            ))
+            .into());
+        }
+
+        let id = self.get_id_mut();
+
+        let (id, attrs) = self
+            .write_end
+            .send_fstat_request(id, Cow::Borrowed(&self.handle))?
+            .wait()
+            .await?;
+
+        self.cache_id_mut(id);
+
+        Ok(MetaData(attrs))
     }
 
     /// Creates a new [`File`] instance that shares the same underlying
@@ -724,5 +747,68 @@ impl Drop for File<'_, '_> {
                 .write_end
                 .send_close_request(id, Cow::Borrowed(&self.handle));
         }
+    }
+}
+
+/// Metadata information about a file.
+#[derive(Debug, Clone, Copy)]
+pub struct MetaData(FileAttrs);
+
+#[allow(clippy::len_without_is_empty)]
+impl MetaData {
+    /// Returns the size of the file in bytes.
+    ///
+    /// Return `None` if the server did not return
+    /// the size.
+    pub fn len(&self) -> Option<u64> {
+        self.0.get_size()
+    }
+
+    /// Returns the user ID of the owner.
+    ///
+    /// Return `None` if the server did not return
+    /// the uid.
+    pub fn uid(&self) -> Option<u32> {
+        self.0.get_id().map(|(uid, _gid)| uid)
+    }
+
+    /// Returns the group ID of the owner.
+    ///
+    /// Return `None` if the server did not return
+    /// the gid.
+    pub fn gid(&self) -> Option<u32> {
+        self.0.get_id().map(|(_uid, gid)| gid)
+    }
+
+    /// Returns the permissions.
+    ///
+    /// Return `None` if the server did not return
+    /// the permissions.
+    pub fn permissions(&self) -> Option<Permissions> {
+        self.0.get_permissions()
+    }
+
+    /// Returns the file type.
+    ///
+    /// Return `None` if the server did not return
+    /// the file type.
+    pub fn file_type(&self) -> Option<FileType> {
+        self.0.get_filetype()
+    }
+
+    /// Returns the last access time.
+    ///
+    /// Return `None` if the server did not return
+    /// the last access time.
+    pub fn accessed(&self) -> Option<UnixTimeStamp> {
+        self.0.get_time().map(|(atime, _mtime)| atime)
+    }
+
+    /// Returns the last modification time.
+    ///
+    /// Return `None` if the server did not return
+    /// the last modification time.
+    pub fn modified(&self) -> Option<UnixTimeStamp> {
+        self.0.get_time().map(|(_atime, mtime)| mtime)
     }
 }
