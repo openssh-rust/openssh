@@ -117,7 +117,19 @@ impl<'s> Sftp<'s> {
         let (id, limits) = if extensions.limits {
             let awaitable = write_end.send_limits_request(id)?;
             flush(&write_end).await?;
-            awaitable.wait().await?
+            let (id, mut limits) = awaitable.wait().await?;
+
+            if limits.read_len == 0 {
+                limits.read_len =
+                    openssh_sftp_client::OPENSSH_PORTABLE_DEFAULT_DOWNLOAD_BUFLEN as u64;
+            }
+
+            if limits.write_len == 0 {
+                limits.write_len =
+                    openssh_sftp_client::OPENSSH_PORTABLE_DEFAULT_UPLOAD_BUFLEN as u64;
+            }
+
+            (id, limits)
         } else {
             (
                 id,
