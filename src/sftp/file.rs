@@ -147,7 +147,7 @@ impl<'sftp, 's> OpenOptions<'sftp, 's> {
     /// # Cancel Safety
     ///
     /// This function is cancel safe.
-    pub async fn open(&self, path: impl AsRef<Path>) -> Result<File<'_, '_>, Error> {
+    pub async fn open(&self, path: impl AsRef<Path>) -> Result<File<'sftp, 's>, Error> {
         let filename = Cow::Borrowed(path.as_ref());
 
         let params = if self.create {
