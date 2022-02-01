@@ -366,6 +366,10 @@ impl AsyncWrite for File<'_, '_> {
             )));
         }
 
+        if buf.is_empty() {
+            return Poll::Ready(Ok(0));
+        }
+
         // sftp v3 cannot send more than u32::MAX data at once.
         let buf = &buf[..min(buf.len(), self.max_write_len())];
 
@@ -469,6 +473,10 @@ impl AsyncWrite for File<'_, '_> {
 
             n = cnt;
             end += 1;
+        }
+
+        if n == 0 {
+            return Poll::Ready(Ok(0));
         }
 
         // Dereference it here once so that there will be only
