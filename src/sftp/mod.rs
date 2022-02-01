@@ -1,5 +1,6 @@
 use super::{child::RemoteChildImp, ChildStdin, ChildStdout, Error, Session};
 
+use std::io;
 use std::process::ExitStatus;
 use std::time::Duration;
 
@@ -21,6 +22,15 @@ type Id = openssh_sftp_client::Id<Buffer>;
 
 /// Duration to wait before flushing the write buffer.
 const FLUSH_INTERVAL: Duration = Duration::from_micros(900);
+
+async fn flush(shared_data: &SharedData) -> Result<(), Error> {
+    shared_data
+        .flush()
+        .await
+        .map_err(|err| Error::SftpError(err.into()))?;
+
+    Ok(())
+}
 
 /// A file-oriented channel to a remote host.
 #[derive(Debug)]
@@ -55,7 +65,7 @@ impl<'s> Sftp<'s> {
             // The loop can only return `Err`
             loop {
                 interval.tick().await;
-                shared_data.flush().await?;
+                flush(&shared_data).await?;
             }
         });
 
@@ -83,7 +93,7 @@ impl<'s> Sftp<'s> {
                         // In this case, the buffer should be flushed since
                         // it will not be able to group any writes.
                         if shared_data.strong_count() <= 5 {
-                            shared_data.flush().await?;
+                            flush(&shared_data).await?;
                         }
 
                         Ok::<_, Error>(())
@@ -105,7 +115,7 @@ impl<'s> Sftp<'s> {
 
         let (id, limits) = if extensions.limits {
             let awaitable = write_end.send_limits_request(id)?;
-            write_end.flush().await?;
+            flush(&write_end).await?;
             awaitable.wait().await?
         } else {
             (
@@ -144,7 +154,7 @@ impl<'s> Sftp<'s> {
     /// This function is cancel safe.
     pub async fn close(self) -> Result<(), Error> {
         // Try to flush the data
-        self.shared_data.flush().await?;
+        flush(&self.shared_data).await?;
         // Wait for responses for all requests buffered and sent.
         self.read_task.await??;
 
@@ -194,12 +204,12 @@ impl<'s> Sftp<'s> {
 
     /// Forcibly flush the write buffer.
     ///
-    /// By default, it is flushed every 10ms.
+    /// By default, it is flushed every 0.9 ms.
     ///
     /// # Cancel Safety
     ///
     /// This function is cancel safe.
-    pub async fn flush(&self) -> Result<(), Error> {
+    pub async fn flush(&self) -> Result<(), io::Error> {
         self.shared_data.flush().await?;
 
         Ok(())
