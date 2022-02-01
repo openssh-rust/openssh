@@ -307,7 +307,7 @@ impl AsyncRead for File<'_, '_> {
         if !self.is_readable {
             return Poll::Ready(Err(io::Error::new(
                 io::ErrorKind::Other,
-                "This file does not support reading",
+                "This file is not opened for reading",
             )));
         }
 
@@ -410,7 +410,7 @@ impl AsyncWrite for File<'_, '_> {
         if !self.is_writable {
             return Poll::Ready(Err(io::Error::new(
                 io::ErrorKind::Other,
-                "This file does not support writing",
+                "This file is not opened for writing",
             )));
         }
 
