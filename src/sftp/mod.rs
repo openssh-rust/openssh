@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use openssh_sftp_client::{connect, Extensions, Limits, ReadEnd};
 use thread_local::ThreadLocal;
-use tokio::{task, time};
+use tokio::{task, time, try_join};
 
 mod cache;
 use cache::Cache;
@@ -59,6 +59,7 @@ impl<'s> Sftp<'s> {
             }
         });
 
+        let shared_data = SharedData::clone(&write_end);
         let read_task = task::spawn(async move {
             let mut read_end = read_end;
 
@@ -70,23 +71,33 @@ impl<'s> Sftp<'s> {
                     break Ok::<_, Error>(());
                 }
 
-                // There is only 4 references to the shared data:
-                //  - the read end
-                //  - the shared data stored in flush_task
-                //  - the shared data stored in sftp
-                //  - one write_end
-                //
-                // In this case, the buffer should be flushed since
-                // it will not be able to group any writes.
-                if read_end.shared_data_strong_count() <= 4 {
-                    read_end.flush_write_end_buffer().await?;
-                }
+                try_join!(
+                    async {
+                        // There is only 5 references to the shared data:
+                        //  - the read end
+                        //  - the shared data stored in read_task
+                        //  - the shared data stored in flush_task
+                        //  - the shared data stored in sftp
+                        //  - one write_end
+                        //
+                        // In this case, the buffer should be flushed since
+                        // it will not be able to group any writes.
+                        if shared_data.strong_count() <= 5 {
+                            shared_data.flush().await?;
+                        }
 
-                // If attempt to read in more than new_requests_submit, then
-                // `read_in_one_packet` might block forever.
-                for _ in 0..new_requests_submit {
-                    read_end.read_in_one_packet().await?;
-                }
+                        Ok::<_, Error>(())
+                    },
+                    async {
+                        // If attempt to read in more than new_requests_submit, then
+                        // `read_in_one_packet` might block forever.
+                        for _ in 0..new_requests_submit {
+                            read_end.read_in_one_packet().await?;
+                        }
+
+                        Ok::<_, Error>(())
+                    }
+                )?;
             }
         });
 
