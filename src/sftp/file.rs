@@ -171,6 +171,10 @@ impl File<'_, '_> {
         min(self.sftp.limits.write_len, usize::MAX as u64) as usize
     }
 
+    fn max_read_len(&self) -> usize {
+        min(self.sftp.limits.read_len, usize::MAX as u64) as usize
+    }
+
     /// # Cancel Safety
     ///
     /// This function is cancel safe.
@@ -266,6 +270,8 @@ impl AsyncRead for File<'_, '_> {
         if remaining == 0 {
             return Poll::Ready(Ok(()));
         }
+
+        let remaining = min(remaining, self.max_read_len());
 
         let future = if let Some(future) = &mut self.read_future {
             // Get the active future.
