@@ -397,7 +397,10 @@ impl AsyncRead for File<'_, '_> {
     }
 }
 
-/// `File::poll_write` only writes data to the buffer.
+/// [`File::poll_write`] only writes data to the buffer.
+///
+/// [`File::poll_write`] and [`File::poll_write_vectored`] would
+/// send at most one sftp request.
 impl AsyncWrite for File<'_, '_> {
     fn poll_write(
         mut self: Pin<&mut Self>,
