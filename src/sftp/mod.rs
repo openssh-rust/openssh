@@ -20,7 +20,7 @@ type SharedData = openssh_sftp_client::SharedData<Buffer>;
 type Id = openssh_sftp_client::Id<Buffer>;
 
 /// Duration to wait before flushing the write buffer.
-const FLUSH_INTERVAL: Duration = Duration::from_millis(10);
+const FLUSH_INTERVAL: Duration = Duration::from_micros(900);
 
 /// A file-oriented channel to a remote host.
 #[derive(Debug)]
