@@ -214,7 +214,7 @@ impl<'s> Sftp<'s> {
     }
 
     /// Return a new [`OpenOptions`] object.
-    pub fn open_options(&self) -> OpenOptions<'_, '_> {
+    pub fn options(&self) -> OpenOptions<'_, '_> {
         OpenOptions::new(self)
     }
 
