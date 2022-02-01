@@ -2,15 +2,17 @@ use super::{Buffer, Data, Error, Id, Sftp, WriteEnd};
 
 use std::borrow::Cow;
 use std::cmp::min;
+use std::collections::VecDeque;
 use std::convert::TryInto;
 use std::future::Future;
-use std::io;
+use std::io::{self, IoSlice};
 use std::mem;
 use std::path::Path;
 use std::pin::Pin;
+use std::ptr::NonNull;
 use std::task::{Context, Poll};
 
-use tokio::io::{AsyncRead, AsyncSeek, ReadBuf};
+use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite, ReadBuf};
 
 use openssh_sftp_client::{
     AwaitableDataFuture, AwaitableStatusFuture, CreateFlags, Error as SftpError, FileAttrs,
@@ -22,6 +24,24 @@ fn sftp_to_io_error(sftp_err: SftpError) -> io::Error {
         SftpError::IOError(io_error) => io_error,
         sftp_err => io::Error::new(io::ErrorKind::Other, sftp_err),
     }
+}
+
+macro_rules! ready {
+    ($e:expr) => {
+        match $e {
+            Poll::Ready(t) => t,
+            Poll::Pending => return Poll::Pending,
+        }
+    };
+}
+
+macro_rules! poll_try {
+    ($e:expr) => {
+        match $e {
+            Ok(t) => t,
+            Err(err) => return Poll::Ready(Err(err)),
+        }
+    };
 }
 
 #[derive(Debug)]
@@ -112,7 +132,10 @@ impl<'sftp, 's> OpenOptions<'sftp, 's> {
 
             buffer: Vec::new(),
             offset: 0,
+            need_flush: false,
+
             future: FileFuture::None,
+            write_futures: VecDeque::new(),
         })
     }
 }
@@ -133,10 +156,13 @@ pub struct File<'sftp, 's> {
 
     is_readable: bool,
     is_writable: bool,
+    need_flush: bool,
 
     buffer: Vec<u8>,
     offset: u64,
+
     future: FileFuture<Buffer>,
+    write_futures: VecDeque<AwaitableStatusFuture<Buffer>>,
 }
 
 impl File<'_, '_> {
@@ -334,6 +360,102 @@ impl AsyncRead for File<'_, '_> {
         // Adjust offset and reset self.future
         Poll::Ready(self.start_seek(io::SeekFrom::Current(n.try_into().unwrap())))
     }
+}
+
+impl AsyncWrite for File<'_, '_> {
+    // TODO:
+    //
+    // This is unsafe!
+    //
+    // buf could be modified between the interval.
+    fn poll_write(
+        mut self: Pin<&mut Self>,
+        _cx: &mut Context<'_>,
+        buf: &[u8],
+    ) -> Poll<io::Result<usize>> {
+        if !self.is_writable {
+            return Poll::Ready(Err(io::Error::new(
+                io::ErrorKind::Other,
+                "This file does not support writing",
+            )));
+        }
+
+        // sftp v3 cannot send more than u32::MAX data at once.
+        let buf = &buf[..min(buf.len(), u32::MAX as usize)];
+
+        // Dereference it here once so that there will be only
+        // one mutable borrow to self.
+        let this = &mut *self;
+
+        // Get id, buffer and offset to avoid reference to this.
+        let id = this.get_id_mut();
+        let offset = this.offset;
+
+        // Reference it here to make it clear that we are
+        // using different part of Self.
+        let write_end = &mut this.write_end;
+        let handle = &this.handle;
+
+        let future = write_end
+            .send_write_request_buffered(id, Cow::Borrowed(handle), offset, Cow::Borrowed(buf))
+            .map_err(sftp_to_io_error)?
+            .wait();
+
+        self.write_futures.push_back(future);
+        // Since a new future is pushed, flushing is again required.
+        self.need_flush = true;
+
+        let n = buf.len();
+
+        // Adjust offset and reset self.future
+        Poll::Ready(
+            self.start_seek(io::SeekFrom::Current(n.try_into().unwrap()))
+                .map(|_| n),
+        )
+    }
+
+    fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        let this = &mut *self;
+
+        if this.write_futures.is_empty() {
+            return Poll::Ready(Ok(()));
+        }
+
+        // flush only if there is pending awaitable writes
+        if this.need_flush {
+            // WriteEnd::flush return true if flush succeeds, false if not.
+            //
+            // If it succeeds, then we no longer need to flush it.
+            this.need_flush = !poll_try!(ready!(
+                // Future returned by WriteEnd::flush does not contain
+                // self-reference, so it can be optimized and placed
+                // on stack.
+                Pin::new(&mut Box::pin(this.write_end.flush())).poll(cx)
+            ));
+        }
+
+        loop {
+            let res = if let Some(future) = this.write_futures.front_mut() {
+                ready!(Pin::new(future).poll(cx))
+            } else {
+                // All futures consumed without error
+                break Poll::Ready(Ok(()));
+            };
+
+            this.write_futures
+                .pop_front()
+                .expect("futures should have at least one elements in it");
+
+            // propagate error and recycle id
+            this.cache_id_mut(poll_try!(res.map_err(sftp_to_io_error)).0);
+        }
+    }
+
+    fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        self.poll_flush(cx)
+    }
+
+    // TODO: impl vector API
 }
 
 impl Drop for File<'_, '_> {
