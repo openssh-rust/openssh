@@ -20,24 +20,7 @@ type SharedData = openssh_sftp_client::SharedData<Buffer>;
 type Id = openssh_sftp_client::Id<Buffer>;
 
 /// Duration to wait before flushing the write buffer.
-const FLUSH_TIMEOUT: Duration = Duration::from_millis(10);
-
-async fn flush_if_necessary(
-    flushed: &mut bool,
-    read_end: &mut ReadEnd<Vec<u8>>,
-) -> Result<(), Error> {
-    if !*flushed {
-        // New requests are now in the write buffer and might be
-        // flushed.
-        // Wait for new response and flush the buffer if timeout.
-        match time::timeout(FLUSH_TIMEOUT, read_end.ready_for_read()).await {
-            Ok(res) => res?,
-            Err(_) => *flushed = read_end.flush_write_end_buffer().await?,
-        };
-    }
-
-    Ok(())
-}
+const FLUSH_INTERVAL: Duration = Duration::from_millis(10);
 
 /// A file-oriented channel to a remote host.
 #[derive(Debug)]
@@ -46,6 +29,7 @@ pub struct Sftp<'s> {
     child: RemoteChildImp,
 
     shared_data: SharedData,
+    flush_task: task::JoinHandle<Result<(), Error>>,
     read_task: task::JoinHandle<Result<(), Error>>,
 
     extensions: Extensions,
@@ -62,35 +46,45 @@ impl<'s> Sftp<'s> {
         stdout: ChildStdout,
     ) -> Result<Sftp<'s>, Error> {
         let (mut write_end, read_end, extensions) = connect(stdout, stdin).await?;
+
+        let shared_data = SharedData::clone(&write_end);
+        let flush_task = task::spawn(async move {
+            let mut interval = time::interval(FLUSH_INTERVAL);
+            interval.set_missed_tick_behavior(time::MissedTickBehavior::Delay);
+
+            // The loop can only return `Err`
+            loop {
+                interval.tick().await;
+                shared_data.flush().await?;
+            }
+        });
+
         let read_task = task::spawn(async move {
             let mut read_end = read_end;
 
             loop {
                 let new_requests_submit = read_end.wait_for_new_request().await;
                 if new_requests_submit == 0 {
+                    // All responses is read in and there is no
+                    // write_end/shared_data left.
                     break Ok::<_, Error>(());
                 }
 
-                // whether all of the `new_requests_submit` pending requests is
-                // flushed.
-                let mut flushed = false;
-
-                // There is only 3 references to the shared data:
+                // There is only 4 references to the shared data:
                 //  - the read end
+                //  - the shared data stored in flush_task
                 //  - the shared data stored in sftp
                 //  - one write_end
                 //
                 // In this case, the buffer should be flushed since
                 // it will not be able to group any writes.
-                if read_end.shared_data_strong_count() <= 3 {
-                    flushed = read_end.flush_write_end_buffer().await?;
+                if read_end.shared_data_strong_count() <= 4 {
+                    read_end.flush_write_end_buffer().await?;
                 }
 
                 // If attempt to read in more than new_requests_submit, then
                 // `read_in_one_packet` might block forever.
                 for _ in 0..new_requests_submit {
-                    flush_if_necessary(&mut flushed, &mut read_end).await?;
-
                     read_end.read_in_one_packet().await?;
                 }
             }
@@ -123,6 +117,7 @@ impl<'s> Sftp<'s> {
 
             shared_data: write_end.into_shared_data(),
             read_task,
+            flush_task,
 
             extensions,
             limits,
@@ -132,10 +127,26 @@ impl<'s> Sftp<'s> {
     }
 
     /// Close sftp connection
+    ///
+    /// # Cancel Safety
+    ///
+    /// This function is cancel safe.
     pub async fn close(self) -> Result<(), Error> {
+        // Try to flush the data
         self.shared_data.flush().await?;
-
+        // Wait for responses for all requests buffered and sent.
         self.read_task.await??;
+
+        // terminate flush task only after all data is flushed.
+        self.flush_task.abort();
+        match self.flush_task.await {
+            Ok(res) => res?,
+            Err(join_err) => {
+                if !join_err.is_cancelled() {
+                    return Err(join_err.into());
+                }
+            }
+        }
 
         let res: Result<ExitStatus, Error> =
             crate::child::delegate!(self.child, child, { child.wait().await });
