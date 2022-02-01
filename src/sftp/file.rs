@@ -180,6 +180,14 @@ impl File<'_, '_> {
     ///
     /// This function is cancel safe.
     pub async fn set_len(&mut self, size: u64) -> Result<(), Error> {
+        if !self.is_writable {
+            return Err(SftpError::from(io::Error::new(
+                io::ErrorKind::Other,
+                "This file is not opened for writing",
+            ))
+            .into());
+        }
+
         let id = self.get_id_mut();
 
         let mut attrs = FileAttrs::new();
@@ -200,6 +208,14 @@ impl File<'_, '_> {
     pub async fn sync_all(&mut self) -> Result<(), Error> {
         if !self.sftp.extensions.fsync {
             return Err(SftpError::UnsupportedExtension(&"fsync").into());
+        }
+
+        if !self.is_writable {
+            return Err(SftpError::from(io::Error::new(
+                io::ErrorKind::Other,
+                "This file is not opened for writing",
+            ))
+            .into());
         }
 
         let id = self.get_id_mut();
