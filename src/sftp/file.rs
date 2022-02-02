@@ -1,4 +1,7 @@
-use super::{Buffer, Data, Error, FileType, Id, Permissions, Sftp, UnixTimeStamp, WriteEnd};
+use super::{
+    Auxiliary, Buffer, Data, Error, FileType, Id, IdCacher, Permissions, Sftp, UnixTimeStamp,
+    WriteEnd,
+};
 
 use std::borrow::Cow;
 use std::cmp::{min, Ordering};
@@ -6,6 +9,7 @@ use std::collections::VecDeque;
 use std::convert::TryInto;
 use std::future::Future;
 use std::io::{self, IoSlice};
+use std::marker::PhantomData;
 use std::mem;
 use std::path::Path;
 use std::pin::Pin;
@@ -164,14 +168,14 @@ impl<'sftp, 's> OpenOptions<'sftp, 's> {
             self.options.open(filename)
         };
 
-        let sftp = self.sftp;
-        let mut write_end = sftp.write_end();
-        let id = sftp.get_thread_local_cached_id();
+        let mut write_end = self.sftp.write_end();
+        let id = write_end.get_thread_local_cached_id();
 
         let (id, handle) = write_end.send_open_file_request(id, params)?.wait().await?;
 
         Ok(File {
-            sftp,
+            phantom_data: PhantomData,
+
             write_end,
             handle: Arc::new(handle),
             id: Some(id),
@@ -192,7 +196,8 @@ impl<'sftp, 's> OpenOptions<'sftp, 's> {
 /// A reference to the remote file.
 #[derive(Debug)]
 pub struct File<'sftp, 's> {
-    sftp: &'sftp Sftp<'s>,
+    phantom_data: PhantomData<&'sftp Sftp<'s>>,
+
     write_end: WriteEnd,
     handle: Arc<HandleOwned>,
     id: Option<Id>,
@@ -209,14 +214,18 @@ pub struct File<'sftp, 's> {
 }
 
 impl File<'_, '_> {
+    fn get_auxiliary(&self) -> &Auxiliary {
+        self.write_end.get_auxiliary()
+    }
+
     fn get_id_mut(&mut self) -> Id {
         self.id
             .take()
-            .unwrap_or_else(|| self.sftp.get_thread_local_cached_id())
+            .unwrap_or_else(|| self.write_end.get_thread_local_cached_id())
     }
 
     fn cache_id(&self, id: Id) {
-        self.sftp.cache_id(id);
+        self.write_end.cache_id(id);
     }
 
     fn cache_id_mut(&mut self, id: Id) {
@@ -228,11 +237,11 @@ impl File<'_, '_> {
     }
 
     fn max_write_len(&self) -> usize {
-        min(self.sftp.limits.write_len, usize::MAX as u64) as usize
+        min(self.get_auxiliary().limits.write_len, usize::MAX as u64) as usize
     }
 
     fn max_read_len(&self) -> usize {
-        min(self.sftp.limits.read_len, usize::MAX as u64) as usize
+        min(self.get_auxiliary().limits.read_len, usize::MAX as u64) as usize
     }
 
     /// Truncates or extends the underlying file, updating the size
@@ -283,7 +292,7 @@ impl File<'_, '_> {
     ///
     /// This function is cancel safe.
     pub async fn sync_all(&mut self) -> Result<(), Error> {
-        if !self.sftp.extensions.fsync {
+        if !self.get_auxiliary().extensions.fsync {
             return Err(SftpError::UnsupportedExtension(&"fsync").into());
         }
 
@@ -375,7 +384,8 @@ impl File<'_, '_> {
 impl Clone for File<'_, '_> {
     fn clone(&self) -> Self {
         Self {
-            sftp: self.sftp,
+            phantom_data: PhantomData,
+
             write_end: self.write_end.clone(),
             handle: self.handle.clone(),
             id: None,

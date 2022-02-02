@@ -1,3 +1,5 @@
+use super::{Id, SharedData};
+
 use std::any::type_name;
 use std::cell::Cell;
 use std::fmt;
@@ -21,5 +23,30 @@ impl<T> Cache<T> {
 impl<T> fmt::Debug for Cache<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Cache<{}>", type_name::<T>())
+    }
+}
+
+pub(crate) trait IdCacher {
+    fn get_thread_local_cached_id(&self) -> Id;
+
+    /// Give back id to the thread local cache.
+    fn cache_id(&self, id: Id);
+}
+
+impl IdCacher for SharedData {
+    fn get_thread_local_cached_id(&self) -> Id {
+        self.get_auxiliary()
+            .thread_local_cache
+            .get()
+            .and_then(Cache::take)
+            .unwrap_or_else(|| self.create_response_id())
+    }
+
+    /// Give back id to the thread local cache.
+    fn cache_id(&self, id: Id) {
+        self.get_auxiliary()
+            .thread_local_cache
+            .get_or(|| Cache::new(None))
+            .set(id);
     }
 }
