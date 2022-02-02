@@ -41,16 +41,16 @@ macro_rules! ready {
 
 /// Options and flags which can be used to configure how a file is opened.
 #[derive(Debug)]
-pub struct OpenOptions<'sftp, 's> {
-    sftp: &'sftp Sftp<'s>,
+pub struct OpenOptions<'s> {
+    sftp: &'s Sftp<'s>,
     options: openssh_sftp_client::OpenOptions,
     truncate: bool,
     create: bool,
     create_new: bool,
 }
 
-impl<'sftp, 's> OpenOptions<'sftp, 's> {
-    pub(super) fn new(sftp: &'sftp Sftp<'s>) -> Self {
+impl<'s> OpenOptions<'s> {
+    pub(super) fn new(sftp: &'s Sftp<'s>) -> Self {
         Self {
             sftp,
             options: openssh_sftp_client::OpenOptions::new(),
@@ -151,7 +151,7 @@ impl<'sftp, 's> OpenOptions<'sftp, 's> {
     /// # Cancel Safety
     ///
     /// This function is cancel safe.
-    pub async fn open(&self, path: impl AsRef<Path>) -> Result<File<'sftp, 's>, Error> {
+    pub async fn open(&self, path: impl AsRef<Path>) -> Result<File<'s>, Error> {
         let filename = Cow::Borrowed(path.as_ref());
 
         let params = if self.create {
@@ -195,8 +195,8 @@ impl<'sftp, 's> OpenOptions<'sftp, 's> {
 
 /// A reference to the remote file.
 #[derive(Debug)]
-pub struct File<'sftp, 's> {
-    phantom_data: PhantomData<&'sftp Sftp<'s>>,
+pub struct File<'s> {
+    phantom_data: PhantomData<&'s Sftp<'s>>,
 
     write_end: WriteEnd,
     handle: Arc<HandleOwned>,
@@ -213,7 +213,7 @@ pub struct File<'sftp, 's> {
     write_futures: VecDeque<AwaitableStatusFuture<Buffer>>,
 }
 
-impl File<'_, '_> {
+impl File<'_> {
     fn get_auxiliary(&self) -> &Auxiliary {
         self.write_end.get_auxiliary()
     }
@@ -385,7 +385,7 @@ impl File<'_, '_> {
 /// file handle as the existing File instance.
 ///
 /// Reads, writes, and seeks can be performed independently.
-impl Clone for File<'_, '_> {
+impl Clone for File<'_> {
     fn clone(&self) -> Self {
         Self {
             phantom_data: PhantomData,
@@ -407,7 +407,7 @@ impl Clone for File<'_, '_> {
     }
 }
 
-impl AsyncSeek for File<'_, '_> {
+impl AsyncSeek for File<'_> {
     fn start_seek(mut self: Pin<&mut Self>, position: io::SeekFrom) -> io::Result<()> {
         use io::SeekFrom::*;
 
@@ -463,7 +463,7 @@ impl AsyncSeek for File<'_, '_> {
     }
 }
 
-impl AsyncRead for File<'_, '_> {
+impl AsyncRead for File<'_> {
     fn poll_read(
         mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
@@ -570,7 +570,7 @@ impl AsyncRead for File<'_, '_> {
 /// It is perfectly safe to buffer requests and send them in one go,
 /// since sftp v3 guarantees that requests on the same file handler
 /// is processed sequentially.
-impl AsyncWrite for File<'_, '_> {
+impl AsyncWrite for File<'_> {
     fn poll_write(
         mut self: Pin<&mut Self>,
         _cx: &mut Context<'_>,
@@ -758,7 +758,7 @@ impl AsyncWrite for File<'_, '_> {
     }
 }
 
-impl Drop for File<'_, '_> {
+impl Drop for File<'_> {
     fn drop(&mut self) {
         if Arc::strong_count(&self.handle) == 1 {
             // This is the last reference to the arc
