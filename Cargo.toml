@@ -38,6 +38,7 @@ scp = []
 sftp = [
     "openssh-sftp-client",
     "thread_local",
+    "tokio-util",
     "tokio/rt",
     "tokio/time",
     "once_cell/parking_lot"
@@ -58,6 +59,7 @@ dirs = "4.0.0"
 openssh-mux-client = { version = "0.14.0", optional = true }
 openssh-sftp-client = { version = "0.5.5", optional = true }
 thread_local = { version = "1.1.4", optional = true }
+tokio-util = { version = "0.6.9", optional = true }
 
 [dev-dependencies]
 lazy_static = "1.4.0"
