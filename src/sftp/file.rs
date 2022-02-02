@@ -381,6 +381,10 @@ impl File<'_, '_> {
     }
 }
 
+/// Creates a new [`File`] instance that shares the same underlying
+/// file handle as the existing File instance.
+///
+/// Reads, writes, and seeks can be performed independently.
 impl Clone for File<'_, '_> {
     fn clone(&self) -> Self {
         Self {
