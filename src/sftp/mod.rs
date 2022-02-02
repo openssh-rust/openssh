@@ -6,22 +6,45 @@ use std::path::Path;
 use std::process::ExitStatus;
 use std::time::Duration;
 
-use openssh_sftp_client::{connect, Extensions, Limits};
+use openssh_sftp_client::{connect_with_auxiliary, Extensions, Limits};
 use thread_local::ThreadLocal;
 use tokio::{task, time};
 
 pub use openssh_sftp_client::{FileType, Permissions, UnixTimeStamp};
 
 mod cache;
-use cache::Cache;
+use cache::{Cache, IdCacher};
 
 mod file;
 pub use file::{File, MetaData, OpenOptions};
 
+#[derive(Debug)]
+struct Auxiliary {
+    extensions: Extensions,
+    limits: Limits,
+
+    thread_local_cache: ThreadLocal<Cache<Id>>,
+}
+
+impl Auxiliary {
+    fn new() -> Self {
+        Self {
+            extensions: Extensions::default(),
+            limits: Limits {
+                packet_len: 0,
+                read_len: 0,
+                write_len: 0,
+                open_handles: 0,
+            },
+            thread_local_cache: ThreadLocal::new(),
+        }
+    }
+}
+
 type Buffer = Vec<u8>;
 
-type WriteEnd = openssh_sftp_client::WriteEnd<Buffer>;
-type SharedData = openssh_sftp_client::SharedData<Buffer>;
+type WriteEnd = openssh_sftp_client::WriteEnd<Buffer, Auxiliary>;
+type SharedData = openssh_sftp_client::SharedData<Buffer, Auxiliary>;
 type Id = openssh_sftp_client::Id<Buffer>;
 type Data = openssh_sftp_client::Data<Buffer>;
 
@@ -46,11 +69,6 @@ pub struct Sftp<'s> {
     shared_data: SharedData,
     flush_task: task::JoinHandle<Result<(), Error>>,
     read_task: task::JoinHandle<Result<(), Error>>,
-
-    extensions: Extensions,
-    limits: Limits,
-
-    thread_local_cache: ThreadLocal<Cache<Id>>,
 }
 
 impl<'s> Sftp<'s> {
@@ -59,7 +77,46 @@ impl<'s> Sftp<'s> {
         stdin: ChildStdin,
         stdout: ChildStdout,
     ) -> Result<Sftp<'s>, Error> {
-        let (mut write_end, read_end, extensions) = connect(stdout, stdin).await?;
+        let (mut write_end, mut read_end, extensions) =
+            connect_with_auxiliary(stdout, stdin, Auxiliary::new()).await?;
+
+        let id = write_end.create_response_id();
+
+        let (id, limits) = if extensions.limits {
+            let awaitable = write_end.send_limits_request(id)?;
+
+            flush(&write_end).await?;
+            read_end.read_in_one_packet().await?;
+
+            let (id, mut limits) = awaitable.wait().await?;
+
+            if limits.read_len == 0 {
+                limits.read_len =
+                    openssh_sftp_client::OPENSSH_PORTABLE_DEFAULT_DOWNLOAD_BUFLEN as u64;
+            }
+
+            if limits.write_len == 0 {
+                limits.write_len =
+                    openssh_sftp_client::OPENSSH_PORTABLE_DEFAULT_UPLOAD_BUFLEN as u64;
+            }
+
+            (id, limits)
+        } else {
+            (
+                id,
+                Limits {
+                    packet_len: 0,
+                    read_len: openssh_sftp_client::OPENSSH_PORTABLE_DEFAULT_DOWNLOAD_BUFLEN as u64,
+                    write_len: openssh_sftp_client::OPENSSH_PORTABLE_DEFAULT_UPLOAD_BUFLEN as u64,
+                    open_handles: 0,
+                },
+            )
+        };
+
+        let auxiliary = write_end.get_auxiliary_mut().unwrap();
+        auxiliary.extensions = extensions;
+        auxiliary.limits = limits;
+        auxiliary.thread_local_cache.get_or(|| Cache::new(Some(id)));
 
         let shared_data = SharedData::clone(&write_end);
         let flush_task = task::spawn(async move {
@@ -92,39 +149,6 @@ impl<'s> Sftp<'s> {
             }
         });
 
-        let id = write_end.create_response_id();
-
-        let (id, limits) = if extensions.limits {
-            let awaitable = write_end.send_limits_request(id)?;
-            flush(&write_end).await?;
-            let (id, mut limits) = awaitable.wait().await?;
-
-            if limits.read_len == 0 {
-                limits.read_len =
-                    openssh_sftp_client::OPENSSH_PORTABLE_DEFAULT_DOWNLOAD_BUFLEN as u64;
-            }
-
-            if limits.write_len == 0 {
-                limits.write_len =
-                    openssh_sftp_client::OPENSSH_PORTABLE_DEFAULT_UPLOAD_BUFLEN as u64;
-            }
-
-            (id, limits)
-        } else {
-            (
-                id,
-                Limits {
-                    packet_len: 0,
-                    read_len: openssh_sftp_client::OPENSSH_PORTABLE_DEFAULT_DOWNLOAD_BUFLEN as u64,
-                    write_len: openssh_sftp_client::OPENSSH_PORTABLE_DEFAULT_UPLOAD_BUFLEN as u64,
-                    open_handles: 0,
-                },
-            )
-        };
-
-        let thread_local_cache = ThreadLocal::new();
-        thread_local_cache.get_or(|| Cache::new(Some(id)));
-
         Ok(Self {
             phantom_data: PhantomData,
             child,
@@ -132,11 +156,6 @@ impl<'s> Sftp<'s> {
             shared_data: write_end.into_shared_data(),
             read_task,
             flush_task,
-
-            extensions,
-            limits,
-
-            thread_local_cache,
         })
     }
 
@@ -175,20 +194,8 @@ impl<'s> Sftp<'s> {
         }
     }
 
-    pub(crate) fn write_end(&self) -> WriteEnd {
+    fn write_end(&self) -> WriteEnd {
         WriteEnd::new(self.shared_data.clone())
-    }
-
-    pub(crate) fn get_thread_local_cached_id(&self) -> Id {
-        self.thread_local_cache
-            .get()
-            .and_then(Cache::take)
-            .unwrap_or_else(|| self.shared_data.create_response_id())
-    }
-
-    /// Give back id to the thread local cache.
-    pub(crate) fn cache_id(&self, id: Id) {
-        self.thread_local_cache.get_or(|| Cache::new(None)).set(id);
     }
 
     /// Return a new [`OpenOptions`] object.
