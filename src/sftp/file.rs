@@ -552,6 +552,10 @@ impl AsyncRead for File<'_, '_> {
 ///
 /// [`File::poll_write`] and [`File::poll_write_vectored`] would
 /// send at most one sftp request.
+///
+/// It is perfectly safe to buffer requests and send them in one go,
+/// since sftp v3 guarantees that requests on the same file handler
+/// is processed sequentially.
 impl AsyncWrite for File<'_, '_> {
     fn poll_write(
         mut self: Pin<&mut Self>,
