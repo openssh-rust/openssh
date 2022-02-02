@@ -8,7 +8,7 @@ use std::time::Duration;
 
 use openssh_sftp_client::{connect, Extensions, Limits};
 use thread_local::ThreadLocal;
-use tokio::{task, time, try_join};
+use tokio::{task, time};
 
 pub use openssh_sftp_client::{FileType, Permissions, UnixTimeStamp};
 
@@ -73,7 +73,6 @@ impl<'s> Sftp<'s> {
             }
         });
 
-        let shared_data = SharedData::clone(&write_end);
         let read_task = task::spawn(async move {
             let mut read_end = read_end;
 
@@ -85,33 +84,11 @@ impl<'s> Sftp<'s> {
                     break Ok::<_, Error>(());
                 }
 
-                try_join!(
-                    async {
-                        // There is only 5 references to the shared data:
-                        //  - the read end
-                        //  - the shared data stored in read_task
-                        //  - the shared data stored in flush_task
-                        //  - the shared data stored in sftp
-                        //  - one write_end
-                        //
-                        // In this case, the buffer should be flushed since
-                        // it will not be able to group any writes.
-                        if shared_data.strong_count() <= 5 {
-                            flush(&shared_data).await?;
-                        }
-
-                        Ok::<_, Error>(())
-                    },
-                    async {
-                        // If attempt to read in more than new_requests_submit, then
-                        // `read_in_one_packet` might block forever.
-                        for _ in 0..new_requests_submit {
-                            read_end.read_in_one_packet().await?;
-                        }
-
-                        Ok::<_, Error>(())
-                    }
-                )?;
+                // If attempt to read in more than new_requests_submit, then
+                // `read_in_one_packet` might block forever.
+                for _ in 0..new_requests_submit {
+                    read_end.read_in_one_packet().await?;
+                }
             }
         });
 
