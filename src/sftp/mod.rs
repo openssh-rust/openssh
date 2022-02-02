@@ -199,14 +199,14 @@ impl<'s> Sftp<'s> {
     }
 
     /// Return a new [`OpenOptions`] object.
-    pub fn options(&self) -> OpenOptions<'_, '_> {
+    pub fn options(&self) -> OpenOptions<'_> {
         OpenOptions::new(self)
     }
 
     /// # Cancel Safety
     ///
     /// This function is cancel safe.
-    pub async fn create(&self, path: impl AsRef<Path>) -> Result<File<'_, '_>, Error> {
+    pub async fn create(&self, path: impl AsRef<Path>) -> Result<File<'_>, Error> {
         self.options()
             .write(true)
             .create(true)
@@ -218,7 +218,7 @@ impl<'s> Sftp<'s> {
     /// # Cancel Safety
     ///
     /// This function is cancel safe.
-    pub async fn open(&self, path: impl AsRef<Path>) -> Result<File<'_, '_>, Error> {
+    pub async fn open(&self, path: impl AsRef<Path>) -> Result<File<'_>, Error> {
         self.options().read(true).open(path).await
     }
 
