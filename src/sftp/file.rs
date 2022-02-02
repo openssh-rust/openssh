@@ -750,6 +750,8 @@ impl Drop for File<'_, '_> {
             let _ = self
                 .write_end
                 .send_close_request(id, Cow::Borrowed(&self.handle));
+        } else if let Some(id) = self.id.take() {
+            self.cache_id(id);
         }
     }
 }
