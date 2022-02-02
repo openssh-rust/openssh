@@ -9,6 +9,7 @@ use std::time::Duration;
 use openssh_sftp_client::{connect_with_auxiliary, Extensions, Limits};
 use thread_local::ThreadLocal;
 use tokio::{task, time};
+use tokio_util::sync::CancellationToken;
 
 pub use openssh_sftp_client::{FileType, Permissions, UnixTimeStamp};
 
@@ -24,6 +25,8 @@ struct Auxiliary {
     limits: Limits,
 
     thread_local_cache: ThreadLocal<Cache<Id>>,
+
+    cancel_token: CancellationToken,
 }
 
 impl Auxiliary {
@@ -37,6 +40,7 @@ impl Auxiliary {
                 open_handles: 0,
             },
             thread_local_cache: ThreadLocal::new(),
+            cancel_token: CancellationToken::new(),
         }
     }
 }
@@ -123,6 +127,12 @@ impl<'s> Sftp<'s> {
             let mut interval = time::interval(FLUSH_INTERVAL);
             interval.set_missed_tick_behavior(time::MissedTickBehavior::Delay);
 
+            let _cancel_guard = shared_data
+                .get_auxiliary()
+                .cancel_token
+                .clone()
+                .drop_guard();
+
             // The loop can only return `Err`
             loop {
                 interval.tick().await;
@@ -130,14 +140,22 @@ impl<'s> Sftp<'s> {
             }
         });
 
+        let shared_data = SharedData::clone(&write_end);
         let read_task = task::spawn(async move {
             let mut read_end = read_end;
+
+            let cancel_guard = shared_data
+                .get_auxiliary()
+                .cancel_token
+                .clone()
+                .drop_guard();
 
             loop {
                 let new_requests_submit = read_end.wait_for_new_request().await;
                 if new_requests_submit == 0 {
                     // All responses is read in and there is no
                     // write_end/shared_data left.
+                    cancel_guard.disarm();
                     break Ok::<_, Error>(());
                 }
 
