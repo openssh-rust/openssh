@@ -623,6 +623,8 @@ impl AsyncWrite for File<'_, '_> {
                 // Future returned by WriteEnd::flush does not contain
                 // self-reference, so it can be optimized and placed
                 // on stack.
+                //
+                // It is also cancel safe, so we don't need to store it.
                 Pin::new(&mut Box::pin(this.write_end.flush())).poll(cx)
             )?;
         }
