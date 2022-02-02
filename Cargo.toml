@@ -34,7 +34,13 @@ native-mux = ["openssh-mux-client"]
 scp = []
 # openssh-sftp-client uses parking_lot, so enabling parking_lot feature
 # on other crate would not pull more dependencies.
-sftp = ["openssh-sftp-client", "thread_local", "tokio/rt", "tokio/time", "once_cell/parking_lot"]
+sftp = [
+    "openssh-sftp-client",
+    "thread_local",
+    "tokio/rt",
+    "tokio/time",
+    "once_cell/parking_lot"
+]
 
 [dependencies]
 tempfile = "3.1.0"
