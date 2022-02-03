@@ -1,6 +1,7 @@
-use super::super::{Auxiliary, Error};
+use super::super::Auxiliary;
 
 use std::future::Future;
+use std::io;
 use std::mem;
 use std::pin::Pin;
 use std::task::{Context, Poll};
@@ -34,8 +35,11 @@ impl SelfRefWaitForCancellationFuture {
         }
     }
 
-    fn error() -> Error {
-        SftpError::BackgroundTaskFailure(&"read/flush task failed").into()
+    fn error() -> io::Error {
+        io::Error::new(
+            io::ErrorKind::Other,
+            SftpError::BackgroundTaskFailure(&"read/flush task failed"),
+        )
     }
 
     /// Return `Ok(())` if the task hasn't failed yet and the context has
@@ -44,7 +48,7 @@ impl SelfRefWaitForCancellationFuture {
         &'this mut self,
         cx: &mut Context<'_>,
         auxiliary: &'auxiliary Auxiliary,
-    ) -> Result<(), Error> {
+    ) -> Result<(), io::Error> {
         if self.0.is_none() {
             let cancel_token = &auxiliary.cancel_token;
 
