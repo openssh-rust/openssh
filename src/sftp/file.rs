@@ -171,7 +171,11 @@ impl<'s> OpenOptions<'s> {
         let mut write_end = self.sftp.write_end();
         let id = write_end.get_thread_local_cached_id();
 
-        let (id, handle) = write_end.send_open_file_request(id, params)?.wait().await?;
+        let awaitable = write_end.send_open_file_request(id, params)?;
+        let (id, handle) = write_end
+            .get_auxiliary()
+            .cancel_if_task_failed(awaitable.wait())
+            .await?;
 
         Ok(File {
             phantom_data: PhantomData,
