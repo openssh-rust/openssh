@@ -48,13 +48,13 @@ impl Auxiliary {
     }
 
     /// * `f` - the future must be cancel safe.
-    async fn cancel_if_task_failed<R, E, F>(&self, f: F) -> Result<R, Error>
+    async fn cancel_if_task_failed<R, E, F>(&self, future: F) -> Result<R, Error>
     where
         F: Future<Output = Result<R, E>>,
         E: Into<Error>,
     {
         tokio::select! {
-            res = f => res.map_err(Into::into),
+            res = future => res.map_err(Into::into),
             _ = self.cancel_token.cancelled() => Err(
                 SftpError::BackgroundTaskFailure(&"read/flush task failed").into()
             ),
