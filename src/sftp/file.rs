@@ -264,6 +264,22 @@ impl File<'_> {
         Ok(ret)
     }
 
+    async fn send_writable_request<Func, F, R>(&mut self, f: Func) -> Result<R, Error>
+    where
+        Func: FnOnce(&mut WriteEnd, Cow<'_, Handle>, Id) -> Result<F, SftpError>,
+        F: Future<Output = Result<(Id, R), SftpError>> + 'static,
+    {
+        if !self.is_writable {
+            Err(SftpError::from(io::Error::new(
+                io::ErrorKind::Other,
+                "This file is not opened for writing",
+            ))
+            .into())
+        } else {
+            self.send_request(f).await
+        }
+    }
+
     /// Truncates or extends the underlying file, updating the size
     /// of this file to become size.
     ///
@@ -278,15 +294,7 @@ impl File<'_> {
     ///
     /// This function is cancel safe.
     pub async fn set_len(&mut self, size: u64) -> Result<(), Error> {
-        if !self.is_writable {
-            return Err(SftpError::from(io::Error::new(
-                io::ErrorKind::Other,
-                "This file is not opened for writing",
-            ))
-            .into());
-        }
-
-        self.send_request(|write_end, handle, id| {
+        self.send_writable_request(|write_end, handle, id| {
             let mut attrs = FileAttrs::new();
             attrs.set_size(size);
 
@@ -308,15 +316,7 @@ impl File<'_> {
             return Err(SftpError::UnsupportedExtension(&"fsync").into());
         }
 
-        if !self.is_writable {
-            return Err(SftpError::from(io::Error::new(
-                io::ErrorKind::Other,
-                "This file is not opened for writing",
-            ))
-            .into());
-        }
-
-        self.send_request(|write_end, handle, id| {
+        self.send_writable_request(|write_end, handle, id| {
             Ok(write_end.send_fsync_request(id, handle)?.wait())
         })
         .await
@@ -328,15 +328,7 @@ impl File<'_> {
     ///
     /// This function is cancel safe.
     pub async fn set_permissions(&mut self, perm: Permissions) -> Result<(), Error> {
-        if !self.is_writable {
-            return Err(SftpError::from(io::Error::new(
-                io::ErrorKind::Other,
-                "This file is not opened for writing",
-            ))
-            .into());
-        }
-
-        self.send_request(|write_end, handle, id| {
+        self.send_writable_request(|write_end, handle, id| {
             let mut attrs = FileAttrs::new();
             attrs.set_permissions(perm);
 
