@@ -1,5 +1,5 @@
 use super::super::{Buffer, Data};
-use super::{File, SftpError};
+use super::{utility::SelfRefWaitForCancellationFuture, File, SftpError};
 
 use std::borrow::Cow;
 use std::cmp::min;
@@ -40,7 +40,10 @@ pub struct TokioCompactFile<'s> {
     buffer: Vec<u8>,
 
     read_future: Option<AwaitableDataFuture<Buffer>>,
+    read_cancellation_future: SelfRefWaitForCancellationFuture,
+
     write_futures: VecDeque<AwaitableStatusFuture<Buffer>>,
+    write_cancellation_future: SelfRefWaitForCancellationFuture,
 }
 
 impl<'s> TokioCompactFile<'s> {
@@ -52,7 +55,10 @@ impl<'s> TokioCompactFile<'s> {
             buffer: Vec::new(),
 
             read_future: None,
+            read_cancellation_future: SelfRefWaitForCancellationFuture::default(),
+
             write_futures: VecDeque::new(),
+            write_cancellation_future: SelfRefWaitForCancellationFuture::default(),
         }
     }
 }
@@ -60,6 +66,15 @@ impl<'s> TokioCompactFile<'s> {
 impl<'s> From<File<'s>> for TokioCompactFile<'s> {
     fn from(inner: File<'s>) -> Self {
         Self::new(inner)
+    }
+}
+
+impl Drop for TokioCompactFile<'_> {
+    fn drop(&mut self) {
+        unsafe {
+            self.read_cancellation_future.drop();
+            self.write_cancellation_future.drop();
+        }
     }
 }
 
@@ -124,7 +139,11 @@ impl AsyncRead for TokioCompactFile<'_> {
         cx: &mut Context<'_>,
         read_buf: &mut ReadBuf<'_>,
     ) -> Poll<io::Result<()>> {
-        if !self.is_readable {
+        // Dereference it here once so that there will be only
+        // one mutable borrow to self.
+        let this = &mut *self;
+
+        if !this.is_readable {
             return Poll::Ready(Err(io::Error::new(
                 io::ErrorKind::Other,
                 "This file is not opened for reading",
@@ -136,21 +155,17 @@ impl AsyncRead for TokioCompactFile<'_> {
             return Poll::Ready(Ok(()));
         }
 
-        let remaining = min(remaining, self.max_read_len());
+        let remaining = min(remaining, this.max_read_len());
 
-        let future = if let Some(future) = &mut self.read_future {
+        let future = if let Some(future) = &mut this.read_future {
             // Get the active future.
             //
             // The future might read more/less than remaining,
-            // but the offset must be equal to self.offset,
-            // since AsyncSeek::start_seek would reset self.future
-            // if self.offset is changed.
+            // but the offset must be equal to this.offset,
+            // since AsyncSeek::start_seek would reset this.future
+            // if this.offset is changed.
             future
         } else {
-            // Dereference it here once so that there will be only
-            // one mutable borrow to self.
-            let this = &mut *self;
-
             // Get id, buffer and offset to avoid reference to this.
             let id = this.get_id_mut();
             let buffer = mem::take(&mut this.buffer);
@@ -173,17 +188,22 @@ impl AsyncRead for TokioCompactFile<'_> {
                 .map_err(sftp_to_io_error)?
                 .wait();
 
-            // Store it in self.read_future
-            self.read_future = Some(future);
-            self.read_future
+            // Store it in this.read_future
+            this.read_future = Some(future);
+            this.read_future
                 .as_mut()
                 .expect("FileFuture::Data is just assigned to self.future!")
         };
 
+        let auxiliary = this.inner.write_end.get_auxiliary();
+
+        this.read_cancellation_future
+            .poll_for_task_failure(cx, auxiliary)?;
+
         // Wait for the future
         let (id, data) = ready!(Pin::new(future).poll(cx)).map_err(sftp_to_io_error)?;
 
-        self.cache_id_mut(id);
+        this.cache_id_mut(id);
         let buffer = match data {
             Data::Buffer(buffer) => {
                 // since remaining != 0, all AwaitableDataFuture created
@@ -191,7 +211,7 @@ impl AsyncRead for TokioCompactFile<'_> {
                 debug_assert!(!buffer.is_empty());
 
                 // sftp v3 can at most read in u32::MAX bytes.
-                debug_assert!(buffer.len() <= self.max_read_len());
+                debug_assert!(buffer.len() <= this.max_read_len());
 
                 buffer
             }
@@ -208,11 +228,11 @@ impl AsyncRead for TokioCompactFile<'_> {
         read_buf.put_slice(&buffer[..n]);
 
         // Reuse the buffer
-        if buffer.capacity() >= self.buffer.capacity() {
-            self.buffer = buffer;
+        if buffer.capacity() >= this.buffer.capacity() {
+            this.buffer = buffer;
         }
 
-        // Adjust offset and reset self.future
+        // Adjust offset and reset this.future
         Poll::Ready(self.start_seek(io::SeekFrom::Current(n.try_into().unwrap())))
     }
 }
@@ -304,6 +324,11 @@ impl AsyncWrite for TokioCompactFile<'_> {
                 Pin::new(&mut Box::pin(this.inner.write_end.flush())).poll(cx)
             )?;
         }
+
+        let auxiliary = this.inner.write_end.get_auxiliary();
+
+        this.write_cancellation_future
+            .poll_for_task_failure(cx, auxiliary)?;
 
         loop {
             let res = if let Some(future) = this.write_futures.front_mut() {
