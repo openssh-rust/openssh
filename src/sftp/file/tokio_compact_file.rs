@@ -31,7 +31,8 @@ fn sftp_to_io_error(sftp_err: SftpError) -> io::Error {
     }
 }
 
-/// File that implements [`AsyncRead`], [`AsyncSeek`] and [`AsyncWrite`].
+/// File that implements [`AsyncRead`], [`AsyncSeek`] and [`AsyncWrite`],
+/// that is compatible with [`tokio::fs::File`].
 #[derive(Debug)]
 pub struct TokioCompactFile<'s> {
     inner: File<'s>,
@@ -42,20 +43,33 @@ pub struct TokioCompactFile<'s> {
     write_futures: VecDeque<AwaitableStatusFuture<Buffer>>,
 }
 
-/// Creates a new [`TokioCompactFile`] instance that shares the
-/// same underlying file handle as the existing File instance.
-///
-/// Reads, writes, and seeks can be performed independently.
-impl Clone for TokioCompactFile<'_> {
-    fn clone(&self) -> Self {
+impl<'s> TokioCompactFile<'s> {
+    /// Create a [`TokioCompactFile`].
+    pub fn new(inner: File<'s>) -> Self {
         Self {
-            inner: self.inner.clone(),
+            inner,
 
             buffer: Vec::new(),
 
             read_future: None,
             write_futures: VecDeque::new(),
         }
+    }
+}
+
+impl<'s> From<File<'s>> for TokioCompactFile<'s> {
+    fn from(inner: File<'s>) -> Self {
+        Self::new(inner)
+    }
+}
+
+/// Creates a new [`TokioCompactFile`] instance that shares the
+/// same underlying file handle as the existing File instance.
+///
+/// Reads, writes, and seeks can be performed independently.
+impl Clone for TokioCompactFile<'_> {
+    fn clone(&self) -> Self {
+        Self::new(self.inner.clone())
     }
 }
 
