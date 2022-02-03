@@ -1,12 +1,13 @@
 use super::{child::RemoteChildImp, ChildStdin, ChildStdout, Error, Session};
 
+use std::future::Future;
 use std::io;
 use std::marker::PhantomData;
 use std::path::Path;
 use std::process::ExitStatus;
 use std::time::Duration;
 
-use openssh_sftp_client::{connect_with_auxiliary, Extensions, Limits};
+use openssh_sftp_client::{connect_with_auxiliary, Error as SftpError, Extensions, Limits};
 use thread_local::ThreadLocal;
 use tokio::{task, time};
 use tokio_util::sync::CancellationToken;
@@ -26,6 +27,8 @@ struct Auxiliary {
 
     thread_local_cache: ThreadLocal<Cache<Id>>,
 
+    /// cancel_token is used to cancel `Awaitable*Future`
+    /// when the read_task/flush_task has failed.
     cancel_token: CancellationToken,
 }
 
@@ -41,6 +44,20 @@ impl Auxiliary {
             },
             thread_local_cache: ThreadLocal::new(),
             cancel_token: CancellationToken::new(),
+        }
+    }
+
+    /// * `f` - the future must be cancel safe.
+    async fn cancel_if_task_failed<R, E, F>(&self, f: F) -> Result<R, Error>
+    where
+        F: Future<Output = Result<R, E>>,
+        E: Into<Error>,
+    {
+        tokio::select! {
+            res = f => res.map_err(Into::into),
+            _ = self.cancel_token.cancelled() => Err(
+                SftpError::BackgroundTaskFailure(&"read/flush task failed").into()
+            ),
         }
     }
 }
