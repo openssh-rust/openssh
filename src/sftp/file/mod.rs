@@ -355,6 +355,11 @@ impl File<'_> {
 }
 
 impl AsyncSeek for File<'_> {
+    /// start_seek only adjust local offset since sftp protocol
+    /// does not provides a seek function.
+    ///
+    /// Instead, offset is provided when sending read/write requests,
+    /// thus errors are reported at read/write.
     fn start_seek(mut self: Pin<&mut Self>, position: io::SeekFrom) -> io::Result<()> {
         use io::SeekFrom::*;
 
@@ -402,6 +407,7 @@ impl AsyncSeek for File<'_> {
         Ok(())
     }
 
+    /// This function is a no-op.
     fn poll_complete(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<u64>> {
         Poll::Ready(Ok(self.offset))
     }
