@@ -17,6 +17,8 @@ use openssh_sftp_client::{CreateFlags, Error as SftpError, FileAttrs, Handle, Ha
 mod tokio_compact_file;
 pub use tokio_compact_file::TokioCompactFile;
 
+mod utility;
+
 /// Options and flags which can be used to configure how a file is opened.
 #[derive(Debug, Copy, Clone)]
 pub struct OpenOptions<'s> {
