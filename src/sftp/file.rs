@@ -40,7 +40,7 @@ macro_rules! ready {
 }
 
 /// Options and flags which can be used to configure how a file is opened.
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct OpenOptions<'s> {
     sftp: &'s Sftp<'s>,
     options: openssh_sftp_client::OpenOptions,
