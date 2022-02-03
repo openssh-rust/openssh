@@ -257,7 +257,7 @@ impl File<'_> {
 
         let future = f(&mut self.write_end, Cow::Borrowed(&self.handle), id)?;
 
-        let (id, ret) = future.await?;
+        let (id, ret) = self.get_auxiliary().cancel_if_task_failed(future).await?;
 
         self.cache_id_mut(id);
 
