@@ -19,7 +19,7 @@ use std::task::{Context, Poll};
 use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite, ReadBuf};
 
 use openssh_sftp_client::{
-    AwaitableDataFuture, AwaitableStatusFuture, CreateFlags, Error as SftpError, FileAttrs,
+    AwaitableDataFuture, AwaitableStatusFuture, CreateFlags, Error as SftpError, FileAttrs, Handle,
     HandleOwned,
 };
 
@@ -248,6 +248,22 @@ impl File<'_> {
         min(self.get_auxiliary().limits.read_len, usize::MAX as u64) as usize
     }
 
+    async fn send_request<Func, F, R>(&mut self, f: Func) -> Result<R, Error>
+    where
+        Func: FnOnce(&mut WriteEnd, Cow<'_, Handle>, Id) -> Result<F, SftpError>,
+        F: Future<Output = Result<(Id, R), SftpError>> + 'static,
+    {
+        let id = self.get_id_mut();
+
+        let future = f(&mut self.write_end, Cow::Borrowed(&self.handle), id)?;
+
+        let (id, ret) = future.await?;
+
+        self.cache_id_mut(id);
+
+        Ok(ret)
+    }
+
     /// Truncates or extends the underlying file, updating the size
     /// of this file to become size.
     ///
@@ -270,21 +286,13 @@ impl File<'_> {
             .into());
         }
 
-        let id = self.get_id_mut();
+        self.send_request(|write_end, handle, id| {
+            let mut attrs = FileAttrs::new();
+            attrs.set_size(size);
 
-        let mut attrs = FileAttrs::new();
-        attrs.set_size(size);
-
-        let id = self
-            .write_end
-            .send_fsetstat_request(id, Cow::Borrowed(&self.handle), attrs)?
-            .wait()
-            .await?
-            .0;
-
-        self.cache_id_mut(id);
-
-        Ok(())
+            Ok(write_end.send_fsetstat_request(id, handle, attrs)?.wait())
+        })
+        .await
     }
 
     /// Attempts to sync all OS-internal metadata to disk.
@@ -308,18 +316,10 @@ impl File<'_> {
             .into());
         }
 
-        let id = self.get_id_mut();
-
-        let id = self
-            .write_end
-            .send_fsync_request(id, Cow::Borrowed(&self.handle))?
-            .wait()
-            .await?
-            .0;
-
-        self.cache_id_mut(id);
-
-        Ok(())
+        self.send_request(|write_end, handle, id| {
+            Ok(write_end.send_fsync_request(id, handle)?.wait())
+        })
+        .await
     }
 
     /// Changes the permissions on the underlying file.
@@ -336,21 +336,13 @@ impl File<'_> {
             .into());
         }
 
-        let id = self.get_id_mut();
+        self.send_request(|write_end, handle, id| {
+            let mut attrs = FileAttrs::new();
+            attrs.set_permissions(perm);
 
-        let mut attrs = FileAttrs::new();
-        attrs.set_permissions(perm);
-
-        let id = self
-            .write_end
-            .send_fsetstat_request(id, Cow::Borrowed(&self.handle), attrs)?
-            .wait()
-            .await?
-            .0;
-
-        self.cache_id_mut(id);
-
-        Ok(())
+            Ok(write_end.send_fsetstat_request(id, handle, attrs)?.wait())
+        })
+        .await
     }
 
     /// Queries metadata about the underlying file.
@@ -363,17 +355,11 @@ impl File<'_> {
             .into());
         }
 
-        let id = self.get_id_mut();
-
-        let (id, attrs) = self
-            .write_end
-            .send_fstat_request(id, Cow::Borrowed(&self.handle))?
-            .wait()
-            .await?;
-
-        self.cache_id_mut(id);
-
-        Ok(MetaData(attrs))
+        self.send_request(|write_end, handle, id| {
+            Ok(write_end.send_fstat_request(id, handle)?.wait())
+        })
+        .await
+        .map(MetaData)
     }
 
     /// Creates a new [`File`] instance that shares the same underlying
