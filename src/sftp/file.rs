@@ -241,11 +241,11 @@ impl File<'_> {
     }
 
     fn max_write_len(&self) -> usize {
-        min(self.get_auxiliary().limits.write_len, usize::MAX as u64) as usize
+        min(self.get_auxiliary().limits.write_len, u32::MAX as u64) as usize
     }
 
     fn max_read_len(&self) -> usize {
-        min(self.get_auxiliary().limits.read_len, usize::MAX as u64) as usize
+        min(self.get_auxiliary().limits.read_len, u32::MAX as u64) as usize
     }
 
     async fn send_request<Func, F, R>(&mut self, f: Func) -> Result<R, Error>
