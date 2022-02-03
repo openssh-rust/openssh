@@ -29,7 +29,8 @@ impl SelfRefWaitForCancellationFuture {
     /// This function must be called once in `Drop` implementation.
     pub(super) unsafe fn drop<'this>(&'this mut self) {
         if let Some(boxed) = self.0.take() {
-            let _: WaitForCancellationFuture<'this> = mem::transmute(*boxed);
+            // transmute the box to avoid moving `WaitForCancellationFuture`
+            let _: Box<WaitForCancellationFuture<'this>> = mem::transmute(boxed);
         }
     }
 
