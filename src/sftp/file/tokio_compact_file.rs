@@ -263,6 +263,13 @@ impl AsyncWrite for TokioCompactFile<'_> {
     }
 
     fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        if !self.is_writable {
+            return Poll::Ready(Err(io::Error::new(
+                io::ErrorKind::Other,
+                "This file does not support writing",
+            )));
+        }
+
         let this = &mut *self;
 
         if this.write_futures.is_empty() {
