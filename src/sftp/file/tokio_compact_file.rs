@@ -55,11 +55,22 @@ impl<'s> TokioCompactFile<'s> {
             write_futures: VecDeque::new(),
         }
     }
+
+    /// Consume the [`TokioCompactFile`], return the underlying [`File`].
+    pub fn into_inner(self) -> File<'s> {
+        self.inner
+    }
 }
 
 impl<'s> From<File<'s>> for TokioCompactFile<'s> {
     fn from(inner: File<'s>) -> Self {
         Self::new(inner)
+    }
+}
+
+impl<'s> From<TokioCompactFile<'s>> for File<'s> {
+    fn from(this: TokioCompactFile<'s>) -> Self {
+        this.into_inner()
     }
 }
 
