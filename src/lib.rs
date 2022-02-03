@@ -425,8 +425,6 @@ impl Session {
     #[cfg(feature = "sftp")]
     #[cfg_attr(docsrs, doc(cfg(feature = "sftp")))]
     pub async fn sftp(&self) -> Result<sftp::Sftp<'_>, Error> {
-        use std::convert::TryFrom;
-
         let (remote_child, stdin, stdout) = delegate!(&self.0, imp, {
             let (remote_child, stdin, stdout) = imp.sftp().await?;
 
