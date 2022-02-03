@@ -18,6 +18,7 @@ mod cache;
 use cache::{Cache, IdCacher};
 
 mod file;
+pub use file::TokioCompactFile;
 pub use file::{File, MetaData, OpenOptions};
 
 #[derive(Debug)]
