@@ -37,6 +37,9 @@ impl fmt::Debug for SelfRefWaitForCancellationFuture {
             |reference: &Pin<Box<[u8; WAIT_FOR_CANCELLATION_FUTURE_SIZE]>>| {
                 let reference: &[u8; WAIT_FOR_CANCELLATION_FUTURE_SIZE] = &*reference;
 
+                // safety:
+                //  - The box is used to store WaitForCancellationFuture<'this>
+                //  - &[u8; _] and &WaitForCancellationFuture has the same size
                 let future: &WaitForCancellationFuture<'this> =
                     unsafe { mem::transmute(reference) };
 
@@ -61,6 +64,10 @@ impl SelfRefWaitForCancellationFuture {
     pub(super) unsafe fn drop<'this>(&'this mut self) {
         if let Some(boxed) = self.0.take() {
             // transmute the box to avoid moving `WaitForCancellationFuture`
+            //
+            // safety:
+            //  - The box is used to store WaitForCancellationFuture<'this>
+            //  - [u8; _] and WaitForCancellationFuture has the same size
             let _: Box<WaitForCancellationFuture<'this>> = mem::transmute(boxed);
         }
     }
@@ -87,6 +94,9 @@ impl SelfRefWaitForCancellationFuture {
             }
 
             let future: WaitForCancellationFuture<'this> = cancel_token.cancelled();
+            // safety:
+            //  - The box is used to store WaitForCancellationFuture<'this>
+            //  - [u8; _] and WaitForCancellationFuture has the same size
             self.0 = Some(Box::pin(unsafe { mem::transmute(future) }));
         }
 
@@ -96,6 +106,9 @@ impl SelfRefWaitForCancellationFuture {
 
             let reference: Pin<&mut [u8; WAIT_FOR_CANCELLATION_FUTURE_SIZE]> = Pin::new(reference);
 
+            // safety:
+            //  - The box is used to store WaitForCancellationFuture<'this>
+            //  - &mut [u8; _] and &mut WaitForCancellationFuture has the same size
             let future: Pin<&mut WaitForCancellationFuture<'this>> =
                 unsafe { mem::transmute(reference) };
 
@@ -175,6 +188,13 @@ fn create_io_subslice<'a>(io_slice: &IoSlice<'a>, end: usize) -> IoSlice<'a> {
     let ptr = slice.as_ptr();
     let len = slice.len();
 
+    // safety: `IoSlice<'a>` holds a `&'a [u8]` internally.
+    //
+    // `IoSlice::deref` returns the internal slice, however due to limitations
+    // of `Deref` trait, the lifetime is further reduced to lifetime of
+    // `IoSlice`.
+    //
+    // The unsafe used here merely reverted it back to its original lifetime.
     let slice: &'a [u8] = unsafe { slice::from_raw_parts(ptr, len) };
 
     IoSlice::new(slice)
