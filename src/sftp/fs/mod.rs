@@ -156,13 +156,30 @@ impl<'s> Fs<'s> {
             .await
     }
 
-    /// Creates a new hard link on the filesystem.
+    /// Creates a new hard link on the remote filesystem.
     pub async fn hard_link(
         &mut self,
         src: impl AsRef<Path>,
         dst: impl AsRef<Path>,
     ) -> Result<(), Error> {
         self.hard_link_impl(src.as_ref(), dst.as_ref()).await
+    }
+
+    async fn symlink_impl(&mut self, src: &Path, dst: &Path) -> Result<(), Error> {
+        let src = self.concat_path_if_needed(src);
+        let dst = self.concat_path_if_needed(dst);
+
+        self.send_request(|write_end, id| Ok(write_end.send_symlink_request(id, src, dst)?.wait()))
+            .await
+    }
+
+    /// Creates a new symlink on the remote filesystem.
+    pub async fn symlink(
+        &mut self,
+        src: impl AsRef<Path>,
+        dst: impl AsRef<Path>,
+    ) -> Result<(), Error> {
+        self.symlink_impl(src.as_ref(), dst.as_ref()).await
     }
 }
 
