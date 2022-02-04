@@ -94,6 +94,18 @@ impl<'s> Fs<'s> {
     pub async fn create_dir(&mut self, path: impl AsRef<Path>) -> Result<(), Error> {
         self.dir_builder().create(path).await
     }
+
+    async fn remove_dir_impl(&mut self, path: &Path) -> Result<(), Error> {
+        let path = self.concat_path_if_needed(path);
+
+        self.send_request(|write_end, id| Ok(write_end.send_rmdir_request(id, path)?.wait()))
+            .await
+    }
+
+    /// Removes an existing, empty directory.
+    pub async fn remove_dir(&mut self, path: impl AsRef<Path>) -> Result<(), Error> {
+        self.remove_dir_impl(path.as_ref()).await
+    }
 }
 
 /// Remote Directory
