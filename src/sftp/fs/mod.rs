@@ -10,7 +10,7 @@ use openssh_sftp_client::{Error as SftpError, FileAttrs, Permissions};
 mod dir;
 pub use dir::{DirEntry, ReadDir};
 
-type AwaitableStatus = AwaitableStatus<Buffer>;
+type AwaitableStatus = openssh_sftp_client::AwaitableStatus<Buffer>;
 
 /// A struct used to perform operations on remote filesystem.
 #[derive(Debug, Clone)]
@@ -100,7 +100,7 @@ impl<'s> Fs<'s> {
     async fn remove_impl(
         &mut self,
         path: &Path,
-        f: fn(&mut WriteEnd, Id, Cow<'_, Path>) -> Result<AwaitableStatus, Error>,
+        f: fn(&mut WriteEnd, Id, Cow<'_, Path>) -> Result<AwaitableStatus, SftpError>,
     ) -> Result<(), Error> {
         let path = self.concat_path_if_needed(path);
 
