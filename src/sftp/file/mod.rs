@@ -372,7 +372,7 @@ impl File<'_> {
     /// On EOF, `None` is returned.
     pub async fn read(&mut self, n: u32, buffer: Vec<u8>) -> Result<Option<Vec<u8>>, Error> {
         let offset = self.offset;
-        let n = min(n, self.max_read_len());
+        let n: u32 = min(n, self.max_read_len());
 
         let data = self
             .send_readable_request(|write_end, handle, id| {
@@ -390,7 +390,7 @@ impl File<'_> {
 
         // Adjust offset
         Pin::new(self)
-            .start_seek(io::SeekFrom::Current(n.try_into().unwrap()))
+            .start_seek(io::SeekFrom::Current(n as i64))
             .map_err(SftpError::from)?;
 
         Ok(Some(buffer))
