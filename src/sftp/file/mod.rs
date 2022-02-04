@@ -10,9 +10,10 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 
+use openssh_sftp_client::{CreateFlags, Data, Error as SftpError, FileAttrs, Handle, HandleOwned};
 use tokio::io::AsyncSeek;
 
-use openssh_sftp_client::{CreateFlags, Data, Error as SftpError, FileAttrs, Handle, HandleOwned};
+use derive_destructure2::destructure;
 
 mod tokio_compact_file;
 pub use tokio_compact_file::TokioCompactFile;
@@ -174,7 +175,7 @@ impl<'s> OpenOptions<'s> {
 }
 
 /// A reference to the remote file.
-#[derive(Debug)]
+#[derive(Debug, destructure)]
 pub struct File<'s> {
     phantom_data: PhantomData<&'s Sftp<'s>>,
 
@@ -289,6 +290,35 @@ impl File<'_> {
             .into())
         } else {
             self.send_request(f).await
+        }
+    }
+
+    /// Close the [`File`], send the close request
+    /// if this is the last reference.
+    ///
+    /// # Cancel Safety
+    ///
+    /// This function is cancel safe.
+    pub async fn close(mut self) -> Result<(), Error> {
+        if Arc::strong_count(&self.handle) == 1 {
+            // This is the last reference to the arc
+
+            let res = self
+                .send_request(|write_end, handle, id| {
+                    Ok(write_end.send_close_request(id, handle)?.wait())
+                })
+                .await;
+
+            if let Some(id) = self.id.take() {
+                self.cache_id(id);
+            }
+
+            // Release resources without running `File::drop`
+            self.destructure();
+
+            res
+        } else {
+            Ok(())
         }
     }
 
