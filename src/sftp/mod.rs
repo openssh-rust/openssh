@@ -27,7 +27,7 @@ pub use file::{File, MetaData, OpenOptions};
 mod fs;
 pub use fs::DirEntry;
 pub use fs::ReadDir;
-pub use fs::{Dir, DirBuilder, Fs};
+pub use fs::{Dir, DirBuilder, Fs, MetaDataBuilder};
 
 #[derive(Debug, Default)]
 struct Limits {
