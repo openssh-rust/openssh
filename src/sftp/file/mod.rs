@@ -231,11 +231,15 @@ impl File<'_> {
         }
     }
 
-    fn max_write_len(&self) -> usize {
+    /// Get maximum amount of bytes that one single write requests
+    /// can write.
+    pub fn max_write_len(&self) -> usize {
         min(self.get_auxiliary().limits.write_len, u32::MAX as u64) as usize
     }
 
-    fn max_read_len(&self) -> usize {
+    /// Get maximum amount of bytes that one single read requests
+    /// can read.
+    pub fn max_read_len(&self) -> usize {
         min(self.get_auxiliary().limits.read_len, u32::MAX as u64) as usize
     }
 
