@@ -173,6 +173,10 @@ pub use error::Error;
 mod sftp;
 pub use sftp::{Mode, RemoteFile, Sftp};
 
+#[cfg(docsrs)]
+/// Changelog for this crate
+pub mod changelog;
+
 #[cfg(feature = "process-mux")]
 pub(crate) mod process_impl;
 
