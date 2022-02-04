@@ -3,7 +3,7 @@ use super::{Auxiliary, Error, FileType, Id, IdCacher, Permissions, Sftp, UnixTim
 use std::borrow::Cow;
 use std::cmp::{min, Ordering};
 use std::future::Future;
-use std::io;
+use std::io::{self, IoSlice};
 use std::marker::PhantomData;
 use std::path::Path;
 use std::pin::Pin;
@@ -390,6 +390,39 @@ impl File<'_> {
             .map_err(SftpError::from)?;
 
         Ok(Some(buffer))
+    }
+
+    /// This function can write in at most [`File::max_write_len`] bytes.
+    pub async fn write(&mut self, buf: &[u8]) -> Result<(), Error> {
+        if buf.is_empty() {
+            return Ok(());
+        }
+
+        let offset = self.offset;
+
+        let max_write_len = self.max_write_len();
+        let n: u32 = buf
+            .len()
+            .try_into()
+            .map(|n| min(n, max_write_len))
+            .unwrap_or(max_write_len);
+
+        // sftp v3 cannot send more than self.max_write_len() data at once.
+        let buf = &buf[..(n as usize)];
+
+        self.send_writable_request(|write_end, handle, id| {
+            Ok(write_end
+                .send_write_request_buffered(id, handle, offset, Cow::Borrowed(buf))?
+                .wait())
+        })
+        .await?;
+
+        // Adjust offset
+        Pin::new(self)
+            .start_seek(io::SeekFrom::Current(n as i64))
+            .map_err(SftpError::from)?;
+
+        Ok(())
     }
 }
 
