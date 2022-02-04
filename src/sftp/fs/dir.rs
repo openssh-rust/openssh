@@ -1,6 +1,7 @@
 use super::super::{FileType, MetaData};
 
 use openssh_sftp_client::NameEntry;
+use std::ops::{Deref, DerefMut};
 use std::path::Path;
 use std::slice::{Iter, IterMut};
 use std::vec::IntoIter;
@@ -58,6 +59,20 @@ impl ReadDir {
     /// Return boxed slice of [`DirEntry`]s.
     pub fn into_inner(self) -> Box<[DirEntry]> {
         self.0
+    }
+}
+
+impl Deref for ReadDir {
+    type Target = [DirEntry];
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for ReadDir {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
     }
 }
 
