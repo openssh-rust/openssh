@@ -10,6 +10,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 
+use bytes::Bytes;
 use openssh_sftp_client::{CreateFlags, Data, Error as SftpError, FileAttrs, Handle, HandleOwned};
 use tokio::io::AsyncSeek;
 
@@ -19,7 +20,7 @@ mod tokio_compact_file;
 pub use tokio_compact_file::TokioCompactFile;
 
 mod utility;
-use utility::take_io_slices;
+use utility::{take_bytes, take_io_slices};
 
 /// Options and flags which can be used to configure how a file is opened.
 #[derive(Debug, Copy, Clone)]
@@ -478,6 +479,40 @@ impl File<'_> {
         self.send_writable_request(|write_end, handle, id| {
             Ok(write_end
                 .send_write_request_buffered_vectored2(id, handle, offset, &buffers)?
+                .wait())
+        })
+        .await?;
+
+        // Adjust offset
+        Pin::new(self)
+            .start_seek(io::SeekFrom::Current(n.try_into().unwrap()))
+            .map_err(SftpError::from)?;
+
+        Ok(n)
+    }
+
+    /// This function can write in at most [`File::max_write_len`] bytes.
+    pub async fn write_zero_copy(&mut self, bytes_slice: &[Bytes]) -> Result<usize, Error> {
+        if bytes_slice.is_empty() {
+            return Ok(0);
+        }
+
+        // sftp v3 cannot send more than self.max_write_len() data at once.
+        let max_write_len = self.max_write_len();
+
+        let (n, bufs, buf) = if let Some(res) = take_bytes(bytes_slice, max_write_len as usize) {
+            res
+        } else {
+            return Ok(0);
+        };
+
+        let buffers = [bufs, &buf];
+
+        let offset = self.offset;
+
+        self.send_writable_request(|write_end, handle, id| {
+            Ok(write_end
+                .send_write_request_zero_copy2(id, handle, offset, &buffers)?
                 .wait())
         })
         .await?;
