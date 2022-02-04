@@ -33,9 +33,8 @@
 //! the remote command directly. Usually, these are the same, though not always, as highlighted in
 //! the documetantation the individual methods. See also the section below on Remote Shells.
 //!
-//! And finally, our commands never default to inheriting stdin/stdout/stderr, since we expect you
-//! are using this to automate things. Instead, unless otherwise noted, all I/O ports default to
-//! [`Stdio::null`](std::process::Stdio::null).
+//! And finally, our commands is default to inheriting stdin/stdout/stderr to be compatible with
+//! [`std::process::Command`] and [`tokio::process::Command`].
 //!
 //! # Connection modes
 //!
