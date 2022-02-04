@@ -176,7 +176,11 @@ impl<'s> OpenOptions<'s> {
 }
 
 /// A reference to the remote file.
-#[derive(Debug)]
+///
+/// Cloning [`File`] instance would return a new one that shares the same
+/// underlying file handle as the existing File instance, while reads, writes
+/// and seeks can be performed independently.
+#[derive(Debug, Clone)]
 pub struct File<'s> {
     inner: OwnedHandle<'s>,
 
@@ -184,23 +188,6 @@ pub struct File<'s> {
     is_writable: bool,
     need_flush: bool,
     offset: u64,
-}
-
-/// Creates a new [`File`] instance that shares the same underlying
-/// file handle as the existing File instance.
-///
-/// Reads, writes, and seeks can be performed independently.
-impl Clone for File<'_> {
-    fn clone(&self) -> Self {
-        Self {
-            inner: self.inner.clone(),
-
-            is_readable: self.is_readable,
-            is_writable: self.is_writable,
-            offset: self.offset,
-            need_flush: false,
-        }
-    }
 }
 
 impl File<'_> {

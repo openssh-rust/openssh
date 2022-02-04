@@ -139,7 +139,9 @@ impl Drop for TokioCompactFile<'_> {
 /// Reads, writes, and seeks can be performed independently.
 impl Clone for TokioCompactFile<'_> {
     fn clone(&self) -> Self {
-        Self::new(self.inner.clone())
+        let mut inner = self.inner.clone();
+        inner.need_flush = false;
+        Self::new(inner)
     }
 }
 
