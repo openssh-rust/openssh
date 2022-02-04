@@ -123,7 +123,7 @@ impl<'s> Fs<'s> {
     async fn canonicalize_impl(&mut self, path: &Path) -> Result<Box<Path>, Error> {
         let path = self.concat_path_if_needed(path);
 
-        let f = if self.write_end.get_auxiliary().extensions.expand_path {
+        let f = if self.get_auxiliary().extensions.expand_path {
             // This supports canonicalisation of relative paths and those that
             // need tilde-expansion, i.e. “~”, “~/…” and “~user/…”.
             //
@@ -142,6 +142,27 @@ impl<'s> Fs<'s> {
     /// components normalized and symbolic links resolved.
     pub async fn canonicalize(&mut self, path: impl AsRef<Path>) -> Result<PathBuf, Error> {
         self.canonicalize_impl(path.as_ref()).await.map(Into::into)
+    }
+
+    async fn hard_link_impl(&mut self, src: &Path, dst: &Path) -> Result<(), Error> {
+        if !self.get_auxiliary().extensions.hardlink {
+            return Err(SftpError::UnsupportedExtension(&"hardlink").into());
+        }
+
+        let src = self.concat_path_if_needed(src);
+        let dst = self.concat_path_if_needed(dst);
+
+        self.send_request(|write_end, id| Ok(write_end.send_hardlink_requst(id, src, dst)?.wait()))
+            .await
+    }
+
+    /// Creates a new hard link on the filesystem.
+    pub async fn hard_link(
+        &mut self,
+        src: impl AsRef<Path>,
+        dst: impl AsRef<Path>,
+    ) -> Result<(), Error> {
+        self.hard_link_impl(src.as_ref(), dst.as_ref()).await
     }
 }
 
