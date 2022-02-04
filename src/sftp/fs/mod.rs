@@ -119,6 +119,30 @@ impl<'s> Fs<'s> {
         self.remove_impl(path.as_ref(), WriteEnd::send_remove_request)
             .await
     }
+
+    async fn canonicalize_impl(&mut self, path: &Path) -> Result<Box<Path>, Error> {
+        let path = self.concat_path_if_needed(path);
+
+        let f = if self.write_end.get_auxiliary().extensions.expand_path {
+            // This supports canonicalisation of relative paths and those that
+            // need tilde-expansion, i.e. “~”, “~/…” and “~user/…”.
+            //
+            // These paths are expanded using shell-like rules and the resultant
+            // path is canonicalised similarly to WriteEnd::send_realpath_request.
+            WriteEnd::send_expand_path_request
+        } else {
+            WriteEnd::send_realpath_request
+        };
+
+        self.send_request(|write_end, id| Ok(f(write_end, id, path)?.wait()))
+            .await
+    }
+
+    /// Returns the canonical, absolute form of a path with all intermediate
+    /// components normalized and symbolic links resolved.
+    pub async fn canonicalize(&mut self, path: impl AsRef<Path>) -> Result<PathBuf, Error> {
+        self.canonicalize_impl(path.as_ref()).await.map(Into::into)
+    }
 }
 
 /// Remote Directory
