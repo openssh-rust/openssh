@@ -557,6 +557,7 @@ impl AsyncSeek for File<'_> {
 }
 
 /// Metadata information about a file.
+#[repr(transparent)]
 #[derive(Debug, Clone, Copy)]
 pub struct MetaData(FileAttrs);
 
