@@ -46,8 +46,14 @@ impl fmt::Debug for SelfRefWaitForCancellationFuture {
     }
 }
 
+impl Drop for SelfRefWaitForCancellationFuture {
+    fn drop(&mut self) {
+        debug_assert!(self.0.is_none());
+    }
+}
+
 impl SelfRefWaitForCancellationFuture {
-    /// This function must be called once in `Drop` implementation.
+    /// This function must be called once and exactly once in `Drop` implementation.
     pub(super) unsafe fn drop<'this>(&'this mut self) {
         if let Some(boxed) = self.0.take() {
             // transmute the box to avoid moving `WaitForCancellationFuture`
