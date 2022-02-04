@@ -1,23 +1,18 @@
 use super::{
-    Auxiliary, Error, FileType, Id, Permissions, Sftp, UnixTimeStamp, WriteEnd,
-    WriteEndWithCachedId,
+    Auxiliary, Error, FileType, Id, OwnedHandle, Permissions, Sftp, UnixTimeStamp, WriteEnd,
 };
 
 use std::borrow::Cow;
 use std::cmp::{min, Ordering};
 use std::future::Future;
 use std::io::{self, IoSlice};
-use std::marker::PhantomData;
 use std::path::Path;
 use std::pin::Pin;
-use std::sync::Arc;
 use std::task::{Context, Poll};
 
 use bytes::Bytes;
-use openssh_sftp_client::{CreateFlags, Data, Error as SftpError, FileAttrs, Handle, HandleOwned};
+use openssh_sftp_client::{CreateFlags, Data, Error as SftpError, FileAttrs, Handle};
 use tokio::io::AsyncSeek;
-
-use derive_destructure2::destructure;
 
 mod tokio_compact_file;
 pub use tokio_compact_file::TokioCompactFile;
@@ -166,10 +161,7 @@ impl<'s> OpenOptions<'s> {
         write_end.cache_id_mut(id);
 
         Ok(File {
-            phantom_data: PhantomData,
-
-            write_end,
-            handle: Arc::new(handle),
+            inner: OwnedHandle::new(write_end, handle),
 
             is_readable: self.options.get_read(),
             is_writable: self.options.get_write(),
@@ -180,12 +172,9 @@ impl<'s> OpenOptions<'s> {
 }
 
 /// A reference to the remote file.
-#[derive(Debug, destructure)]
+#[derive(Debug)]
 pub struct File<'s> {
-    phantom_data: PhantomData<&'s Sftp<'s>>,
-
-    write_end: WriteEndWithCachedId,
-    handle: Arc<HandleOwned>,
+    inner: OwnedHandle<'s>,
 
     is_readable: bool,
     is_writable: bool,
@@ -200,10 +189,7 @@ pub struct File<'s> {
 impl Clone for File<'_> {
     fn clone(&self) -> Self {
         Self {
-            phantom_data: PhantomData,
-
-            write_end: self.write_end.clone(),
-            handle: self.handle.clone(),
+            inner: self.inner.clone(),
 
             is_readable: self.is_readable,
             is_writable: self.is_writable,
@@ -215,7 +201,11 @@ impl Clone for File<'_> {
 
 impl File<'_> {
     fn get_auxiliary(&self) -> &Auxiliary {
-        self.write_end.get_auxiliary()
+        self.inner.get_auxiliary()
+    }
+
+    fn get_inner(&mut self) -> (&mut WriteEnd, Cow<'_, Handle>) {
+        (&mut self.inner.write_end, Cow::Borrowed(&self.inner.handle))
     }
 
     /// Get maximum amount of bytes that one single write requests
@@ -230,22 +220,6 @@ impl File<'_> {
         self.get_auxiliary().limits.read_len
     }
 
-    async fn send_request<Func, F, R>(&mut self, f: Func) -> Result<R, Error>
-    where
-        Func: FnOnce(&mut WriteEnd, Cow<'_, Handle>, Id) -> Result<F, SftpError>,
-        F: Future<Output = Result<(Id, R), SftpError>> + 'static,
-    {
-        let id = self.write_end.get_id_mut();
-
-        let future = f(&mut self.write_end, Cow::Borrowed(&self.handle), id)?;
-
-        let (id, ret) = self.get_auxiliary().cancel_if_task_failed(future).await?;
-
-        self.write_end.cache_id_mut(id);
-
-        Ok(ret)
-    }
-
     async fn send_writable_request<Func, F, R>(&mut self, f: Func) -> Result<R, Error>
     where
         Func: FnOnce(&mut WriteEnd, Cow<'_, Handle>, Id) -> Result<F, SftpError>,
@@ -258,7 +232,7 @@ impl File<'_> {
             ))
             .into())
         } else {
-            self.send_request(f).await
+            self.inner.send_request(f).await
         }
     }
 
@@ -274,7 +248,7 @@ impl File<'_> {
             ))
             .into())
         } else {
-            self.send_request(f).await
+            self.inner.send_request(f).await
         }
     }
 
@@ -284,23 +258,8 @@ impl File<'_> {
     /// # Cancel Safety
     ///
     /// This function is cancel safe.
-    pub async fn close(mut self) -> Result<(), Error> {
-        if Arc::strong_count(&self.handle) == 1 {
-            // This is the last reference to the arc
-
-            let res = self
-                .send_request(|write_end, handle, id| {
-                    Ok(write_end.send_close_request(id, handle)?.wait())
-                })
-                .await;
-
-            // Release resources without running `File::drop`
-            self.destructure();
-
-            res
-        } else {
-            Ok(())
-        }
+    pub async fn close(self) -> Result<(), Error> {
+        self.inner.close().await
     }
 
     /// Forcibly flush the write buffer.
@@ -314,7 +273,7 @@ impl File<'_> {
     ///
     /// This function is cancel safe.
     pub async fn flush(&self) -> Result<(), io::Error> {
-        self.write_end.flush().await?;
+        self.inner.write_end.flush().await?;
 
         Ok(())
     }
@@ -330,10 +289,11 @@ impl File<'_> {
     ///
     /// This function is cancel safe.
     pub async fn flush_blocked(&self) -> Result<(), io::Error> {
-        self.write_end.flush_blocked().await?;
+        self.inner.write_end.flush_blocked().await?;
 
         Ok(())
     }
+
     /// Truncates or extends the underlying file, updating the size
     /// of this file to become size.
     ///
@@ -593,18 +553,6 @@ impl AsyncSeek for File<'_> {
     /// This function is a no-op.
     fn poll_complete(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<u64>> {
         Poll::Ready(Ok(self.offset))
-    }
-}
-
-impl Drop for File<'_> {
-    fn drop(&mut self) {
-        if Arc::strong_count(&self.handle) == 1 {
-            // This is the last reference to the arc
-            let id = self.write_end.get_id_mut();
-            let _ = self
-                .write_end
-                .send_close_request(id, Cow::Borrowed(&self.handle));
-        }
     }
 }
 
