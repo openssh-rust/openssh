@@ -186,6 +186,28 @@ impl<'s> Fs<'s> {
         self.linking_impl(src.as_ref(), dst.as_ref(), WriteEnd::send_symlink_request)
             .await
     }
+
+    async fn rename_impl(&mut self, from: &Path, to: &Path) -> Result<(), Error> {
+        let f = if self.get_auxiliary().extensions.posix_rename {
+            // posix rename is guaranteed to be atomic
+            WriteEnd::send_posix_rename_request
+        } else {
+            WriteEnd::send_rename_request
+        };
+
+        self.linking_impl(from, to, f).await
+    }
+
+    /// Renames a file or directory to a new name, replacing the original file if to already exists.
+    ///
+    /// This will not work if the new name is on a different mount point.
+    pub async fn rename(
+        &mut self,
+        from: impl AsRef<Path>,
+        to: impl AsRef<Path>,
+    ) -> Result<(), Error> {
+        self.rename_impl(from.as_ref(), to.as_ref()).await
+    }
 }
 
 /// Remote Directory
