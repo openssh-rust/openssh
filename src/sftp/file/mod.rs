@@ -12,7 +12,7 @@ use std::task::{Context, Poll};
 
 use tokio::io::AsyncSeek;
 
-use openssh_sftp_client::{CreateFlags, Error as SftpError, FileAttrs, Handle, HandleOwned};
+use openssh_sftp_client::{CreateFlags, Data, Error as SftpError, FileAttrs, Handle, HandleOwned};
 
 mod tokio_compact_file;
 pub use tokio_compact_file::TokioCompactFile;
@@ -355,6 +355,37 @@ impl File<'_> {
         })
         .await
         .map(MetaData)
+    }
+
+    /// * `n` - number of bytes to read in
+    ///
+    /// This function can read in at most [`File::max_read_len`] bytes.
+    ///
+    /// On EOF, `None` is returned.
+    pub async fn read(&mut self, n: u32, buffer: Vec<u8>) -> Result<Option<Vec<u8>>, Error> {
+        let offset = self.offset;
+        let n = min(n, self.max_read_len().try_into().unwrap_or(u32::MAX));
+
+        let data = self
+            .send_readable_request(|write_end, handle, id| {
+                Ok(write_end
+                    .send_read_request(id, handle, offset, n, Some(buffer))?
+                    .wait())
+            })
+            .await?;
+
+        let buffer = match data {
+            Data::Buffer(buffer) => buffer,
+            Data::Eof => return Ok(None),
+            _ => std::unreachable!("Expect Data::Buffer"),
+        };
+
+        // Adjust offset
+        Pin::new(self)
+            .start_seek(io::SeekFrom::Current(n.try_into().unwrap()))
+            .map_err(SftpError::from)?;
+
+        Ok(Some(buffer))
     }
 }
 
