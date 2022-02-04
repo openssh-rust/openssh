@@ -7,7 +7,7 @@ use std::path::Path;
 use std::process::ExitStatus;
 use std::time::Duration;
 
-use openssh_sftp_client::{connect_with_auxiliary, Error as SftpError, Extensions, Limits};
+use openssh_sftp_client::{connect_with_auxiliary, Error as SftpError, Extensions};
 use thread_local::ThreadLocal;
 use tokio::{task, time};
 use tokio_util::sync::CancellationToken;
@@ -20,6 +20,12 @@ use cache::{Cache, IdCacher};
 mod file;
 pub use file::TokioCompactFile;
 pub use file::{File, MetaData, OpenOptions};
+
+#[derive(Debug, Default)]
+struct Limits {
+    read_len: u32,
+    write_len: u32,
+}
 
 #[derive(Debug)]
 struct Auxiliary {
@@ -37,12 +43,7 @@ impl Auxiliary {
     fn new() -> Self {
         Self {
             extensions: Extensions::default(),
-            limits: Limits {
-                packet_len: 0,
-                read_len: 0,
-                write_len: 0,
-                open_handles: 0,
-            },
+            limits: Limits::default(),
             thread_local_cache: ThreadLocal::new(),
             cancel_token: CancellationToken::new(),
         }
@@ -104,7 +105,7 @@ impl<'s> Sftp<'s> {
 
         let id = write_end.create_response_id();
 
-        let (id, limits) = if extensions.limits {
+        let (id, read_len, write_len) = if extensions.limits {
             let awaitable = write_end.send_limits_request(id)?;
 
             flush(&write_end).await?;
@@ -122,17 +123,22 @@ impl<'s> Sftp<'s> {
                     openssh_sftp_client::OPENSSH_PORTABLE_DEFAULT_UPLOAD_BUFLEN as u64;
             }
 
-            (id, limits)
+            (id, limits.read_len, limits.write_len)
         } else {
             (
                 id,
-                Limits {
-                    packet_len: 0,
-                    read_len: openssh_sftp_client::OPENSSH_PORTABLE_DEFAULT_DOWNLOAD_BUFLEN as u64,
-                    write_len: openssh_sftp_client::OPENSSH_PORTABLE_DEFAULT_UPLOAD_BUFLEN as u64,
-                    open_handles: 0,
-                },
+                openssh_sftp_client::OPENSSH_PORTABLE_DEFAULT_DOWNLOAD_BUFLEN as u64,
+                openssh_sftp_client::OPENSSH_PORTABLE_DEFAULT_UPLOAD_BUFLEN as u64,
             )
+        };
+
+        // sftp can accept packet as large as u32::MAX,
+        // however each read/write request also has a header and
+        // it contains a handle, which is 4-byte long for openssh
+        // but can be at most 256 bytes long for other implementations.
+        let limits = Limits {
+            read_len: read_len.try_into().unwrap_or(u32::MAX - 300),
+            write_len: write_len.try_into().unwrap_or(u32::MAX - 300),
         };
 
         let auxiliary = write_end.get_auxiliary_mut().unwrap();
