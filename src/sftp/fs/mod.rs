@@ -2,7 +2,7 @@ use super::{Auxiliary, Error, Id, Sftp, WriteEnd, WriteEndWithCachedId};
 
 use std::future::Future;
 use std::marker::PhantomData;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use openssh_sftp_client::Error as SftpError;
 
@@ -43,5 +43,17 @@ impl Fs<'_> {
         self.write_end.cache_id_mut(id);
 
         Ok(ret)
+    }
+
+    /// Return current working dir.
+    pub fn cwd(&self) -> &Path {
+        &self.cwd
+    }
+
+    /// Set current working dir.
+    ///
+    /// * `cwd` - Can include `~`.
+    pub fn set_cwd(&mut self, cwd: impl Into<PathBuf>) {
+        self.cwd = cwd.into();
     }
 }
