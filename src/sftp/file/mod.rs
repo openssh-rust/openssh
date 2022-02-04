@@ -563,6 +563,10 @@ pub struct MetaData(FileAttrs);
 
 #[allow(clippy::len_without_is_empty)]
 impl MetaData {
+    pub(super) fn new(attrs: FileAttrs) -> Self {
+        Self(attrs)
+    }
+
     /// Returns the size of the file in bytes.
     ///
     /// Return `None` if the server did not return
