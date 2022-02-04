@@ -5,7 +5,7 @@ use std::future::Future;
 use std::marker::PhantomData;
 use std::path::{Path, PathBuf};
 
-use openssh_sftp_client::Error as SftpError;
+use openssh_sftp_client::{Error as SftpError, FileAttrs, Permissions};
 
 mod dir;
 pub use dir::{DirEntry, ReadDir};
@@ -19,7 +19,7 @@ pub struct Fs<'s> {
     cwd: Box<Path>,
 }
 
-impl Fs<'_> {
+impl<'s> Fs<'s> {
     pub(super) fn new(write_end: WriteEndWithCachedId, cwd: PathBuf) -> Self {
         Self {
             phantom_data: PhantomData,
@@ -81,6 +81,19 @@ impl Fs<'_> {
     pub async fn open_dir(&mut self, path: impl AsRef<Path>) -> Result<Dir<'_>, Error> {
         self.open_dir_impl(path.as_ref()).await
     }
+
+    /// Create a directory builder.
+    pub fn dir_builder(&mut self) -> DirBuilder<'_, 's> {
+        DirBuilder {
+            fs: self,
+            attrs: FileAttrs::new(),
+        }
+    }
+
+    /// Creates a new, empty directory at the provided path.
+    pub async fn create_dir(&mut self, path: impl AsRef<Path>) -> Result<(), Error> {
+        self.dir_builder().create(path).await
+    }
 }
 
 /// Remote Directory
@@ -102,5 +115,48 @@ impl Dir<'_> {
     /// Close dir.
     pub async fn close(self) -> Result<(), Error> {
         self.0.close().await
+    }
+}
+
+/// Builder for new directory to create.
+#[derive(Debug)]
+pub struct DirBuilder<'a, 's> {
+    fs: &'a mut Fs<'s>,
+    attrs: FileAttrs,
+}
+
+impl DirBuilder<'_, '_> {
+    /// Reset builder back to default.
+    pub fn reset(&mut self) -> &mut Self {
+        self.attrs = FileAttrs::new();
+        self
+    }
+
+    /// Set id of the dir to be built.
+    pub fn id(&mut self, (uid, gid): (u32, u32)) -> &mut Self {
+        self.attrs.set_id(uid, gid);
+        self
+    }
+
+    /// Set permissions of the dir to be built.
+    pub fn permissions(&mut self, perm: Permissions) -> &mut Self {
+        self.attrs.set_permissions(perm);
+        self
+    }
+
+    async fn create_impl(&mut self, path: &Path) -> Result<(), Error> {
+        let fs = &mut self.fs;
+
+        let path = fs.concat_path_if_needed(path);
+
+        fs.send_request(|write_end, id| {
+            Ok(write_end.send_mkdir_request(id, path, self.attrs)?.wait())
+        })
+        .await
+    }
+
+    /// Creates the specified directory with the configured options.
+    pub async fn create(&mut self, path: impl AsRef<Path>) -> Result<(), Error> {
+        self.create_impl(path.as_ref()).await
     }
 }
