@@ -4,9 +4,12 @@ use std::fmt;
 use std::future::Future;
 use std::io::{self, IoSlice};
 use std::mem;
+use std::ops::Deref;
 use std::pin::Pin;
+use std::slice;
 use std::task::{Context, Poll};
 
+use bytes::Bytes;
 use tokio_util::sync::WaitForCancellationFuture;
 
 use openssh_sftp_client::Error as SftpError;
@@ -107,6 +110,75 @@ impl SelfRefWaitForCancellationFuture {
     }
 }
 
+/// Return `Some((n, subslices, reminder))` where
+///  - `n` is number of bytes in `subslices` and `reminder`.
+///  - `subslices` is a subslice of `bufs`
+///  - `reminder` might be a slice of `bufs[subslices.len()]`
+///    if `subslices.len() < bufs.len()` and the total number
+///    of bytes in `subslices` is less than `limit`.
+///
+/// Return `None` if the total number of bytes in `bufs` is empty.
+fn take_slices<T: Deref<Target = [u8]>>(
+    bufs: &'_ [T],
+    limit: usize,
+    create_slice: impl FnOnce(&T, usize) -> T,
+) -> Option<(usize, &'_ [T], [T; 1])> {
+    if bufs.is_empty() {
+        return None;
+    }
+
+    let mut end = 0;
+    let mut n = 0;
+
+    // loop 'buf
+    //
+    // This loop would skip empty `IoSlice`s.
+    for buf in bufs {
+        let cnt = n + buf.len();
+
+        // branch '1
+        if cnt > limit {
+            break;
+        }
+
+        n = cnt;
+        end += 1;
+    }
+
+    let buf = if end < bufs.len() {
+        n = limit;
+
+        // In this branch, the loop 'buf terminate due to branch '1,
+        // thus
+        //
+        //     n + buf.len() > limit,
+        //     buf.len() > limit - n.
+        //
+        // And (limit - n) also cannot be 0, otherwise
+        // branch '1 will not be executed.
+        [create_slice(&bufs[end], limit - n)]
+    } else {
+        if n == 0 {
+            return None;
+        }
+
+        [create_slice(&bufs[0], 0)]
+    };
+
+    Some((n, &bufs[..end], buf))
+}
+
+fn create_io_subslice<'a>(io_slice: &IoSlice<'a>, end: usize) -> IoSlice<'a> {
+    let slice = &io_slice[..end];
+
+    let ptr = slice.as_ptr();
+    let len = slice.len();
+
+    let slice: &'a [u8] = unsafe { slice::from_raw_parts(ptr, len) };
+
+    IoSlice::new(slice)
+}
+
 /// Return `Some((n, io_subslices, [reminder]))` where
 ///  - `n` is number of bytes in `io_subslices` and `reminder`.
 ///  - `io_subslices` is a subslice of `io_slices`
@@ -119,46 +191,5 @@ pub(super) fn take_io_slices<'a>(
     io_slices: &'a [IoSlice<'a>],
     limit: usize,
 ) -> Option<(usize, &'a [IoSlice<'a>], [IoSlice<'a>; 1])> {
-    let mut end = 0;
-    let mut n = 0;
-
-    // loop 'buf
-    //
-    // This loop would skip empty `IoSlice`s.
-    for buf in io_slices {
-        let cnt = n + buf.len();
-
-        // branch '1
-        if cnt > limit {
-            break;
-        }
-
-        n = cnt;
-        end += 1;
-    }
-
-    let buf = if end < io_slices.len() {
-        let buf = &io_slices[end];
-        // In this branch, the loop 'buf terminate due to branch '1,
-        // thus
-        //
-        //     n + buf.len() > limit,
-        //     buf.len() > limit - n.
-        //
-        // And (limit - n) also cannot be 0, otherwise
-        // branch '1 will not be executed.
-        let buf = &buf[..(limit - n)];
-
-        n = limit;
-
-        [IoSlice::new(buf)]
-    } else {
-        if n == 0 {
-            return None;
-        }
-
-        [IoSlice::new(&[])]
-    };
-
-    Some((n, &io_slices[..end], buf))
+    take_slices(io_slices, limit, create_io_subslice)
 }
