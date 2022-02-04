@@ -5,6 +5,7 @@ use std::cell::Cell;
 use std::fmt;
 use std::ops::{Deref, DerefMut};
 
+#[repr(transparent)]
 pub(super) struct Cache<T>(Cell<Option<T>>);
 
 impl<T> Cache<T> {
