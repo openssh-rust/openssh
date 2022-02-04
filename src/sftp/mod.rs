@@ -268,11 +268,30 @@ impl<'s> Sftp<'s> {
     ///
     /// By default, it is flushed every 0.9 ms.
     ///
+    /// If another thread is doing flushing, then this function would return
+    /// without doing anything.
+    ///
     /// # Cancel Safety
     ///
     /// This function is cancel safe.
     pub async fn flush(&self) -> Result<(), io::Error> {
         self.shared_data.flush().await?;
+
+        Ok(())
+    }
+
+    /// Forcibly flush the write buffer.
+    ///
+    /// By default, it is flushed every 0.9 ms.
+    ///
+    /// If another thread is doing flushing, then this function would
+    /// wait until it completes or cancelled the future.
+    ///
+    /// # Cancel Safety
+    ///
+    /// This function is cancel safe.
+    pub async fn flush_blocked(&self) -> Result<(), io::Error> {
+        self.shared_data.flush_blocked().await?;
 
         Ok(())
     }
