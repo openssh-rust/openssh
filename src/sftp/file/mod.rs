@@ -369,8 +369,12 @@ impl File<'_> {
     ///
     /// This function can read in at most [`File::max_read_len`] bytes.
     ///
-    /// On EOF, `None` is returned.
+    /// If the [`File`] has reached EOF or `n == 0`, then `None` is returned.
     pub async fn read(&mut self, n: u32, buffer: Vec<u8>) -> Result<Option<Vec<u8>>, Error> {
+        if n == 0 {
+            return Ok(None);
+        }
+
         let offset = self.offset;
         let n: u32 = min(n, self.max_read_len());
 
