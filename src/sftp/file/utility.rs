@@ -1,5 +1,6 @@
 use super::super::Auxiliary;
 
+use std::fmt;
 use std::future::Future;
 use std::io;
 use std::mem;
@@ -13,7 +14,7 @@ use openssh_sftp_client::Error as SftpError;
 const WAIT_FOR_CANCELLATION_FUTURE_SIZE: usize =
     mem::size_of::<WaitForCancellationFuture<'static>>();
 
-#[derive(Debug, Default)]
+#[derive(Default)]
 pub(super) struct SelfRefWaitForCancellationFuture(
     /// WaitForCancellationFuture is erased to an array
     /// since it is a holds a reference to `Auxiliary::cancel_token`,
@@ -25,6 +26,25 @@ pub(super) struct SelfRefWaitForCancellationFuture(
     /// However, in rust, leaking is permitted, thus we have to box it.
     Option<Pin<Box<[u8; WAIT_FOR_CANCELLATION_FUTURE_SIZE]>>>,
 );
+
+impl fmt::Debug for SelfRefWaitForCancellationFuture {
+    fn fmt<'this>(&'this self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let future = self.0.as_ref().map(
+            |reference: &Pin<Box<[u8; WAIT_FOR_CANCELLATION_FUTURE_SIZE]>>| {
+                let reference: &[u8; WAIT_FOR_CANCELLATION_FUTURE_SIZE] = &*reference;
+
+                let future: &WaitForCancellationFuture<'this> =
+                    unsafe { mem::transmute(reference) };
+
+                future
+            },
+        );
+
+        f.debug_tuple("SelfRefWaitForCancellationFuture")
+            .field(&future)
+            .finish()
+    }
+}
 
 impl SelfRefWaitForCancellationFuture {
     /// This function must be called once in `Drop` implementation.
