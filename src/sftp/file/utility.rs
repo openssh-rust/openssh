@@ -2,7 +2,7 @@ use super::super::Auxiliary;
 
 use std::fmt;
 use std::future::Future;
-use std::io;
+use std::io::{self, IoSlice};
 use std::mem;
 use std::pin::Pin;
 use std::task::{Context, Poll};
@@ -99,4 +99,60 @@ impl SelfRefWaitForCancellationFuture {
 
         Err(Self::error())
     }
+}
+
+/// Return `Some((n, io_subslices, [reminder]))` where
+///  - `n` is number of bytes in `io_subslices` and `reminder`.
+///  - `io_subslices` is a subslice of `io_slices`
+///  - `reminder` might be a slice of `io_slices[io_subslices.len()]`
+///    if `io_subslices.len() < io_slices.len()` and the total number
+///    of bytes in `io_subslices` is less than `limit`.
+///
+/// Return `None` if the total number of bytes in `io_slices` is empty.
+pub(super) fn take_io_slices<'a>(
+    io_slices: &'a [IoSlice<'a>],
+    limit: usize,
+) -> Option<(usize, &'a [IoSlice<'a>], [IoSlice<'a>; 1])> {
+    let mut end = 0;
+    let mut n = 0;
+
+    // loop 'buf
+    //
+    // This loop would skip empty `IoSlice`s.
+    for buf in io_slices {
+        let cnt = n + buf.len();
+
+        // branch '1
+        if cnt > limit {
+            break;
+        }
+
+        n = cnt;
+        end += 1;
+    }
+
+    let buf = if end < io_slices.len() {
+        let buf = &io_slices[end];
+        // In this branch, the loop 'buf terminate due to branch '1,
+        // thus
+        //
+        //     n + buf.len() > limit,
+        //     buf.len() > limit - n.
+        //
+        // And (limit - n) also cannot be 0, otherwise
+        // branch '1 will not be executed.
+        let buf = &buf[..(limit - n)];
+
+        n = limit;
+
+        [IoSlice::new(buf)]
+    } else {
+        if n == 0 {
+            return None;
+        }
+
+        [IoSlice::new(&[])]
+    };
+
+    Some((n, &io_slices[..end], buf))
 }
