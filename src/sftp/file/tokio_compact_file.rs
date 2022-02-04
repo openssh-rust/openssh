@@ -265,7 +265,7 @@ impl AsyncWrite for TokioCompactFile<'_> {
             return Poll::Ready(Ok(0));
         }
 
-        // sftp v3 cannot send more than u32::MAX data at once.
+        // sftp v3 cannot send more than self.max_write_len() data at once.
         let buf = &buf[..min(buf.len(), self.max_write_len() as usize)];
 
         // Dereference it here once so that there will be only
