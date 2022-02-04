@@ -3,7 +3,7 @@ use super::{child::RemoteChildImp, ChildStdin, ChildStdout, Error, Session};
 use std::future::Future;
 use std::io;
 use std::marker::PhantomData;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::ExitStatus;
 use std::time::Duration;
 
@@ -20,6 +20,9 @@ use cache::{Cache, IdCacher};
 mod file;
 pub use file::TokioCompactFile;
 pub use file::{File, MetaData, OpenOptions};
+
+mod fs;
+pub use fs::Fs;
 
 #[derive(Debug, Default)]
 struct Limits {
@@ -262,6 +265,15 @@ impl<'s> Sftp<'s> {
     /// This function is cancel safe.
     pub async fn open(&self, path: impl AsRef<Path>) -> Result<File<'_>, Error> {
         self.options().read(true).open(path).await
+    }
+
+    /// * `cwd` - The current working dir for the [`Fs`].
+    ///           If `cwd` is `Nonoe`, then it is set to `~`.
+    pub fn fs(&self, cwd: Option<impl Into<PathBuf>>) -> Fs<'_> {
+        Fs::new(
+            self.write_end(),
+            cwd.map(Into::into).unwrap_or_else(|| "~".into()),
+        )
     }
 
     /// Forcibly flush the write buffer.
