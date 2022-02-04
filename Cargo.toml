@@ -40,6 +40,7 @@ sftp = [
     "thread_local",
     "tokio-util",
     "derive_destructure2",
+    "bytes",
     "tokio/rt",
     "tokio/time",
     "once_cell/parking_lot"
@@ -62,6 +63,7 @@ openssh-sftp-client = { version = "0.5.7", optional = true }
 thread_local = { version = "1.1.4", optional = true }
 tokio-util = { version = "0.6.9", optional = true }
 derive_destructure2 = { version = "0.0.2", optional = true }
+bytes = { version = "1.1.0", optional = true }
 
 [dev-dependencies]
 lazy_static = "1.4.0"
