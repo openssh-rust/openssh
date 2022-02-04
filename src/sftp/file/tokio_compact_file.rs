@@ -12,9 +12,10 @@ use std::ops::{Deref, DerefMut};
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
+use openssh_sftp_client::{AwaitableDataFuture, AwaitableStatusFuture};
 use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite, ReadBuf};
 
-use openssh_sftp_client::{AwaitableDataFuture, AwaitableStatusFuture};
+use derive_destructure2::destructure;
 
 macro_rules! ready {
     ($e:expr) => {
@@ -34,7 +35,7 @@ fn sftp_to_io_error(sftp_err: SftpError) -> io::Error {
 
 /// File that implements [`AsyncRead`], [`AsyncSeek`] and [`AsyncWrite`],
 /// that is compatible with [`tokio::fs::File`].
-#[derive(Debug)]
+#[derive(Debug, destructure)]
 pub struct TokioCompactFile<'s> {
     inner: File<'s>,
 
@@ -62,6 +63,17 @@ impl<'s> TokioCompactFile<'s> {
             write_cancellation_future: SelfRefWaitForCancellationFuture::default(),
         }
     }
+
+    unsafe fn drop_cancellation_futures(&mut self) {
+        self.read_cancellation_future.drop();
+        self.write_cancellation_future.drop();
+    }
+
+    /// Return the inner [`File`].
+    pub fn into_inner(mut self) -> File<'s> {
+        unsafe { self.drop_cancellation_futures() };
+        self.destructure().0
+    }
 }
 
 impl<'s> From<File<'s>> for TokioCompactFile<'s> {
@@ -70,12 +82,15 @@ impl<'s> From<File<'s>> for TokioCompactFile<'s> {
     }
 }
 
+impl<'s> From<TokioCompactFile<'s>> for File<'s> {
+    fn from(file: TokioCompactFile<'s>) -> Self {
+        file.into_inner()
+    }
+}
+
 impl Drop for TokioCompactFile<'_> {
     fn drop(&mut self) {
-        unsafe {
-            self.read_cancellation_future.drop();
-            self.write_cancellation_future.drop();
-        }
+        unsafe { self.drop_cancellation_futures() };
     }
 }
 
