@@ -323,6 +323,37 @@ impl File<'_> {
         }
     }
 
+    /// Forcibly flush the write buffer.
+    ///
+    /// By default, it is flushed every 0.9 ms.
+    ///
+    /// If another thread is doing flushing, then this function would return
+    /// without doing anything.
+    ///
+    /// # Cancel Safety
+    ///
+    /// This function is cancel safe.
+    pub async fn flush(&self) -> Result<(), io::Error> {
+        self.write_end.flush().await?;
+
+        Ok(())
+    }
+
+    /// Forcibly flush the write buffer.
+    ///
+    /// By default, it is flushed every 0.9 ms.
+    ///
+    /// If another thread is doing flushing, then this function would
+    /// wait until it completes or cancelled the future.
+    ///
+    /// # Cancel Safety
+    ///
+    /// This function is cancel safe.
+    pub async fn flush_blocked(&self) -> Result<(), io::Error> {
+        self.write_end.flush_blocked().await?;
+
+        Ok(())
+    }
     /// Truncates or extends the underlying file, updating the size
     /// of this file to become size.
     ///
