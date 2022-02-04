@@ -256,6 +256,20 @@ impl<'s> Fs<'s> {
     ) -> Result<(), Error> {
         self.set_permissions_impl(path.as_ref(), perm).await
     }
+
+    async fn metadata_impl(&mut self, path: &Path) -> Result<MetaData, Error> {
+        let path = self.concat_path_if_needed(path);
+
+        self.send_request(|write_end, id| Ok(write_end.send_stat_request(id, path)?.wait()))
+            .await
+            .map(MetaData::new)
+    }
+
+    /// Given a path, queries the file system to get information about a file,
+    /// directory, etc.
+    pub async fn metadata(&mut self, path: impl AsRef<Path>) -> Result<MetaData, Error> {
+        self.metadata_impl(path.as_ref()).await
+    }
 }
 
 /// Remote Directory
