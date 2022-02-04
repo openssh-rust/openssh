@@ -106,6 +106,18 @@ impl<'s> Fs<'s> {
     pub async fn remove_dir(&mut self, path: impl AsRef<Path>) -> Result<(), Error> {
         self.remove_dir_impl(path.as_ref()).await
     }
+
+    async fn remove_file_impl(&mut self, path: &Path) -> Result<(), Error> {
+        let path = self.concat_path_if_needed(path);
+
+        self.send_request(|write_end, id| Ok(write_end.send_remove_request(id, path)?.wait()))
+            .await
+    }
+
+    /// Removes a file from remote filesystem.
+    pub async fn remove_file(&mut self, path: impl AsRef<Path>) -> Result<(), Error> {
+        self.remove_file_impl(path.as_ref()).await
+    }
 }
 
 /// Remote Directory
