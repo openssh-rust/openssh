@@ -18,6 +18,7 @@ mod tokio_compact_file;
 pub use tokio_compact_file::TokioCompactFile;
 
 mod utility;
+use utility::take_io_slices;
 
 /// Options and flags which can be used to configure how a file is opened.
 #[derive(Debug, Copy, Clone)]
@@ -423,6 +424,40 @@ impl File<'_> {
             .map_err(SftpError::from)?;
 
         Ok(())
+    }
+
+    /// This function can write in at most [`File::max_write_len`] bytes.
+    pub async fn write_vectorized(&mut self, bufs: &[IoSlice<'_>]) -> Result<usize, Error> {
+        if bufs.is_empty() {
+            return Ok(0);
+        }
+
+        // sftp v3 cannot send more than self.max_write_len() data at once.
+        let max_write_len = self.max_write_len();
+
+        let (n, bufs, buf) = if let Some(res) = take_io_slices(bufs, max_write_len as usize) {
+            res
+        } else {
+            return Ok(0);
+        };
+
+        let buffers = [bufs, &buf];
+
+        let offset = self.offset;
+
+        self.send_writable_request(|write_end, handle, id| {
+            Ok(write_end
+                .send_write_request_buffered_vectored2(id, handle, offset, &buffers)?
+                .wait())
+        })
+        .await?;
+
+        // Adjust offset
+        Pin::new(self)
+            .start_seek(io::SeekFrom::Current(n.try_into().unwrap()))
+            .map_err(SftpError::from)?;
+
+        Ok(n)
     }
 }
 
