@@ -246,6 +246,8 @@ impl AsyncRead for TokioCompactFile<'_> {
 /// It is perfectly safe to buffer requests and send them in one go,
 /// since sftp v3 guarantees that requests on the same file handler
 /// is processed sequentially.
+///
+/// [`TokioCompactFile`] can read in at most [`File::max_write_len`] bytes.
 impl AsyncWrite for TokioCompactFile<'_> {
     fn poll_write(
         mut self: Pin<&mut Self>,
