@@ -129,11 +129,8 @@ impl<'s> OpenOptions<'s> {
         self
     }
 
-    /// # Cancel Safety
-    ///
-    /// This function is cancel safe.
-    pub async fn open(&self, path: impl AsRef<Path>) -> Result<File<'s>, Error> {
-        let filename = Cow::Borrowed(path.as_ref());
+    async fn open_impl(&self, path: &Path) -> Result<File<'s>, Error> {
+        let filename = Cow::Borrowed(path);
 
         let params = if self.create {
             let flags = if self.create_new {
@@ -168,6 +165,13 @@ impl<'s> OpenOptions<'s> {
             need_flush: false,
             offset: 0,
         })
+    }
+
+    /// # Cancel Safety
+    ///
+    /// This function is cancel safe.
+    pub async fn open(&self, path: impl AsRef<Path>) -> Result<File<'s>, Error> {
+        self.open_impl(path.as_ref()).await
     }
 }
 
