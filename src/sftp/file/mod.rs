@@ -344,14 +344,6 @@ impl File<'_> {
         .await
         .map(MetaData)
     }
-
-    /// Creates a new [`File`] instance that shares the same underlying
-    /// file handle as the existing File instance.
-    ///
-    /// Reads, writes, and seeks can be performed independently.
-    pub fn try_clone(&self) -> io::Result<Self> {
-        Ok(self.clone())
-    }
 }
 
 impl AsyncSeek for File<'_> {
