@@ -15,7 +15,7 @@ use tokio_util::sync::CancellationToken;
 pub use openssh_sftp_client::{FileType, Permissions, UnixTimeStamp};
 
 mod cache;
-use cache::{Cache, IdCacher};
+use cache::{Cache, WriteEndWithCachedId};
 
 mod file;
 pub use file::TokioCompactFile;
@@ -239,8 +239,8 @@ impl<'s> Sftp<'s> {
         }
     }
 
-    fn write_end(&self) -> WriteEnd {
-        WriteEnd::new(self.shared_data.clone())
+    fn write_end(&self) -> WriteEndWithCachedId {
+        WriteEnd::new(self.shared_data.clone()).into()
     }
 
     /// Return a new [`OpenOptions`] object.

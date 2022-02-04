@@ -102,7 +102,7 @@ impl<'s> TokioCompactFile<'s> {
                 .cancel_if_task_failed(future)
                 .await?
                 .0;
-            inner.cache_id_mut(id);
+            inner.write_end.cache_id_mut(id);
         }
 
         self.into_inner().close().await
@@ -217,7 +217,7 @@ impl AsyncRead for TokioCompactFile<'_> {
             future
         } else {
             // Get id, buffer and offset to avoid reference to this.
-            let id = this.get_id_mut();
+            let id = this.write_end.get_id_mut();
             let buffer = mem::take(&mut this.buffer);
             let offset = this.offset;
 
@@ -253,7 +253,7 @@ impl AsyncRead for TokioCompactFile<'_> {
         // Wait for the future
         let (id, data) = ready!(Pin::new(future).poll(cx)).map_err(sftp_to_io_error)?;
 
-        this.cache_id_mut(id);
+        this.write_end.cache_id_mut(id);
         let buffer = match data {
             Data::Buffer(buffer) => {
                 // since remaining != 0, all AwaitableDataFuture created
@@ -322,7 +322,7 @@ impl AsyncWrite for TokioCompactFile<'_> {
         let this = &mut *self;
 
         // Get id, buffer and offset to avoid reference to this.
-        let id = this.get_id_mut();
+        let id = this.write_end.get_id_mut();
         let offset = this.offset;
 
         // Reference it here to make it clear that we are
@@ -395,7 +395,8 @@ impl AsyncWrite for TokioCompactFile<'_> {
                 .expect("futures should have at least one elements in it");
 
             // propagate error and recycle id
-            this.cache_id_mut(res.map_err(sftp_to_io_error)?.0);
+            this.write_end
+                .cache_id_mut(res.map_err(sftp_to_io_error)?.0);
         }
     }
 
@@ -434,7 +435,7 @@ impl AsyncWrite for TokioCompactFile<'_> {
         let this = &mut *self;
 
         // Get id, buffer and offset to avoid reference to this.
-        let id = this.get_id_mut();
+        let id = this.write_end.get_id_mut();
         let offset = this.offset;
 
         // Reference it here to make it clear that we are
