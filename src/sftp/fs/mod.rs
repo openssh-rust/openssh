@@ -242,6 +242,20 @@ impl<'s> Fs<'s> {
     ) -> Result<(), Error> {
         self.set_metadata_impl(path.as_ref(), metadata).await
     }
+
+    async fn set_permissions_impl(&mut self, path: &Path, perm: Permissions) -> Result<(), Error> {
+        self.set_metadata_impl(path, MetaDataBuilder::new().permissions(perm).create())
+            .await
+    }
+
+    /// Changes the permissions found on a file or a directory.
+    pub async fn set_permissions(
+        &mut self,
+        path: impl AsRef<Path>,
+        perm: Permissions,
+    ) -> Result<(), Error> {
+        self.set_permissions_impl(path.as_ref(), perm).await
+    }
 }
 
 /// Remote Directory
