@@ -233,14 +233,22 @@ impl File<'_> {
 
     /// Get maximum amount of bytes that one single write requests
     /// can write.
-    pub fn max_write_len(&self) -> usize {
-        min(self.get_auxiliary().limits.write_len, u32::MAX as u64) as usize
+    pub fn max_write_len(&self) -> u32 {
+        self.get_auxiliary()
+            .limits
+            .write_len
+            .try_into()
+            .unwrap_or(u32::MAX)
     }
 
     /// Get maximum amount of bytes that one single read requests
     /// can read.
-    pub fn max_read_len(&self) -> usize {
-        min(self.get_auxiliary().limits.read_len, u32::MAX as u64) as usize
+    pub fn max_read_len(&self) -> u32 {
+        self.get_auxiliary()
+            .limits
+            .read_len
+            .try_into()
+            .unwrap_or(u32::MAX)
     }
 
     async fn send_request<Func, F, R>(&mut self, f: Func) -> Result<R, Error>
@@ -364,7 +372,7 @@ impl File<'_> {
     /// On EOF, `None` is returned.
     pub async fn read(&mut self, n: u32, buffer: Vec<u8>) -> Result<Option<Vec<u8>>, Error> {
         let offset = self.offset;
-        let n = min(n, self.max_read_len().try_into().unwrap_or(u32::MAX));
+        let n = min(n, self.max_read_len());
 
         let data = self
             .send_readable_request(|write_end, handle, id| {
