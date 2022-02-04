@@ -208,6 +208,18 @@ impl<'s> Fs<'s> {
     ) -> Result<(), Error> {
         self.rename_impl(from.as_ref(), to.as_ref()).await
     }
+
+    async fn read_link_impl(&mut self, path: &Path) -> Result<Box<Path>, Error> {
+        let path = self.concat_path_if_needed(path);
+
+        self.send_request(|write_end, id| Ok(write_end.send_readlink_request(id, path)?.wait()))
+            .await
+    }
+
+    /// Reads a symbolic link, returning the file that the link points to.
+    pub async fn read_link(&mut self, path: impl AsRef<Path>) -> Result<PathBuf, Error> {
+        self.read_link_impl(path.as_ref()).await.map(Into::into)
+    }
 }
 
 /// Remote Directory
