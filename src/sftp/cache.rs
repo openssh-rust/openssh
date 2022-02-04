@@ -27,7 +27,7 @@ impl<T> fmt::Debug for Cache<T> {
     }
 }
 
-pub(super) trait IdCacher {
+trait IdCacher {
     fn get_thread_local_cached_id(&self) -> Id;
 
     /// Give back id to the thread local cache.
