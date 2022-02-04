@@ -69,15 +69,17 @@ impl Fs<'_> {
         }
     }
 
-    /// Open a remote dir
-    pub async fn open_dir(&mut self, path: impl AsRef<Path>) -> Result<Dir<'_>, Error> {
-        let path = path.as_ref();
-
+    async fn open_dir_impl(&mut self, path: &Path) -> Result<Dir<'_>, Error> {
         let path = self.concat_path_if_needed(path);
 
         self.send_request(|write_end, id| Ok(write_end.send_opendir_request(id, path)?.wait()))
             .await
             .map(|handle| Dir(OwnedHandle::new(self.write_end.clone(), handle)))
+    }
+
+    /// Open a remote dir
+    pub async fn open_dir(&mut self, path: impl AsRef<Path>) -> Result<Dir<'_>, Error> {
+        self.open_dir_impl(path.as_ref()).await
     }
 }
 
