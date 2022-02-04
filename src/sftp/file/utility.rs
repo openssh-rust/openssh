@@ -62,13 +62,18 @@ impl Drop for SelfRefWaitForCancellationFuture {
 impl SelfRefWaitForCancellationFuture {
     /// This function must be called once and exactly once in `Drop` implementation.
     pub(super) unsafe fn drop<'this>(&'this mut self) {
-        if let Some(boxed) = self.0.take() {
+        if let Some(pinned_boxed) = self.0.take() {
+            let ptr = Box::into_raw(
+                Pin::<Box<[u8; WAIT_FOR_CANCELLATION_FUTURE_SIZE]>>::into_inner(pinned_boxed),
+            );
+
             // transmute the box to avoid moving `WaitForCancellationFuture`
             //
             // safety:
             //  - The box is used to store WaitForCancellationFuture<'this>
             //  - [u8; _] and WaitForCancellationFuture has the same size
-            let _: Box<WaitForCancellationFuture<'this>> = mem::transmute(boxed);
+            let _: Box<WaitForCancellationFuture<'this>> =
+                Box::from_raw(ptr as *mut WaitForCancellationFuture<'this>);
         }
     }
 
