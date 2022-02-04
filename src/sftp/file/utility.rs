@@ -193,3 +193,18 @@ pub(super) fn take_io_slices<'a>(
 ) -> Option<(usize, &'a [IoSlice<'a>], [IoSlice<'a>; 1])> {
     take_slices(io_slices, limit, create_io_subslice)
 }
+
+/// Return `Some((n, bytes_subslice, [reminder]))` where
+///  - `n` is number of bytes in `bytes_subslice` and `reminder`.
+///  - `bytes_subslice` is a subslice of `bytes_slice`
+///  - `reminder` might be a slice of `bytes_slice[bytes_subslice.len()]`
+///    if `bytes_subslice.len() < bytes_slice.len()` and the total number
+///    of bytes in `bytes_subslice` is less than `limit`.
+///
+/// Return `None` if the total number of bytes in `bytes_slice` is empty.
+pub(super) fn take_bytes(
+    bytes_slice: &[Bytes],
+    limit: usize,
+) -> Option<(usize, &[Bytes], [Bytes; 1])> {
+    take_slices(bytes_slice, limit, |bytes, end| bytes.slice(0..end))
+}
