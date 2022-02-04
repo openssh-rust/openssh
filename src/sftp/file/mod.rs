@@ -1,4 +1,7 @@
-use super::{Auxiliary, Error, FileType, Id, IdCacher, Permissions, Sftp, UnixTimeStamp, WriteEnd};
+use super::{
+    Auxiliary, Error, FileType, Id, Permissions, Sftp, UnixTimeStamp, WriteEnd,
+    WriteEndWithCachedId,
+};
 
 use std::borrow::Cow;
 use std::cmp::{min, Ordering};
@@ -152,7 +155,7 @@ impl<'s> OpenOptions<'s> {
         };
 
         let mut write_end = self.sftp.write_end();
-        let id = write_end.get_thread_local_cached_id();
+        let id = write_end.get_id_mut();
 
         let awaitable = write_end.send_open_file_request(id, params)?;
         let (id, handle) = write_end
@@ -160,12 +163,13 @@ impl<'s> OpenOptions<'s> {
             .cancel_if_task_failed(awaitable.wait())
             .await?;
 
+        write_end.cache_id_mut(id);
+
         Ok(File {
             phantom_data: PhantomData,
 
             write_end,
             handle: Arc::new(handle),
-            id: Some(id),
 
             is_readable: self.options.get_read(),
             is_writable: self.options.get_write(),
@@ -180,9 +184,8 @@ impl<'s> OpenOptions<'s> {
 pub struct File<'s> {
     phantom_data: PhantomData<&'s Sftp<'s>>,
 
-    write_end: WriteEnd,
+    write_end: WriteEndWithCachedId,
     handle: Arc<HandleOwned>,
-    id: Option<Id>,
 
     is_readable: bool,
     is_writable: bool,
@@ -201,7 +204,6 @@ impl Clone for File<'_> {
 
             write_end: self.write_end.clone(),
             handle: self.handle.clone(),
-            id: None,
 
             is_readable: self.is_readable,
             is_writable: self.is_writable,
@@ -214,24 +216,6 @@ impl Clone for File<'_> {
 impl File<'_> {
     fn get_auxiliary(&self) -> &Auxiliary {
         self.write_end.get_auxiliary()
-    }
-
-    fn get_id_mut(&mut self) -> Id {
-        self.id
-            .take()
-            .unwrap_or_else(|| self.write_end.get_thread_local_cached_id())
-    }
-
-    fn cache_id(&self, id: Id) {
-        self.write_end.cache_id(id);
-    }
-
-    fn cache_id_mut(&mut self, id: Id) {
-        if self.id.is_none() {
-            self.id = Some(id);
-        } else {
-            self.cache_id(id);
-        }
     }
 
     /// Get maximum amount of bytes that one single write requests
@@ -251,13 +235,13 @@ impl File<'_> {
         Func: FnOnce(&mut WriteEnd, Cow<'_, Handle>, Id) -> Result<F, SftpError>,
         F: Future<Output = Result<(Id, R), SftpError>> + 'static,
     {
-        let id = self.get_id_mut();
+        let id = self.write_end.get_id_mut();
 
         let future = f(&mut self.write_end, Cow::Borrowed(&self.handle), id)?;
 
         let (id, ret) = self.get_auxiliary().cancel_if_task_failed(future).await?;
 
-        self.cache_id_mut(id);
+        self.write_end.cache_id_mut(id);
 
         Ok(ret)
     }
@@ -309,10 +293,6 @@ impl File<'_> {
                     Ok(write_end.send_close_request(id, handle)?.wait())
                 })
                 .await;
-
-            if let Some(id) = self.id.take() {
-                self.cache_id(id);
-            }
 
             // Release resources without running `File::drop`
             self.destructure();
@@ -620,12 +600,10 @@ impl Drop for File<'_> {
     fn drop(&mut self) {
         if Arc::strong_count(&self.handle) == 1 {
             // This is the last reference to the arc
-            let id = self.get_id_mut();
+            let id = self.write_end.get_id_mut();
             let _ = self
                 .write_end
                 .send_close_request(id, Cow::Borrowed(&self.handle));
-        } else if let Some(id) = self.id.take() {
-            self.cache_id(id);
         }
     }
 }
