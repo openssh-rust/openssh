@@ -271,6 +271,22 @@ impl File<'_> {
         }
     }
 
+    async fn send_readable_request<Func, F, R>(&mut self, f: Func) -> Result<R, Error>
+    where
+        Func: FnOnce(&mut WriteEnd, Cow<'_, Handle>, Id) -> Result<F, SftpError>,
+        F: Future<Output = Result<(Id, R), SftpError>> + 'static,
+    {
+        if !self.is_readable {
+            Err(SftpError::from(io::Error::new(
+                io::ErrorKind::Other,
+                "This file is not opened for reading",
+            ))
+            .into())
+        } else {
+            self.send_request(f).await
+        }
+    }
+
     /// Truncates or extends the underlying file, updating the size
     /// of this file to become size.
     ///
@@ -330,15 +346,7 @@ impl File<'_> {
 
     /// Queries metadata about the underlying file.
     pub async fn metadata(&mut self) -> Result<MetaData, Error> {
-        if !self.is_readable {
-            return Err(SftpError::from(io::Error::new(
-                io::ErrorKind::Other,
-                "This file is not opened for reading",
-            ))
-            .into());
-        }
-
-        self.send_request(|write_end, handle, id| {
+        self.send_readable_request(|write_end, handle, id| {
             Ok(write_end.send_fstat_request(id, handle)?.wait())
         })
         .await
