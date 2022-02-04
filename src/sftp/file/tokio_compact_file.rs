@@ -64,6 +64,10 @@ impl<'s> TokioCompactFile<'s> {
         }
     }
 
+    /// safety:
+    ///
+    /// This must be called before fields of `TokioCompactFile`
+    /// get dropped.
     unsafe fn drop_cancellation_futures(&mut self) {
         self.read_cancellation_future.drop();
         self.write_cancellation_future.drop();
@@ -71,6 +75,7 @@ impl<'s> TokioCompactFile<'s> {
 
     /// Return the inner [`File`].
     pub fn into_inner(mut self) -> File<'s> {
+        // safety: It is called before fields is dropped.
         unsafe { self.drop_cancellation_futures() };
         self.destructure().0
     }
@@ -123,6 +128,7 @@ impl<'s> From<TokioCompactFile<'s>> for File<'s> {
 
 impl Drop for TokioCompactFile<'_> {
     fn drop(&mut self) {
+        // safety: It is called before fields is dropped.
         unsafe { self.drop_cancellation_futures() };
     }
 }
