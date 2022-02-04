@@ -174,7 +174,7 @@ mod sftp;
 pub use sftp::{Mode, RemoteFile, Sftp};
 
 #[cfg(docsrs)]
-/// Changelog for this crate
+/// Changelog for this crate, only present in doc.
 pub mod changelog;
 
 #[cfg(feature = "process-mux")]
