@@ -124,7 +124,7 @@ impl<'s> Fs<'s> {
             .await
     }
 
-    async fn canonicalize_impl(&mut self, path: &Path) -> Result<Box<Path>, Error> {
+    async fn canonicalize_impl(&mut self, path: &Path) -> Result<PathBuf, Error> {
         let path = self.concat_path_if_needed(path);
 
         let f = if self.get_auxiliary().extensions.expand_path {
@@ -140,12 +140,13 @@ impl<'s> Fs<'s> {
 
         self.send_request(|write_end, id| Ok(f(write_end, id, path)?.wait()))
             .await
+            .map(Into::into)
     }
 
     /// Returns the canonical, absolute form of a path with all intermediate
     /// components normalized and symbolic links resolved.
     pub async fn canonicalize(&mut self, path: impl AsRef<Path>) -> Result<PathBuf, Error> {
-        self.canonicalize_impl(path.as_ref()).await.map(Into::into)
+        self.canonicalize_impl(path.as_ref()).await
     }
 
     async fn linking_impl(
@@ -211,16 +212,17 @@ impl<'s> Fs<'s> {
         self.rename_impl(from.as_ref(), to.as_ref()).await
     }
 
-    async fn read_link_impl(&mut self, path: &Path) -> Result<Box<Path>, Error> {
+    async fn read_link_impl(&mut self, path: &Path) -> Result<PathBuf, Error> {
         let path = self.concat_path_if_needed(path);
 
         self.send_request(|write_end, id| Ok(write_end.send_readlink_request(id, path)?.wait()))
             .await
+            .map(Into::into)
     }
 
     /// Reads a symbolic link, returning the file that the link points to.
     pub async fn read_link(&mut self, path: impl AsRef<Path>) -> Result<PathBuf, Error> {
-        self.read_link_impl(path.as_ref()).await.map(Into::into)
+        self.read_link_impl(path.as_ref()).await
     }
 
     async fn set_metadata_impl(&mut self, path: &Path, metadata: MetaData) -> Result<(), Error> {
