@@ -13,6 +13,7 @@ mod dir;
 pub use dir::{DirEntry, ReadDir};
 
 type AwaitableStatus = openssh_sftp_client::AwaitableStatus<Buffer>;
+type AwaitableAttrs = openssh_sftp_client::AwaitableAttrs<Buffer>;
 type SendLinkingRequest =
     fn(&mut WriteEnd, Id, Cow<'_, Path>, Cow<'_, Path>) -> Result<AwaitableStatus, SftpError>;
 
@@ -259,10 +260,14 @@ impl<'s> Fs<'s> {
         self.set_permissions_impl(path.as_ref(), perm).await
     }
 
-    async fn metadata_impl(&mut self, path: &Path) -> Result<MetaData, Error> {
+    async fn metadata_impl(
+        &mut self,
+        path: &Path,
+        f: fn(&mut WriteEnd, Id, Cow<'_, Path>) -> Result<AwaitableAttrs, SftpError>,
+    ) -> Result<MetaData, Error> {
         let path = self.concat_path_if_needed(path);
 
-        self.send_request(|write_end, id| Ok(write_end.send_stat_request(id, path)?.wait()))
+        self.send_request(|write_end, id| Ok(f(write_end, id, path)?.wait()))
             .await
             .map(MetaData::new)
     }
@@ -270,7 +275,14 @@ impl<'s> Fs<'s> {
     /// Given a path, queries the file system to get information about a file,
     /// directory, etc.
     pub async fn metadata(&mut self, path: impl AsRef<Path>) -> Result<MetaData, Error> {
-        self.metadata_impl(path.as_ref()).await
+        self.metadata_impl(path.as_ref(), WriteEnd::send_stat_request)
+            .await
+    }
+
+    /// Queries the file system metadata for a path.
+    pub async fn symlink_metadata(&mut self, path: impl AsRef<Path>) -> Result<MetaData, Error> {
+        self.metadata_impl(path.as_ref(), WriteEnd::send_lstat_request)
+            .await
     }
 }
 
