@@ -11,6 +11,8 @@ mod dir;
 pub use dir::{DirEntry, ReadDir};
 
 type AwaitableStatus = openssh_sftp_client::AwaitableStatus<Buffer>;
+type SendLinkingRequest =
+    fn(&mut WriteEnd, Id, Cow<'_, Path>, Cow<'_, Path>) -> Result<AwaitableStatus, SftpError>;
 
 /// A struct used to perform operations on remote filesystem.
 #[derive(Debug, Clone)]
@@ -144,15 +146,25 @@ impl<'s> Fs<'s> {
         self.canonicalize_impl(path.as_ref()).await.map(Into::into)
     }
 
+    async fn linking_impl(
+        &mut self,
+        src: &Path,
+        dst: &Path,
+        f: SendLinkingRequest,
+    ) -> Result<(), Error> {
+        let src = self.concat_path_if_needed(src);
+        let dst = self.concat_path_if_needed(dst);
+
+        self.send_request(|write_end, id| Ok(f(write_end, id, src, dst)?.wait()))
+            .await
+    }
+
     async fn hard_link_impl(&mut self, src: &Path, dst: &Path) -> Result<(), Error> {
         if !self.get_auxiliary().extensions.hardlink {
             return Err(SftpError::UnsupportedExtension(&"hardlink").into());
         }
 
-        let src = self.concat_path_if_needed(src);
-        let dst = self.concat_path_if_needed(dst);
-
-        self.send_request(|write_end, id| Ok(write_end.send_hardlink_requst(id, src, dst)?.wait()))
+        self.linking_impl(src, dst, WriteEnd::send_hardlink_requst)
             .await
     }
 
@@ -165,21 +177,14 @@ impl<'s> Fs<'s> {
         self.hard_link_impl(src.as_ref(), dst.as_ref()).await
     }
 
-    async fn symlink_impl(&mut self, src: &Path, dst: &Path) -> Result<(), Error> {
-        let src = self.concat_path_if_needed(src);
-        let dst = self.concat_path_if_needed(dst);
-
-        self.send_request(|write_end, id| Ok(write_end.send_symlink_request(id, src, dst)?.wait()))
-            .await
-    }
-
     /// Creates a new symlink on the remote filesystem.
     pub async fn symlink(
         &mut self,
         src: impl AsRef<Path>,
         dst: impl AsRef<Path>,
     ) -> Result<(), Error> {
-        self.symlink_impl(src.as_ref(), dst.as_ref()).await
+        self.linking_impl(src.as_ref(), dst.as_ref(), WriteEnd::send_symlink_request)
+            .await
     }
 }
 
