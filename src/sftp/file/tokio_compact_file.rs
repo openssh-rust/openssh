@@ -1,6 +1,6 @@
 use super::super::{Buffer, Data};
 use super::utility::{take_io_slices, SelfRefWaitForCancellationFuture};
-use super::{File, SftpError};
+use super::{Error, File, SftpError};
 
 use std::borrow::Cow;
 use std::cmp::min;
@@ -73,6 +73,41 @@ impl<'s> TokioCompactFile<'s> {
     pub fn into_inner(mut self) -> File<'s> {
         unsafe { self.drop_cancellation_futures() };
         self.destructure().0
+    }
+
+    /// Flush the write buffer, wait for the status report and send
+    /// the close request if this is the last reference.
+    ///
+    /// # Cancel Safety
+    ///
+    /// This function is cancel safe.
+    pub async fn close(mut self) -> Result<(), Error> {
+        if self.need_flush {
+            // If another thread is doing the flushing, then
+            // retry.
+            while !self
+                .inner
+                .write_end
+                .flush()
+                .await
+                .map_err(SftpError::from)?
+            {}
+            self.need_flush = false;
+        }
+
+        let inner = &mut self.inner;
+
+        while let Some(future) = self.write_futures.pop_front() {
+            let id = inner
+                .write_end
+                .get_auxiliary()
+                .cancel_if_task_failed(future)
+                .await?
+                .0;
+            inner.cache_id_mut(id);
+        }
+
+        self.into_inner().close().await
     }
 }
 
