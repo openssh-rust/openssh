@@ -17,6 +17,9 @@ pub use openssh_sftp_client::{FileType, Permissions, UnixTimeStamp};
 mod cache;
 use cache::{Cache, WriteEndWithCachedId};
 
+mod handle;
+use handle::OwnedHandle;
+
 mod file;
 pub use file::TokioCompactFile;
 pub use file::{File, MetaData, OpenOptions};

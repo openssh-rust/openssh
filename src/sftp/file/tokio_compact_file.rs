@@ -86,6 +86,7 @@ impl<'s> TokioCompactFile<'s> {
             // If another thread is doing the flushing, then
             // retry.
             self.inner
+                .inner
                 .write_end
                 .flush_blocked()
                 .await
@@ -93,16 +94,15 @@ impl<'s> TokioCompactFile<'s> {
             self.need_flush = false;
         }
 
-        let inner = &mut self.inner;
+        let write_end = &mut self.inner.inner.write_end;
 
         while let Some(future) = self.write_futures.pop_front() {
-            let id = inner
-                .write_end
+            let id = write_end
                 .get_auxiliary()
                 .cancel_if_task_failed(future)
                 .await?
                 .0;
-            inner.write_end.cache_id_mut(id);
+            write_end.cache_id_mut(id);
         }
 
         self.into_inner().close().await
@@ -217,20 +217,19 @@ impl AsyncRead for TokioCompactFile<'_> {
             future
         } else {
             // Get id, buffer and offset to avoid reference to this.
-            let id = this.write_end.get_id_mut();
+            let id = this.inner.inner.get_id_mut();
             let buffer = mem::take(&mut this.buffer);
             let offset = this.offset;
 
             // Reference it here to make it clear that we are
             // using different part of Self.
-            let write_end = &mut this.inner.write_end;
-            let handle = &this.inner.handle;
+            let (write_end, handle) = this.inner.get_inner();
 
             // Start the future
             let future = write_end
                 .send_read_request(
                     id,
-                    Cow::Borrowed(handle),
+                    handle,
                     offset,
                     remaining.try_into().unwrap_or(u32::MAX),
                     Some(buffer),
@@ -245,15 +244,13 @@ impl AsyncRead for TokioCompactFile<'_> {
                 .expect("FileFuture::Data is just assigned to self.future!")
         };
 
-        let auxiliary = this.inner.write_end.get_auxiliary();
-
         this.read_cancellation_future
-            .poll_for_task_failure(cx, auxiliary)?;
+            .poll_for_task_failure(cx, this.inner.get_auxiliary())?;
 
         // Wait for the future
         let (id, data) = ready!(Pin::new(future).poll(cx)).map_err(sftp_to_io_error)?;
 
-        this.write_end.cache_id_mut(id);
+        this.inner.inner.cache_id_mut(id);
         let buffer = match data {
             Data::Buffer(buffer) => {
                 // since remaining != 0, all AwaitableDataFuture created
@@ -322,16 +319,15 @@ impl AsyncWrite for TokioCompactFile<'_> {
         let this = &mut *self;
 
         // Get id, buffer and offset to avoid reference to this.
-        let id = this.write_end.get_id_mut();
+        let id = this.inner.inner.get_id_mut();
         let offset = this.offset;
 
         // Reference it here to make it clear that we are
         // using different part of Self.
-        let write_end = &mut this.inner.write_end;
-        let handle = &this.inner.handle;
+        let (write_end, handle) = this.inner.get_inner();
 
         let future = write_end
-            .send_write_request_buffered(id, Cow::Borrowed(handle), offset, Cow::Borrowed(buf))
+            .send_write_request_buffered(id, handle, offset, Cow::Borrowed(buf))
             .map_err(sftp_to_io_error)?
             .wait();
 
@@ -373,14 +369,12 @@ impl AsyncWrite for TokioCompactFile<'_> {
                 // on stack.
                 //
                 // It is also cancel safe, so we don't need to store it.
-                Pin::new(&mut Box::pin(this.inner.write_end.flush())).poll(cx)
+                Pin::new(&mut Box::pin(this.inner.inner.flush())).poll(cx)
             )?;
         }
 
-        let auxiliary = this.inner.write_end.get_auxiliary();
-
         this.write_cancellation_future
-            .poll_for_task_failure(cx, auxiliary)?;
+            .poll_for_task_failure(cx, this.inner.get_auxiliary())?;
 
         loop {
             let res = if let Some(future) = this.write_futures.front_mut() {
@@ -395,7 +389,8 @@ impl AsyncWrite for TokioCompactFile<'_> {
                 .expect("futures should have at least one elements in it");
 
             // propagate error and recycle id
-            this.write_end
+            this.inner
+                .inner
                 .cache_id_mut(res.map_err(sftp_to_io_error)?.0);
         }
     }
@@ -435,16 +430,15 @@ impl AsyncWrite for TokioCompactFile<'_> {
         let this = &mut *self;
 
         // Get id, buffer and offset to avoid reference to this.
-        let id = this.write_end.get_id_mut();
+        let id = this.inner.inner.get_id_mut();
         let offset = this.offset;
 
         // Reference it here to make it clear that we are
         // using different part of Self.
-        let write_end = &mut this.inner.write_end;
-        let handle = &this.inner.handle;
+        let (write_end, handle) = this.inner.get_inner();
 
         let future = write_end
-            .send_write_request_buffered_vectored2(id, Cow::Borrowed(handle), offset, &buffers)
+            .send_write_request_buffered_vectored2(id, handle, offset, &buffers)
             .map_err(sftp_to_io_error)?
             .wait();
 
