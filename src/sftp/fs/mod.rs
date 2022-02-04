@@ -1,4 +1,4 @@
-use super::{Auxiliary, Error, Id, OwnedHandle, Sftp, WriteEnd, WriteEndWithCachedId};
+use super::{Auxiliary, Buffer, Error, Id, OwnedHandle, Sftp, WriteEnd, WriteEndWithCachedId};
 
 use std::borrow::Cow;
 use std::future::Future;
@@ -9,6 +9,8 @@ use openssh_sftp_client::{Error as SftpError, FileAttrs, Permissions};
 
 mod dir;
 pub use dir::{DirEntry, ReadDir};
+
+type AwaitableStatus = AwaitableStatus<Buffer>;
 
 /// A struct used to perform operations on remote filesystem.
 #[derive(Debug, Clone)]
@@ -95,28 +97,27 @@ impl<'s> Fs<'s> {
         self.dir_builder().create(path).await
     }
 
-    async fn remove_dir_impl(&mut self, path: &Path) -> Result<(), Error> {
+    async fn remove_impl(
+        &mut self,
+        path: &Path,
+        f: fn(&mut WriteEnd, Id, Cow<'_, Path>) -> Result<AwaitableStatus, Error>,
+    ) -> Result<(), Error> {
         let path = self.concat_path_if_needed(path);
 
-        self.send_request(|write_end, id| Ok(write_end.send_rmdir_request(id, path)?.wait()))
+        self.send_request(|write_end, id| Ok(f(write_end, id, path)?.wait()))
             .await
     }
 
     /// Removes an existing, empty directory.
     pub async fn remove_dir(&mut self, path: impl AsRef<Path>) -> Result<(), Error> {
-        self.remove_dir_impl(path.as_ref()).await
-    }
-
-    async fn remove_file_impl(&mut self, path: &Path) -> Result<(), Error> {
-        let path = self.concat_path_if_needed(path);
-
-        self.send_request(|write_end, id| Ok(write_end.send_remove_request(id, path)?.wait()))
+        self.remove_impl(path.as_ref(), WriteEnd::send_rmdir_request)
             .await
     }
 
     /// Removes a file from remote filesystem.
     pub async fn remove_file(&mut self, path: impl AsRef<Path>) -> Result<(), Error> {
-        self.remove_file_impl(path.as_ref()).await
+        self.remove_impl(path.as_ref(), WriteEnd::send_remove_request)
+            .await
     }
 }
 
