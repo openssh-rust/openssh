@@ -32,8 +32,6 @@ default = ["process-mux"]
 process-mux = []
 native-mux = ["openssh-mux-client"]
 scp = []
-# openssh-sftp-client uses parking_lot, so enabling parking_lot feature
-# on other crate would not pull more dependencies.
 sftp = [
     "openssh-sftp-client",
     "thread_local",
@@ -42,6 +40,8 @@ sftp = [
     "bytes",
     "tokio/rt",
     "tokio/time",
+    # openssh-sftp-client uses parking_lot, so enabling parking_lot feature
+    # on other crate would not pull more dependencies.
     "once_cell/parking_lot"
 ]
 
