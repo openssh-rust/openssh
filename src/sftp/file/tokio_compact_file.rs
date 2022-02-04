@@ -156,7 +156,7 @@ impl AsyncRead for TokioCompactFile<'_> {
             return Poll::Ready(Ok(()));
         }
 
-        let remaining = min(remaining, this.max_read_len());
+        let remaining = min(remaining, this.max_read_len() as usize);
 
         let future = if let Some(future) = &mut this.read_future {
             // Get the active future.
@@ -212,7 +212,7 @@ impl AsyncRead for TokioCompactFile<'_> {
                 debug_assert!(!buffer.is_empty());
 
                 // sftp v3 can at most read in u32::MAX bytes.
-                debug_assert!(buffer.len() <= this.max_read_len());
+                debug_assert!(buffer.len() <= this.max_read_len() as usize);
 
                 buffer
             }
@@ -264,7 +264,7 @@ impl AsyncWrite for TokioCompactFile<'_> {
         }
 
         // sftp v3 cannot send more than u32::MAX data at once.
-        let buf = &buf[..min(buf.len(), self.max_write_len())];
+        let buf = &buf[..min(buf.len(), self.max_write_len() as usize)];
 
         // Dereference it here once so that there will be only
         // one mutable borrow to self.
@@ -368,7 +368,7 @@ impl AsyncWrite for TokioCompactFile<'_> {
             return Poll::Ready(Ok(0));
         }
 
-        let max_write_len = self.max_write_len();
+        let max_write_len = self.max_write_len() as usize;
 
         let mut end = 0;
         let mut n = 0;
