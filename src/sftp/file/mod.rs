@@ -234,21 +234,13 @@ impl File<'_> {
     /// Get maximum amount of bytes that one single write requests
     /// can write.
     pub fn max_write_len(&self) -> u32 {
-        self.get_auxiliary()
-            .limits
-            .write_len
-            .try_into()
-            .unwrap_or(u32::MAX)
+        self.get_auxiliary().limits.write_len
     }
 
     /// Get maximum amount of bytes that one single read requests
     /// can read.
     pub fn max_read_len(&self) -> u32 {
-        self.get_auxiliary()
-            .limits
-            .read_len
-            .try_into()
-            .unwrap_or(u32::MAX)
+        self.get_auxiliary().limits.read_len
     }
 
     async fn send_request<Func, F, R>(&mut self, f: Func) -> Result<R, Error>
