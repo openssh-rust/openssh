@@ -35,33 +35,29 @@ impl DirEntry {
 /// Read dir
 #[repr(transparent)]
 #[derive(Debug, Clone)]
-pub struct ReadDir(pub(super) Box<[NameEntry]>);
+pub struct ReadDir(pub(super) Box<[DirEntry]>);
 
 impl ReadDir {
-    /// Return slice of [`DirEntry`]s.
-    pub fn as_slice(&self) -> &[DirEntry] {
-        let entries: &[NameEntry] = &*self.0;
-        let ptr = entries as *const [NameEntry] as *const [DirEntry];
+    pub(super) fn new(entries: Box<[NameEntry]>) -> Self {
+        let ptr = Box::into_raw(entries);
 
         // Safety: DirEntry is transparent
-        unsafe { &*ptr }
+        ReadDir(unsafe { Box::from_raw(ptr as *mut [DirEntry]) })
+    }
+
+    /// Return slice of [`DirEntry`]s.
+    pub fn as_slice(&self) -> &[DirEntry] {
+        &self.0
     }
 
     /// Return mutable slice of [`DirEntry`]s.
     pub fn as_mut_slice(&mut self) -> &mut [DirEntry] {
-        let entries: &mut [NameEntry] = &mut *self.0;
-        let ptr = entries as *mut [NameEntry] as *mut [DirEntry];
-
-        // Safety: DirEntry is transparent
-        unsafe { &mut *ptr }
+        &mut self.0
     }
 
     /// Return boxed slice of [`DirEntry`]s.
     pub fn into_inner(self) -> Box<[DirEntry]> {
-        let ptr = Box::into_raw(self.0);
-
-        // Safety: DirEntry is transparent
-        unsafe { Box::from_raw(ptr as *mut [DirEntry]) }
+        self.0
     }
 }
 

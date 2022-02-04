@@ -94,7 +94,7 @@ impl Dir<'_> {
                 Ok(write_end.send_readdir_request(id, handle)?.wait())
             })
             .await
-            .map(ReadDir)
+            .map(ReadDir::new)
     }
 
     /// Close dir.
