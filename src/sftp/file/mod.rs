@@ -567,6 +567,10 @@ impl MetaData {
         Self(attrs)
     }
 
+    pub(super) fn into_inner(self) -> FileAttrs {
+        self.0
+    }
+
     /// Returns the size of the file in bytes.
     ///
     /// Return `None` if the server did not return
