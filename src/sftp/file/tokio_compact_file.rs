@@ -85,13 +85,11 @@ impl<'s> TokioCompactFile<'s> {
         if self.need_flush {
             // If another thread is doing the flushing, then
             // retry.
-            while !self
-                .inner
+            self.inner
                 .write_end
-                .flush()
+                .flush_blocked()
                 .await
-                .map_err(SftpError::from)?
-            {}
+                .map_err(SftpError::from)?;
             self.need_flush = false;
         }
 
