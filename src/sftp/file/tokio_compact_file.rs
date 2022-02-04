@@ -133,6 +133,7 @@ impl AsyncSeek for TokioCompactFile<'_> {
     }
 }
 
+/// [`TokioCompactFile`] can read in at most [`File::max_read_len`] bytes.
 impl AsyncRead for TokioCompactFile<'_> {
     fn poll_read(
         mut self: Pin<&mut Self>,
