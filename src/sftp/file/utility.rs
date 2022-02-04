@@ -17,6 +17,7 @@ use openssh_sftp_client::Error as SftpError;
 const WAIT_FOR_CANCELLATION_FUTURE_SIZE: usize =
     mem::size_of::<WaitForCancellationFuture<'static>>();
 
+#[repr(transparent)]
 #[derive(Default)]
 pub(super) struct SelfRefWaitForCancellationFuture(
     /// WaitForCancellationFuture is erased to an array
