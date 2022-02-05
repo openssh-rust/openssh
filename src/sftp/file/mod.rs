@@ -272,6 +272,20 @@ impl File<'_> {
         Ok(())
     }
 
+    /// Change the metadata of a file or a directory.
+    ///
+    /// # Cancel Safety
+    ///
+    /// This function is cancel safe.
+    pub async fn set_metadata(&mut self, metadata: MetaData) -> Result<(), Error> {
+        let attrs = metadata.into_inner();
+
+        self.send_writable_request(|write_end, handle, id| {
+            Ok(write_end.send_fsetstat_request(id, handle, attrs)?.wait())
+        })
+        .await
+    }
+
     /// Truncates or extends the underlying file, updating the size
     /// of this file to become size.
     ///
@@ -286,13 +300,10 @@ impl File<'_> {
     ///
     /// This function is cancel safe.
     pub async fn set_len(&mut self, size: u64) -> Result<(), Error> {
-        self.send_writable_request(|write_end, handle, id| {
-            let mut attrs = FileAttrs::new();
-            attrs.set_size(size);
+        let mut attrs = FileAttrs::new();
+        attrs.set_size(size);
 
-            Ok(write_end.send_fsetstat_request(id, handle, attrs)?.wait())
-        })
-        .await
+        self.set_metadata(MetaData::new(attrs)).await
     }
 
     /// Attempts to sync all OS-internal metadata to disk.
@@ -320,13 +331,10 @@ impl File<'_> {
     ///
     /// This function is cancel safe.
     pub async fn set_permissions(&mut self, perm: Permissions) -> Result<(), Error> {
-        self.send_writable_request(|write_end, handle, id| {
-            let mut attrs = FileAttrs::new();
-            attrs.set_permissions(perm);
+        let mut attrs = FileAttrs::new();
+        attrs.set_permissions(perm);
 
-            Ok(write_end.send_fsetstat_request(id, handle, attrs)?.wait())
-        })
-        .await
+        self.set_metadata(MetaData::new(attrs)).await
     }
 
     /// Queries metadata about the underlying file.
