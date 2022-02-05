@@ -42,6 +42,12 @@ type Data = openssh_sftp_client::Data<Buffer>;
 /// Duration to wait before flushing the write buffer.
 const FLUSH_INTERVAL: Duration = Duration::from_micros(500);
 
+async fn flush(shared_data: &SharedData) -> Result<(), Error> {
+    shared_data.flush().await.map_err(SftpError::from)?;
+
+    Ok(())
+}
+
 #[derive(Debug, Default)]
 struct Limits {
     read_len: u32,
@@ -83,15 +89,6 @@ impl Auxiliary {
             ),
         }
     }
-}
-
-async fn flush(shared_data: &SharedData) -> Result<(), Error> {
-    shared_data
-        .flush()
-        .await
-        .map_err(|err| Error::SftpError(err.into()))?;
-
-    Ok(())
 }
 
 /// A file-oriented channel to a remote host.
