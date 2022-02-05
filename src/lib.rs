@@ -176,6 +176,10 @@ pub(crate) mod process_impl;
 #[cfg(feature = "native-mux")]
 pub(crate) mod native_mux_impl;
 
+#[cfg(docsrs)]
+/// Changelog for this crate.
+pub mod changelog;
+
 mod port_forwarding;
 pub use port_forwarding::*;
 
