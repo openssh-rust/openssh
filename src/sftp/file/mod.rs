@@ -248,8 +248,6 @@ impl File<'_> {
 
     /// Forcibly flush the write buffer.
     ///
-    /// By default, it is flushed every 0.9 ms.
-    ///
     /// If another thread is doing flushing, then this function would return
     /// without doing anything.
     ///
@@ -263,8 +261,6 @@ impl File<'_> {
     }
 
     /// Forcibly flush the write buffer.
-    ///
-    /// By default, it is flushed every 0.9 ms.
     ///
     /// If another thread is doing flushing, then this function would
     /// wait until it completes or cancelled the future.

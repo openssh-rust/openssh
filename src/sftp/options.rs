@@ -14,10 +14,13 @@ impl SftpOptions {
         }
     }
 
-    /// Set `flush_interval`.
+    /// Set `flush_interval`, default value is 0.5 ms.
     ///
     /// `flush_interval` decides the maximum time your requests would stay
     /// in the write buffer before it is actually sent to the remote.
+    ///
+    /// If another thread is doing flushing, then the internal `flush_task`
+    /// [`super::Sftp`] started would wait for another `flush_interval`.
     ///
     /// Setting it to be larger might improve overall performance by grouping
     /// writes and reducing the overhead of packet sent over network, but it
