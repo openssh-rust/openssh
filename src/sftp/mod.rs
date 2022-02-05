@@ -251,6 +251,7 @@ impl<'s> Sftp<'s> {
     ///           If `cwd` is `None`, then it is set to `~`.
     pub fn fs(&self, cwd: Option<impl Into<PathBuf>>) -> Fs<'_> {
         Fs::new(
+            self,
             self.write_end(),
             cwd.map(Into::into).unwrap_or_else(|| "~".into()),
         )
