@@ -8,7 +8,7 @@ use std::process::ExitStatus;
 
 use openssh_sftp_client::{connect_with_auxiliary, Error as SftpError, Extensions};
 use thread_local::ThreadLocal;
-use tokio::{task, time};
+use tokio::{sync::Notify, task, time};
 use tokio_util::sync::CancellationToken;
 
 pub use openssh_sftp_client::{FileType, Permissions, UnixTimeStamp};
@@ -41,10 +41,8 @@ type SharedData = openssh_sftp_client::SharedData<Buffer, Auxiliary>;
 type Id = openssh_sftp_client::Id<Buffer>;
 type Data = openssh_sftp_client::Data<Buffer>;
 
-async fn flush(shared_data: &SharedData) -> Result<(), Error> {
-    shared_data.flush().await.map_err(SftpError::from)?;
-
-    Ok(())
+async fn flush(shared_data: &SharedData) -> Result<bool, Error> {
+    Ok(shared_data.flush().await.map_err(SftpError::from)?)
 }
 
 #[derive(Debug, Default)]
@@ -63,6 +61,10 @@ struct Auxiliary {
     /// cancel_token is used to cancel `Awaitable*Future`
     /// when the read_task/flush_task has failed.
     cancel_token: CancellationToken,
+
+    /// flush_end_notify is used to avoid unnecessary wakeup
+    /// in flush_task.
+    flush_end_notify: Notify,
 }
 
 impl Auxiliary {
@@ -72,6 +74,7 @@ impl Auxiliary {
             limits: Limits::default(),
             thread_local_cache: ThreadLocal::new(),
             cancel_token: CancellationToken::new(),
+            flush_end_notify: Notify::new(),
         }
     }
 
@@ -87,6 +90,10 @@ impl Auxiliary {
                 SftpError::BackgroundTaskFailure(&"read/flush task failed").into()
             ),
         }
+    }
+
+    fn wakeup_flush_task(&self) {
+        self.flush_end_notify.notify_one();
     }
 }
 
@@ -116,7 +123,7 @@ impl<'s> Sftp<'s> {
         let (id, read_len, write_len) = if extensions.limits {
             let awaitable = write_end.send_limits_request(id)?;
 
-            flush(&write_end).await?;
+            assert!(flush(&write_end).await?);
             read_end.read_in_one_packet().await?;
 
             let (id, mut limits) = awaitable.wait().await?;
@@ -160,16 +167,16 @@ impl<'s> Sftp<'s> {
             let mut interval = time::interval(flush_interval);
             interval.set_missed_tick_behavior(time::MissedTickBehavior::Delay);
 
-            let _cancel_guard = shared_data
-                .get_auxiliary()
-                .cancel_token
-                .clone()
-                .drop_guard();
+            let auxiliary = shared_data.get_auxiliary();
+            let flush_end_notify = &auxiliary.flush_end_notify;
+
+            let _cancel_guard = auxiliary.cancel_token.clone().drop_guard();
 
             // The loop can only return `Err`
             loop {
+                flush_end_notify.notified().await;
                 interval.tick().await;
-                flush(&shared_data).await?;
+                while !flush(&shared_data).await? {}
             }
         });
 
@@ -274,7 +281,7 @@ impl<'s> Sftp<'s> {
     }
 
     /// * `cwd` - The current working dir for the [`Fs`].
-    ///           If `cwd` is `Nonoe`, then it is set to `~`.
+    ///           If `cwd` is `None`, then it is set to `~`.
     pub fn fs(&self, cwd: Option<impl Into<PathBuf>>) -> Fs<'_> {
         Fs::new(
             self.write_end(),

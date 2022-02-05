@@ -50,6 +50,10 @@ impl<'s> Fs<'s> {
 
         let future = f(&mut self.write_end, id)?;
 
+        // Requests is already added to write buffer, so wakeup
+        // the `flush_task`.
+        self.write_end.get_auxiliary().wakeup_flush_task();
+
         let (id, ret) = self.get_auxiliary().cancel_if_task_failed(future).await?;
 
         self.write_end.cache_id_mut(id);
