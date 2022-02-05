@@ -5,6 +5,7 @@ use std::marker::PhantomData;
 use std::path::{Path, PathBuf};
 use std::process::ExitStatus;
 
+use bytes::BytesMut;
 use openssh_sftp_client::{connect_with_auxiliary, Error as SftpError};
 use tokio::{task, time};
 
@@ -34,7 +35,7 @@ pub use fs::{Dir, DirBuilder, Fs};
 mod metadata;
 pub use metadata::{MetaData, MetaDataBuilder};
 
-type Buffer = Vec<u8>;
+type Buffer = BytesMut;
 
 type WriteEnd = openssh_sftp_client::WriteEnd<Buffer, Auxiliary>;
 type SharedData = openssh_sftp_client::SharedData<Buffer, Auxiliary>;
