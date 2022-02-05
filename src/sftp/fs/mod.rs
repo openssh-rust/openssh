@@ -4,7 +4,6 @@ use super::{
 };
 
 use std::borrow::Cow;
-use std::future::Future;
 use std::marker::PhantomData;
 use std::path::{Path, PathBuf};
 
@@ -41,26 +40,6 @@ impl<'s> Fs<'s> {
         self.write_end.get_auxiliary()
     }
 
-    async fn send_request<Func, F, R>(&mut self, f: Func) -> Result<R, Error>
-    where
-        Func: FnOnce(&mut WriteEnd, Id) -> Result<F, SftpError>,
-        F: Future<Output = Result<(Id, R), SftpError>> + 'static,
-    {
-        let id = self.write_end.get_id_mut();
-
-        let future = f(&mut self.write_end, id)?;
-
-        // Requests is already added to write buffer, so wakeup
-        // the `flush_task`.
-        self.write_end.get_auxiliary().wakeup_flush_task();
-
-        let (id, ret) = self.get_auxiliary().cancel_if_task_failed(future).await?;
-
-        self.write_end.cache_id_mut(id);
-
-        Ok(ret)
-    }
-
     /// Return current working dir.
     pub fn cwd(&self) -> &Path {
         &self.cwd
@@ -84,7 +63,8 @@ impl<'s> Fs<'s> {
     async fn open_dir_impl(&mut self, path: &Path) -> Result<Dir<'_>, Error> {
         let path = self.concat_path_if_needed(path);
 
-        self.send_request(|write_end, id| Ok(write_end.send_opendir_request(id, path)?.wait()))
+        self.write_end
+            .send_request(|write_end, id| Ok(write_end.send_opendir_request(id, path)?.wait()))
             .await
             .map(|handle| Dir(OwnedHandle::new(self.write_end.clone(), handle)))
     }
@@ -114,7 +94,8 @@ impl<'s> Fs<'s> {
     ) -> Result<(), Error> {
         let path = self.concat_path_if_needed(path);
 
-        self.send_request(|write_end, id| Ok(f(write_end, id, path)?.wait()))
+        self.write_end
+            .send_request(|write_end, id| Ok(f(write_end, id, path)?.wait()))
             .await
     }
 
@@ -144,7 +125,8 @@ impl<'s> Fs<'s> {
             WriteEnd::send_realpath_request
         };
 
-        self.send_request(|write_end, id| Ok(f(write_end, id, path)?.wait()))
+        self.write_end
+            .send_request(|write_end, id| Ok(f(write_end, id, path)?.wait()))
             .await
             .map(Into::into)
     }
@@ -164,7 +146,8 @@ impl<'s> Fs<'s> {
         let src = self.concat_path_if_needed(src);
         let dst = self.concat_path_if_needed(dst);
 
-        self.send_request(|write_end, id| Ok(f(write_end, id, src, dst)?.wait()))
+        self.write_end
+            .send_request(|write_end, id| Ok(f(write_end, id, src, dst)?.wait()))
             .await
     }
 
@@ -221,7 +204,8 @@ impl<'s> Fs<'s> {
     async fn read_link_impl(&mut self, path: &Path) -> Result<PathBuf, Error> {
         let path = self.concat_path_if_needed(path);
 
-        self.send_request(|write_end, id| Ok(write_end.send_readlink_request(id, path)?.wait()))
+        self.write_end
+            .send_request(|write_end, id| Ok(write_end.send_readlink_request(id, path)?.wait()))
             .await
             .map(Into::into)
     }
@@ -234,12 +218,13 @@ impl<'s> Fs<'s> {
     async fn set_metadata_impl(&mut self, path: &Path, metadata: MetaData) -> Result<(), Error> {
         let path = self.concat_path_if_needed(path);
 
-        self.send_request(|write_end, id| {
-            Ok(write_end
-                .send_setstat_request(id, path, metadata.into_inner())?
-                .wait())
-        })
-        .await
+        self.write_end
+            .send_request(|write_end, id| {
+                Ok(write_end
+                    .send_setstat_request(id, path, metadata.into_inner())?
+                    .wait())
+            })
+            .await
     }
 
     /// Change the metadata of a file or a directory.
@@ -272,7 +257,8 @@ impl<'s> Fs<'s> {
     ) -> Result<MetaData, Error> {
         let path = self.concat_path_if_needed(path);
 
-        self.send_request(|write_end, id| Ok(f(write_end, id, path)?.wait()))
+        self.write_end
+            .send_request(|write_end, id| Ok(f(write_end, id, path)?.wait()))
             .await
             .map(MetaData::new)
     }
@@ -344,10 +330,11 @@ impl DirBuilder<'_, '_> {
 
         let path = fs.concat_path_if_needed(path);
 
-        fs.send_request(|write_end, id| {
-            Ok(write_end.send_mkdir_request(id, path, self.attrs)?.wait())
-        })
-        .await
+        fs.write_end
+            .send_request(|write_end, id| {
+                Ok(write_end.send_mkdir_request(id, path, self.attrs)?.wait())
+            })
+            .await
     }
 
     /// Creates the specified directory with the configured options.
