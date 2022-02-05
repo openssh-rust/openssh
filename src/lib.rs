@@ -424,7 +424,7 @@ impl Session {
     /// See [`sftp::Sftp`] for details on how to interact with the remote files.
     #[cfg(feature = "sftp")]
     #[cfg_attr(docsrs, doc(cfg(feature = "sftp")))]
-    pub async fn sftp(&self) -> Result<sftp::Sftp<'_>, Error> {
+    pub async fn sftp(&self, options: sftp::SftpOptions) -> Result<sftp::Sftp<'_>, Error> {
         let (remote_child, stdin, stdout) = delegate!(&self.0, imp, {
             let (remote_child, stdin, stdout) = imp.sftp().await?;
 
@@ -434,7 +434,7 @@ impl Session {
             (remote_child.into(), stdin.0, stdout.0)
         });
 
-        sftp::Sftp::new(remote_child, stdin, stdout).await
+        sftp::Sftp::new(remote_child, stdin, stdout, options).await
     }
 
     /// Terminate the remote connection.
