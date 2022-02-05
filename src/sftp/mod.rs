@@ -5,7 +5,6 @@ use std::io;
 use std::marker::PhantomData;
 use std::path::{Path, PathBuf};
 use std::process::ExitStatus;
-use std::time::Duration;
 
 use openssh_sftp_client::{connect_with_auxiliary, Error as SftpError, Extensions};
 use thread_local::ThreadLocal;
@@ -13,6 +12,9 @@ use tokio::{task, time};
 use tokio_util::sync::CancellationToken;
 
 pub use openssh_sftp_client::{FileType, Permissions, UnixTimeStamp};
+
+mod options;
+pub use options::SftpOptions;
 
 mod cache;
 use cache::{Cache, WriteEndWithCachedId};
@@ -38,9 +40,6 @@ type WriteEnd = openssh_sftp_client::WriteEnd<Buffer, Auxiliary>;
 type SharedData = openssh_sftp_client::SharedData<Buffer, Auxiliary>;
 type Id = openssh_sftp_client::Id<Buffer>;
 type Data = openssh_sftp_client::Data<Buffer>;
-
-/// Duration to wait before flushing the write buffer.
-const FLUSH_INTERVAL: Duration = Duration::from_micros(500);
 
 async fn flush(shared_data: &SharedData) -> Result<(), Error> {
     shared_data.flush().await.map_err(SftpError::from)?;
@@ -107,6 +106,7 @@ impl<'s> Sftp<'s> {
         child: RemoteChildImp,
         stdin: ChildStdin,
         stdout: ChildStdout,
+        options: SftpOptions,
     ) -> Result<Sftp<'s>, Error> {
         let (mut write_end, mut read_end, extensions) =
             connect_with_auxiliary(stdout, stdin, Auxiliary::new()).await?;
@@ -155,8 +155,9 @@ impl<'s> Sftp<'s> {
         auxiliary.thread_local_cache.get_or(|| Cache::new(Some(id)));
 
         let shared_data = SharedData::clone(&write_end);
+        let flush_interval = options.get_flush_interval();
         let flush_task = task::spawn(async move {
-            let mut interval = time::interval(FLUSH_INTERVAL);
+            let mut interval = time::interval(flush_interval);
             interval.set_missed_tick_behavior(time::MissedTickBehavior::Delay);
 
             let _cancel_guard = shared_data
