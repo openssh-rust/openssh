@@ -72,6 +72,11 @@ impl<'s> Sftp<'s> {
             let awaitable = write_end.send_limits_request(id)?;
 
             flush(&write_end).await?;
+
+            // Call wait_for_new_request to consume the pending new requests
+            let new_requests_submit = read_end.wait_for_new_request().await;
+            debug_assert_eq!(new_requests_submit, 1);
+
             read_end.read_in_one_packet().await?;
 
             let (id, mut limits) = awaitable.wait().await?;
@@ -131,11 +136,11 @@ impl<'s> Sftp<'s> {
             }
         });
 
-        let shared_data = SharedData::clone(&write_end);
         let read_task = task::spawn(async move {
             let mut read_end = read_end;
 
-            let cancel_guard = shared_data
+            let cancel_guard = read_end
+                .get_shared_data()
                 .get_auxiliary()
                 .cancel_token
                 .clone()
@@ -174,12 +179,15 @@ impl<'s> Sftp<'s> {
     ///
     /// This function is cancel safe.
     pub async fn close(self) -> Result<(), Error> {
-        // Try to flush the data
+        // Flush the data.
+        //
+        // Since there is no reference to `Sftp`, the only requests that
+        // haven't yet flushed should be close requests.
+        //
+        // And there will not be any new requests.
         flush(&self.shared_data).await?;
-        // Wait for responses for all requests buffered and sent.
-        self.read_task.await??;
 
-        // terminate flush task only after all data is flushed.
+        // Terminate flush_task, otherwise read_task would not return.
         self.flush_task.abort();
         match self.flush_task.await {
             Ok(res) => res?,
@@ -189,6 +197,13 @@ impl<'s> Sftp<'s> {
                 }
             }
         }
+
+        // Drop the shared_data, otherwise read_task would not return.
+        debug_assert_eq!(self.shared_data.strong_count(), 2);
+        drop(self.shared_data);
+
+        // Wait for responses for all requests buffered and sent.
+        self.read_task.await??;
 
         let res: Result<ExitStatus, Error> =
             crate::child::delegate!(self.child, child, { child.wait().await });
