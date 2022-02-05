@@ -95,7 +95,7 @@ impl<'s> TokioCompactFile<'s> {
 
     /// Return the inner [`File`].
     pub fn into_inner(mut self) -> File<'s> {
-        // safety: It is called before fields is dropped.
+        // safety: It is called before read/write_cancellation_future is dropped
         unsafe { self.drop_cancellation_futures() };
         self.destructure().0
     }
@@ -107,19 +107,14 @@ impl<'s> TokioCompactFile<'s> {
     ///
     /// This function is cancel safe.
     pub async fn close(mut self) -> Result<(), Error> {
-        if self.need_flush {
-            // If another thread is doing the flushing, then
-            // retry.
-            self.inner
-                .inner
-                .write_end
-                .flush_blocked()
-                .await
-                .map_err(SftpError::from)?;
-            self.need_flush = false;
-        }
-
+        let need_flush = self.need_flush;
         let write_end = &mut self.inner.inner.write_end;
+
+        if need_flush {
+            // If another thread is doing the flushing, then
+            // give up.
+            write_end.flush().await.map_err(SftpError::from)?;
+        }
 
         while let Some(future) = self.write_futures.pop_front() {
             let id = write_end
@@ -148,7 +143,7 @@ impl<'s> From<TokioCompactFile<'s>> for File<'s> {
 
 impl Drop for TokioCompactFile<'_> {
     fn drop(&mut self) {
-        // safety: It is called before fields is dropped.
+        // safety: It is called before read/write_cancellation_future is dropped
         unsafe { self.drop_cancellation_futures() };
     }
 }
