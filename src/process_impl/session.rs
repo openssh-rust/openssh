@@ -122,6 +122,7 @@ impl Session {
         let mut cmd = Command::new(self.new_cmd(&["-s", "sftp"]));
         cmd.stdin(Stdio::piped());
         cmd.stdout(Stdio::piped());
+        cmd.stderr(Stdio::null());
 
         let (remote_child, stdin, stdout, _stderr) = cmd.spawn().await?;
 
