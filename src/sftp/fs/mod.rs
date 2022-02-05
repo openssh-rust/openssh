@@ -1,5 +1,6 @@
 use super::{
-    Auxiliary, Buffer, Error, Id, MetaData, OwnedHandle, Sftp, WriteEnd, WriteEndWithCachedId,
+    Auxiliary, Buffer, Error, Id, MetaData, MetaDataBuilder, OwnedHandle, Sftp, WriteEnd,
+    WriteEndWithCachedId,
 };
 
 use std::borrow::Cow;
@@ -348,45 +349,5 @@ impl DirBuilder<'_, '_> {
     /// Creates the specified directory with the configured options.
     pub async fn create(&mut self, path: impl AsRef<Path>) -> Result<(), Error> {
         self.create_impl(path.as_ref()).await
-    }
-}
-
-/// Builder of [`MetaData`].
-#[derive(Debug, Default, Copy, Clone)]
-pub struct MetaDataBuilder(FileAttrs);
-
-impl MetaDataBuilder {
-    /// Create a builder.
-    pub const fn new() -> Self {
-        Self(FileAttrs::new())
-    }
-
-    /// Reset builder back to default.
-    pub fn reset(&mut self) -> &mut Self {
-        self.0 = FileAttrs::new();
-        self
-    }
-
-    /// Set id of the metadata to be built.
-    pub fn id(&mut self, (uid, gid): (u32, u32)) -> &mut Self {
-        self.0.set_id(uid, gid);
-        self
-    }
-
-    /// Set permissions of the metadata to be built.
-    pub fn permissions(&mut self, perm: Permissions) -> &mut Self {
-        self.0.set_permissions(perm);
-        self
-    }
-
-    /// Set size of the metadata to built.
-    pub fn size(&mut self, size: u64) -> &mut Self {
-        self.0.set_size(size);
-        self
-    }
-
-    /// Create a [`MetaData`].
-    pub fn create(&self) -> MetaData {
-        MetaData::new(self.0)
     }
 }

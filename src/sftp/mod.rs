@@ -22,12 +22,15 @@ use handle::OwnedHandle;
 
 mod file;
 pub use file::TokioCompactFile;
-pub use file::{File, MetaData, OpenOptions};
+pub use file::{File, OpenOptions};
 
 mod fs;
 pub use fs::DirEntry;
 pub use fs::ReadDir;
-pub use fs::{Dir, DirBuilder, Fs, MetaDataBuilder};
+pub use fs::{Dir, DirBuilder, Fs};
+
+mod metadata;
+pub use metadata::{MetaData, MetaDataBuilder};
 
 type Buffer = Vec<u8>;
 
