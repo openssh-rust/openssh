@@ -54,7 +54,7 @@ impl OwnedHandle<'_> {
             .await
     }
 
-    /// Close the [`File`], send the close request
+    /// Close the [`OwnedHandle`], send the close request
     /// if this is the last reference.
     ///
     /// # Cancel Safety

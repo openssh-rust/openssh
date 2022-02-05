@@ -175,8 +175,14 @@ impl<'s> Sftp<'s> {
             // The loop can only return `Err`
             loop {
                 flush_end_notify.notified().await;
-                interval.tick().await;
-                while !flush(&shared_data).await? {}
+
+                loop {
+                    interval.tick().await;
+                    if flush(&shared_data).await? {
+                        // buffer successfully flushed, break for next loop.
+                        break;
+                    }
+                }
             }
         });
 
@@ -291,8 +297,6 @@ impl<'s> Sftp<'s> {
 
     /// Forcibly flush the write buffer.
     ///
-    /// By default, it is flushed every 0.9 ms.
-    ///
     /// If another thread is doing flushing, then this function would return
     /// without doing anything.
     ///
@@ -306,8 +310,6 @@ impl<'s> Sftp<'s> {
     }
 
     /// Forcibly flush the write buffer.
-    ///
-    /// By default, it is flushed every 0.9 ms.
     ///
     /// If another thread is doing flushing, then this function would
     /// wait until it completes or cancelled the future.
