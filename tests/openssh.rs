@@ -1,3 +1,6 @@
+mod common;
+use common::*;
+
 use lazy_static::lazy_static;
 use regex::Regex;
 use std::borrow::Cow;
@@ -17,10 +20,6 @@ use openssh::*;
 
 // TODO: how do we test the connection actually _failing_ so that the master reports an error?
 
-fn addr() -> String {
-    std::env::var("TEST_HOST").unwrap_or("ssh://test-user@127.0.0.1:2222".to_string())
-}
-
 fn loopback() -> IpAddr {
     "127.0.0.1".parse().unwrap()
 }
@@ -36,26 +35,6 @@ async fn session_builder_connect(builder: SessionBuilder, addr: &str) -> Vec<Ses
     #[cfg(feature = "native-mux")]
     {
         sessions.push(builder.connect_mux(addr).await.unwrap());
-    }
-
-    sessions
-}
-
-async fn connects() -> Vec<Session> {
-    let mut sessions = Vec::with_capacity(2);
-
-    #[cfg(feature = "process-mux")]
-    {
-        sessions.push(Session::connect(&addr(), KnownHosts::Accept).await.unwrap());
-    }
-
-    #[cfg(feature = "native-mux")]
-    {
-        sessions.push(
-            Session::connect_mux(&addr(), KnownHosts::Accept)
-                .await
-                .unwrap(),
-        );
     }
 
     sessions
