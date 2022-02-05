@@ -124,7 +124,7 @@ jobs:
          cat .test-key | ssh-add -
        displayName: Set up ssh-agent
      - template: install-rust.yml@templates
-     - script: cargo test --all-features --test openssh
+     - script: cargo test --all-features --test openssh --test sftp
        displayName: cargo test --all-features --cfg=ci
        env:
          # makes all the ignored tests not ignored
