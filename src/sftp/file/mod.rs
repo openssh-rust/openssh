@@ -1,4 +1,4 @@
-use super::{Auxiliary, Error, Id, MetaData, OwnedHandle, Permissions, Sftp, WriteEnd};
+use super::{Auxiliary, Error, Id, MetaData, OwnedHandle, Permissions, Sftp, SftpError, WriteEnd};
 
 use std::borrow::Cow;
 use std::cmp::{min, Ordering};
@@ -9,7 +9,7 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 
 use bytes::Bytes;
-use openssh_sftp_client::{CreateFlags, Data, Error as SftpError, FileAttrs, Handle};
+use openssh_sftp_client::{CreateFlags, Data, FileAttrs, Handle};
 use tokio::io::AsyncSeek;
 
 mod tokio_compact_file;
@@ -195,13 +195,13 @@ impl File<'_> {
     /// Get maximum amount of bytes that one single write requests
     /// can write.
     pub fn max_write_len(&self) -> u32 {
-        self.get_auxiliary().limits.write_len
+        self.get_auxiliary().limits().write_len
     }
 
     /// Get maximum amount of bytes that one single read requests
     /// can read.
     pub fn max_read_len(&self) -> u32 {
-        self.get_auxiliary().limits.read_len
+        self.get_auxiliary().limits().read_len
     }
 
     async fn send_writable_request<Func, F, R>(&mut self, f: Func) -> Result<R, Error>
@@ -304,7 +304,7 @@ impl File<'_> {
     ///
     /// This function is cancel safe.
     pub async fn sync_all(&mut self) -> Result<(), Error> {
-        if !self.get_auxiliary().extensions.fsync {
+        if !self.get_auxiliary().extensions().fsync {
             return Err(SftpError::UnsupportedExtension(&"fsync").into());
         }
 

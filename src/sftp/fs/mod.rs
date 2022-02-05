@@ -1,13 +1,13 @@
 use super::{
-    Auxiliary, Buffer, Error, Id, MetaData, MetaDataBuilder, OwnedHandle, Sftp, WriteEnd,
-    WriteEndWithCachedId,
+    Auxiliary, Buffer, Error, Id, MetaData, MetaDataBuilder, OwnedHandle, Sftp, SftpError,
+    WriteEnd, WriteEndWithCachedId,
 };
 
 use std::borrow::Cow;
 use std::marker::PhantomData;
 use std::path::{Path, PathBuf};
 
-use openssh_sftp_client::{Error as SftpError, FileAttrs, Permissions};
+use openssh_sftp_client::{FileAttrs, Permissions};
 
 mod dir;
 pub use dir::{DirEntry, ReadDir};
@@ -114,7 +114,7 @@ impl<'s> Fs<'s> {
     async fn canonicalize_impl(&mut self, path: &Path) -> Result<PathBuf, Error> {
         let path = self.concat_path_if_needed(path);
 
-        let f = if self.get_auxiliary().extensions.expand_path {
+        let f = if self.get_auxiliary().extensions().expand_path {
             // This supports canonicalisation of relative paths and those that
             // need tilde-expansion, i.e. “~”, “~/…” and “~user/…”.
             //
@@ -152,7 +152,7 @@ impl<'s> Fs<'s> {
     }
 
     async fn hard_link_impl(&mut self, src: &Path, dst: &Path) -> Result<(), Error> {
-        if !self.get_auxiliary().extensions.hardlink {
+        if !self.get_auxiliary().extensions().hardlink {
             return Err(SftpError::UnsupportedExtension(&"hardlink").into());
         }
 
@@ -180,7 +180,7 @@ impl<'s> Fs<'s> {
     }
 
     async fn rename_impl(&mut self, from: &Path, to: &Path) -> Result<(), Error> {
-        let f = if self.get_auxiliary().extensions.posix_rename {
+        let f = if self.get_auxiliary().extensions().posix_rename {
             // posix rename is guaranteed to be atomic
             WriteEnd::send_posix_rename_request
         } else {
