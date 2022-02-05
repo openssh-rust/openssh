@@ -4,6 +4,7 @@ use common::*;
 use openssh::sftp::*;
 
 use std::cmp::min;
+use std::path::Path;
 
 #[tokio::test]
 #[cfg_attr(not(ci), ignore)]
@@ -61,6 +62,49 @@ async fn sftp_file_basics() {
 
             // remove the file
             fs.remove_file(path).await.unwrap();
+        }
+
+        // close sftp and session
+        sftp.close().await.unwrap();
+        session.close().await.unwrap();
+    }
+}
+
+#[tokio::test]
+#[cfg_attr(not(ci), ignore)]
+/// Test creating, removing and iterating over dir, as well
+/// as removing file.
+async fn sftp_dir_basics() {
+    let path = Path::new("/tmp/sftp_dir_basics");
+
+    for session in connects().await {
+        let sftp = session.sftp(SftpOptions::new()).await.unwrap();
+
+        {
+            let mut fs = sftp.fs(Some(""));
+
+            fs.create_dir(path).await.unwrap();
+
+            fs.create_dir(path.join("dir")).await.unwrap();
+            sftp.create(path.join("file")).await.unwrap();
+
+            for entry in fs.open_dir(path).await.unwrap().read_dir().await.unwrap() {
+                let filename = entry.filename().as_os_str();
+
+                if filename == "." || filename == ".." {
+                    continue;
+                } else if filename == "dir" {
+                    assert_eq!(entry.file_type().unwrap(), FileType::Directory);
+                } else if filename == "file" {
+                    assert_eq!(entry.file_type().unwrap(), FileType::RegularFile);
+                } else {
+                    unreachable!("Unreachable!");
+                }
+            }
+
+            fs.remove_file(path.join("file")).await.unwrap();
+            fs.remove_dir(path.join("dir")).await.unwrap();
+            fs.remove_dir(path).await.unwrap();
         }
 
         // close sftp and session
