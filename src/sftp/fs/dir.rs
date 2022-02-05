@@ -60,6 +60,16 @@ impl ReadDir {
     pub fn into_inner(self) -> Box<[DirEntry]> {
         self.0
     }
+
+    /// Return an iterator over immutable [`DirEntry`].
+    pub fn iter(&self) -> Iter<'_, DirEntry> {
+        self.into_iter()
+    }
+
+    /// Return an iterator over mutable [`DirEntry`].
+    pub fn iter_mut(&mut self) -> IterMut<'_, DirEntry> {
+        self.into_iter()
+    }
 }
 
 impl Deref for ReadDir {
