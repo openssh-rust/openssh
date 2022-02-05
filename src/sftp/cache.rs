@@ -1,9 +1,12 @@
-use super::{Id, SharedData, WriteEnd};
+use super::{Error, Id, SharedData, WriteEnd};
 
 use std::any::type_name;
 use std::cell::Cell;
 use std::fmt;
+use std::future::Future;
 use std::ops::{Deref, DerefMut};
+
+use openssh_sftp_client::Error as SftpError;
 
 #[repr(transparent)]
 pub(super) struct Cache<T>(Cell<Option<T>>);
@@ -107,5 +110,28 @@ impl WriteEndWithCachedId {
         } else {
             self.cache_id(id);
         }
+    }
+
+    pub(super) async fn send_request<Func, F, R>(&mut self, f: Func) -> Result<R, Error>
+    where
+        Func: FnOnce(&mut WriteEnd, Id) -> Result<F, SftpError>,
+        F: Future<Output = Result<(Id, R), SftpError>> + 'static,
+    {
+        let id = self.get_id_mut();
+        let write_end = &mut self.0;
+
+        let future = f(write_end, id)?;
+
+        let auxiliary = write_end.get_auxiliary();
+
+        // Requests is already added to write buffer, so wakeup
+        // the `flush_task`.
+        auxiliary.wakeup_flush_task();
+
+        let (id, ret) = auxiliary.cancel_if_task_failed(future).await?;
+
+        self.cache_id_mut(id);
+
+        Ok(ret)
     }
 }

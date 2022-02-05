@@ -47,23 +47,11 @@ impl OwnedHandle<'_> {
         Func: FnOnce(&mut WriteEnd, Cow<'_, Handle>, Id) -> Result<F, SftpError>,
         F: Future<Output = Result<(Id, R), SftpError>> + 'static,
     {
-        let write_end = &mut self.write_end;
-        let id = write_end.get_id_mut();
+        let handle = &self.handle;
 
-        let future = f(write_end, Cow::Borrowed(&self.handle), id)?;
-
-        // Requests is already added to write buffer, so wakeup
-        // the `flush_task`.
-        write_end.get_auxiliary().wakeup_flush_task();
-
-        let (id, ret) = write_end
-            .get_auxiliary()
-            .cancel_if_task_failed(future)
-            .await?;
-
-        write_end.cache_id_mut(id);
-
-        Ok(ret)
+        self.write_end
+            .send_request(|write_end, id| f(write_end, Cow::Borrowed(handle), id))
+            .await
     }
 
     /// Close the [`File`], send the close request
