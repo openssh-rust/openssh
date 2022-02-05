@@ -1,3 +1,4 @@
 /target
 /ci-target
 Cargo.lock
+sshd_started
