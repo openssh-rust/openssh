@@ -156,7 +156,7 @@ impl<'s> Fs<'s> {
             return Err(SftpError::UnsupportedExtension(&"hardlink").into());
         }
 
-        self.linking_impl(src, dst, WriteEnd::send_hardlink_requst)
+        self.linking_impl(src, dst, WriteEnd::send_hardlink_request)
             .await
     }
 

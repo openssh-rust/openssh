@@ -41,7 +41,7 @@ type SharedData = openssh_sftp_client::SharedData<Buffer, Auxiliary>;
 type Id = openssh_sftp_client::Id<Buffer>;
 type Data = openssh_sftp_client::Data<Buffer>;
 
-async fn flush(shared_data: &SharedData) -> Result<bool, Error> {
+async fn flush(shared_data: &SharedData) -> Result<(), Error> {
     Ok(shared_data.flush().await.map_err(SftpError::from)?)
 }
 
@@ -123,7 +123,7 @@ impl<'s> Sftp<'s> {
         let (id, read_len, write_len) = if extensions.limits {
             let awaitable = write_end.send_limits_request(id)?;
 
-            assert!(flush(&write_end).await?);
+            flush(&write_end).await?;
             read_end.read_in_one_packet().await?;
 
             let (id, mut limits) = awaitable.wait().await?;
@@ -175,14 +175,11 @@ impl<'s> Sftp<'s> {
             // The loop can only return `Err`
             loop {
                 flush_end_notify.notified().await;
+                interval.tick().await;
 
-                loop {
-                    interval.tick().await;
-                    if flush(&shared_data).await? {
-                        // buffer successfully flushed, break for next loop.
-                        break;
-                    }
-                }
+                // Wait until another thread is done or cancelled flushing
+                // and try flush it again just in case the flushing is cancelled
+                flush(&shared_data).await?;
             }
         });
 
@@ -298,15 +295,13 @@ impl<'s> Sftp<'s> {
     /// Forcibly flush the write buffer.
     ///
     /// If another thread is doing flushing, then this function would return
-    /// without doing anything.
+    /// without doing anything and return `false`.
     ///
     /// # Cancel Safety
     ///
     /// This function is cancel safe.
-    pub async fn flush(&self) -> Result<(), io::Error> {
-        self.shared_data.flush().await?;
-
-        Ok(())
+    pub async fn try_flush(&self) -> Result<bool, io::Error> {
+        Ok(self.shared_data.try_flush().await?)
     }
 
     /// Forcibly flush the write buffer.
@@ -317,8 +312,8 @@ impl<'s> Sftp<'s> {
     /// # Cancel Safety
     ///
     /// This function is cancel safe.
-    pub async fn flush_blocked(&self) -> Result<(), io::Error> {
-        self.shared_data.flush_blocked().await?;
+    pub async fn flush(&self) -> Result<(), io::Error> {
+        self.shared_data.flush().await?;
 
         Ok(())
     }
