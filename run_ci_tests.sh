@@ -26,6 +26,11 @@ echo Set up ssh agent
 eval $(ssh-agent)
 cat .test-key | ssh-add -
 
+function cleanup {
+    ssh-agent -k
+}
+trap cleanup EXIT
+
 echo Run tests
 rm -rf control-test config-file-test .ssh-connection*
 
