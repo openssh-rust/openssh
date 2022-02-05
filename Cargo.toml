@@ -41,6 +41,7 @@ sftp = [
     "bytes",
     "tokio/rt",
     "tokio/time",
+    "tokio/sync",
     # openssh-sftp-client uses parking_lot, so enabling parking_lot feature
     # on other crate would not pull more dependencies.
     "once_cell/parking_lot"
