@@ -4,9 +4,10 @@ use super::{
 };
 
 use std::borrow::Cow;
-use std::marker::PhantomData;
+use std::cmp::min;
 use std::path::{Path, PathBuf};
 
+use bytes::BytesMut;
 use openssh_sftp_client::{FileAttrs, Permissions};
 
 mod dir;
@@ -20,16 +21,16 @@ type SendLinkingRequest =
 /// A struct used to perform operations on remote filesystem.
 #[derive(Debug, Clone)]
 pub struct Fs<'s> {
-    phantom_data: PhantomData<&'s Sftp<'s>>,
+    sftp: &'s Sftp<'s>,
 
     write_end: WriteEndWithCachedId,
     cwd: Box<Path>,
 }
 
 impl<'s> Fs<'s> {
-    pub(super) fn new(write_end: WriteEndWithCachedId, cwd: PathBuf) -> Self {
+    pub(super) fn new(sftp: &'s Sftp<'s>, write_end: WriteEndWithCachedId, cwd: PathBuf) -> Self {
         Self {
-            phantom_data: PhantomData,
+            sftp,
 
             write_end,
             cwd: cwd.into_boxed_path(),
@@ -274,6 +275,54 @@ impl<'s> Fs<'s> {
     pub async fn symlink_metadata(&mut self, path: impl AsRef<Path>) -> Result<MetaData, Error> {
         self.metadata_impl(path.as_ref(), WriteEnd::send_lstat_request)
             .await
+    }
+
+    async fn read_impl(&mut self, path: &Path) -> Result<BytesMut, Error> {
+        let path = self.concat_path_if_needed(path);
+
+        let mut file = self.sftp.open(path).await?;
+        let max_read_len = file.max_read_len();
+
+        let cap_to_reserve: usize = if let Some(len) = file.metadata().await?.len() {
+            // To detect EOF, we need to a little bit more then the length
+            // of the file.
+            len.saturating_add(300)
+                .try_into()
+                .unwrap_or(max_read_len as usize)
+        } else {
+            max_read_len as usize
+        };
+
+        let mut buffer = BytesMut::with_capacity(cap_to_reserve);
+
+        loop {
+            let cnt = buffer.len();
+
+            let n: u32 = if cnt <= cap_to_reserve {
+                // To detect EOF, we need to a little bit more then the
+                // length of the file.
+                (cap_to_reserve - cnt)
+                    .saturating_add(300)
+                    .try_into()
+                    .map(|n| min(n, max_read_len))
+                    .unwrap_or(max_read_len)
+            } else {
+                max_read_len
+            };
+            buffer.reserve(n.try_into().unwrap_or(usize::MAX));
+
+            if let Some(bytes) = file.read(n, buffer.split_off(cnt)).await? {
+                buffer.unsplit(bytes);
+            } else {
+                // Eof
+                break Ok(buffer);
+            }
+        }
+    }
+
+    /// Reads the entire contents of a file into a bytes.
+    pub async fn read(&mut self, path: impl AsRef<Path>) -> Result<BytesMut, Error> {
+        self.read_impl(path.as_ref()).await
     }
 }
 
