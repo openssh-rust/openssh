@@ -7,11 +7,11 @@ use std::cmp::min;
 use std::collections::VecDeque;
 use std::future::Future;
 use std::io::{self, IoSlice};
-use std::mem;
 use std::ops::{Deref, DerefMut};
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
+use bytes::BytesMut;
 use openssh_sftp_client::{AwaitableDataFuture, AwaitableStatusFuture, Handle};
 use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite, ReadBuf};
 
@@ -59,7 +59,7 @@ where
 pub struct TokioCompactFile<'s> {
     inner: File<'s>,
 
-    buffer: Vec<u8>,
+    buffer: BytesMut,
 
     read_future: Option<AwaitableDataFuture<Buffer>>,
     read_cancellation_future: SelfRefWaitForCancellationFuture,
@@ -74,7 +74,7 @@ impl<'s> TokioCompactFile<'s> {
         Self {
             inner,
 
-            buffer: Vec::new(),
+            buffer: BytesMut::new(),
 
             read_future: None,
             read_cancellation_future: SelfRefWaitForCancellationFuture::default(),
@@ -240,7 +240,10 @@ impl AsyncRead for TokioCompactFile<'_> {
             // if this.offset is changed.
             future
         } else {
-            let buffer = mem::take(&mut this.buffer);
+            this.buffer.clear();
+            this.buffer.reserve(remaining);
+            let cap = this.buffer.capacity();
+            let buffer = this.buffer.split_off(cap - remaining);
 
             let future = send_request(&mut this.inner, |write_end, id, handle, offset| {
                 write_end.send_read_request(
@@ -289,11 +292,6 @@ impl AsyncRead for TokioCompactFile<'_> {
         debug_assert_ne!(n, 0);
 
         read_buf.put_slice(&buffer[..n]);
-
-        // Reuse the buffer
-        if buffer.capacity() >= this.buffer.capacity() {
-            this.buffer = buffer;
-        }
 
         // Adjust offset and reset this.future
         Poll::Ready(self.start_seek(io::SeekFrom::Current(n.try_into().unwrap())))

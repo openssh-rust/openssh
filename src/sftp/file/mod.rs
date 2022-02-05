@@ -8,7 +8,7 @@ use std::path::Path;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-use bytes::Bytes;
+use bytes::{Bytes, BytesMut};
 use openssh_sftp_client::{CreateFlags, Data, FileAttrs, Handle};
 use tokio::io::AsyncSeek;
 
@@ -343,7 +343,7 @@ impl File<'_> {
     /// This function can read in at most [`File::max_read_len`] bytes.
     ///
     /// If the [`File`] has reached EOF or `n == 0`, then `None` is returned.
-    pub async fn read(&mut self, n: u32, buffer: Vec<u8>) -> Result<Option<Vec<u8>>, Error> {
+    pub async fn read(&mut self, n: u32, buffer: BytesMut) -> Result<Option<BytesMut>, Error> {
         if n == 0 {
             return Ok(None);
         }
