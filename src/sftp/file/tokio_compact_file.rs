@@ -112,7 +112,8 @@ impl<'s> TokioCompactFile<'s> {
 
         if need_flush {
             // If another thread is doing the flushing, then
-            // give up.
+            // wait until it is done and try to flush again,
+            // just in case it cancell the flushing.
             write_end.flush().await.map_err(SftpError::from)?;
         }
 
@@ -376,7 +377,7 @@ impl AsyncWrite for TokioCompactFile<'_> {
                 // on stack.
                 //
                 // It is also cancel safe, so we don't need to store it.
-                Pin::new(&mut Box::pin(this.inner.inner.flush())).poll(cx)
+                Pin::new(&mut Box::pin(this.inner.inner.try_flush())).poll(cx)
             )?;
         }
 
