@@ -1,5 +1,7 @@
 #!/bin/bash -ex
 
+cd $(dirname `realpath $0`)
+
 rm sshd_started
 
 docker stop openssh
