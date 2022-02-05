@@ -33,9 +33,6 @@
 //! the remote command directly. Usually, these are the same, though not always, as highlighted in
 //! the documetantation the individual methods. See also the section below on Remote Shells.
 //!
-//! And finally, our commands is default to inheriting stdin/stdout/stderr to be compatible with
-//! [`std::process::Command`] and [`tokio::process::Command`].
-//!
 //! # Connection modes
 //!
 //! This library provides two way to connect to the [`ControlMaster`]:
