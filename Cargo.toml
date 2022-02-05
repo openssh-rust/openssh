@@ -77,3 +77,7 @@ required-features = ["native-mux"]
 [[example]]
 name = "tsp"
 required-features = ["process-mux"]
+
+[[test]]
+name = "sftp"
+required-features = ["sftp"]
