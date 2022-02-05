@@ -2,7 +2,7 @@
 
 cd $(dirname `realpath $0`)
 
-rm sshd_started
+rm /tmp/openssh-rs/sshd_started
 
 docker stop openssh
 

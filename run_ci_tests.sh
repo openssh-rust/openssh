@@ -2,7 +2,7 @@
 
 cd $(dirname `realpath $0`)
 
-[ ! -f sshd_started ] && ./start_sshd.sh
+[ ! -f /tmp/openssh-rs/sshd_started ] && ./start_sshd.sh
 
 export RUSTFLAGS='--cfg=ci'
 

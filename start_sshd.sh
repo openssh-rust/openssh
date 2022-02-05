@@ -28,4 +28,6 @@ while ! ssh -i .test-key -v -p 2222 -l test-user $HOSTNAME -o StrictHostKeyCheck
     sleep 3
 done
 
-touch sshd_started
+# Create sshd_started in /tmp/ so that it is auto removed on restart.
+mkdir /tmp/openssh-rs/
+touch /tmp/openssh-rs/sshd_started
