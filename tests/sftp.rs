@@ -1,13 +1,14 @@
 mod common;
 use common::*;
 
-use openssh::*;
+use openssh::sftp::*;
 
 #[tokio::test]
 #[cfg_attr(not(ci), ignore)]
-async fn it_connects() {
+async fn sftp_init() {
     for session in connects().await {
-        session.check().await.unwrap();
+        let sftp = session.sftp(SftpOptions::new()).await.unwrap();
+        sftp.close().await.unwrap();
         session.close().await.unwrap();
     }
 }
