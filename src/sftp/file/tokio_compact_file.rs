@@ -245,6 +245,10 @@ impl AsyncRead for TokioCompactFile<'_> {
                 .map_err(sftp_to_io_error)?
                 .wait();
 
+            // Requests is already added to write buffer, so wakeup
+            // the `flush_task`.
+            write_end.get_auxiliary().wakeup_flush_task();
+
             // Store it in this.read_future
             this.read_future = Some(future);
             this.read_future
@@ -338,6 +342,10 @@ impl AsyncWrite for TokioCompactFile<'_> {
             .send_write_request_buffered(id, handle, offset, Cow::Borrowed(buf))
             .map_err(sftp_to_io_error)?
             .wait();
+
+        // Requests is already added to write buffer, so wakeup
+        // the `flush_task`.
+        write_end.get_auxiliary().wakeup_flush_task();
 
         self.write_futures.push_back(future);
         // Since a new future is pushed, flushing is again required.
@@ -449,6 +457,10 @@ impl AsyncWrite for TokioCompactFile<'_> {
             .send_write_request_buffered_vectored2(id, handle, offset, &buffers)
             .map_err(sftp_to_io_error)?
             .wait();
+
+        // Requests is already added to write buffer, so wakeup
+        // the `flush_task`.
+        write_end.get_auxiliary().wakeup_flush_task();
 
         self.write_futures.push_back(future);
         // Since a new future is pushed, flushing is again required.

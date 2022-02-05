@@ -148,6 +148,11 @@ impl<'s> OpenOptions<'s> {
         let id = write_end.get_id_mut();
 
         let awaitable = write_end.send_open_file_request(id, params)?;
+
+        // Requests is already added to write buffer, so wakeup
+        // the `flush_task`.
+        write_end.get_auxiliary().wakeup_flush_task();
+
         let (id, handle) = write_end
             .get_auxiliary()
             .cancel_if_task_failed(awaitable.wait())

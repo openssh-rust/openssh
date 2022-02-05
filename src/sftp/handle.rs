@@ -52,6 +52,10 @@ impl OwnedHandle<'_> {
 
         let future = f(write_end, Cow::Borrowed(&self.handle), id)?;
 
+        // Requests is already added to write buffer, so wakeup
+        // the `flush_task`.
+        write_end.get_auxiliary().wakeup_flush_task();
+
         let (id, ret) = write_end
             .get_auxiliary()
             .cancel_if_task_failed(future)

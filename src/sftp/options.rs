@@ -14,7 +14,22 @@ impl SftpOptions {
         }
     }
 
-    /// Set flush_interval.
+    /// Set `flush_interval`.
+    ///
+    /// `flush_interval` decides the maximum time your requests would stay
+    /// in the write buffer before it is actually sent to the remote.
+    ///
+    /// Setting it to be larger might improve overall performance by grouping
+    /// writes and reducing the overhead of packet sent over network, but it
+    /// might also increase latency, so be careful when setting the
+    /// `flush_interval`.
+    ///
+    /// If `flush_interval` is set to 0, then every packet
+    /// is flushed immediately.
+    ///
+    /// NOTE that it is perfectly OK to set `flush_interval` to 0 and
+    /// it would not slowdown the program, as flushing is only performed
+    /// on daemon.
     pub const fn flush_interval(mut self, flush_interval: Duration) -> Self {
         self.flush_interval = Some(flush_interval);
         self
