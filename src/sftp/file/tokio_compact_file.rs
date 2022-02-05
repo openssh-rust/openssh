@@ -1,6 +1,6 @@
 use super::super::{Buffer, Data};
 use super::utility::{take_io_slices, SelfRefWaitForCancellationFuture};
-use super::{Error, File, SftpError};
+use super::{Error, File, Id, SftpError, WriteEnd};
 
 use std::borrow::Cow;
 use std::cmp::min;
@@ -12,7 +12,7 @@ use std::ops::{Deref, DerefMut};
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-use openssh_sftp_client::{AwaitableDataFuture, AwaitableStatusFuture};
+use openssh_sftp_client::{AwaitableDataFuture, AwaitableStatusFuture, Handle};
 use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite, ReadBuf};
 
 use derive_destructure2::destructure;
@@ -31,6 +31,26 @@ fn sftp_to_io_error(sftp_err: SftpError) -> io::Error {
         SftpError::IOError(io_error) => io_error,
         sftp_err => io::Error::new(io::ErrorKind::Other, sftp_err),
     }
+}
+
+fn send_request<Func, R>(file: &mut File<'_>, f: Func) -> Result<R, io::Error>
+where
+    Func: FnOnce(&mut WriteEnd, Id, Cow<'_, Handle>, u64) -> Result<R, SftpError>,
+{
+    // Get id and offset to avoid reference to file.
+    let id = file.inner.get_id_mut();
+    let offset = file.offset;
+
+    let (write_end, handle) = file.get_inner();
+
+    // Add request to write buffer
+    let awaitable = f(write_end, id, handle, offset).map_err(sftp_to_io_error)?;
+
+    // Requests is already added to write buffer, so wakeup
+    // the `flush_task`.
+    write_end.get_auxiliary().wakeup_flush_task();
+
+    Ok(awaitable)
 }
 
 /// File that implements [`AsyncRead`], [`AsyncSeek`] and [`AsyncWrite`],
@@ -224,30 +244,18 @@ impl AsyncRead for TokioCompactFile<'_> {
             // if this.offset is changed.
             future
         } else {
-            // Get id, buffer and offset to avoid reference to this.
-            let id = this.inner.inner.get_id_mut();
             let buffer = mem::take(&mut this.buffer);
-            let offset = this.offset;
 
-            // Reference it here to make it clear that we are
-            // using different part of Self.
-            let (write_end, handle) = this.inner.get_inner();
-
-            // Start the future
-            let future = write_end
-                .send_read_request(
+            let future = send_request(&mut this.inner, |write_end, id, handle, offset| {
+                write_end.send_read_request(
                     id,
                     handle,
                     offset,
                     remaining.try_into().unwrap_or(u32::MAX),
                     Some(buffer),
                 )
-                .map_err(sftp_to_io_error)?
-                .wait();
-
-            // Requests is already added to write buffer, so wakeup
-            // the `flush_task`.
-            write_end.get_auxiliary().wakeup_flush_task();
+            })?
+            .wait();
 
             // Store it in this.read_future
             this.read_future = Some(future);
@@ -330,22 +338,10 @@ impl AsyncWrite for TokioCompactFile<'_> {
         // one mutable borrow to self.
         let this = &mut *self;
 
-        // Get id, buffer and offset to avoid reference to this.
-        let id = this.inner.inner.get_id_mut();
-        let offset = this.offset;
-
-        // Reference it here to make it clear that we are
-        // using different part of Self.
-        let (write_end, handle) = this.inner.get_inner();
-
-        let future = write_end
-            .send_write_request_buffered(id, handle, offset, Cow::Borrowed(buf))
-            .map_err(sftp_to_io_error)?
-            .wait();
-
-        // Requests is already added to write buffer, so wakeup
-        // the `flush_task`.
-        write_end.get_auxiliary().wakeup_flush_task();
+        let future = send_request(&mut this.inner, |write_end, id, handle, offset| {
+            write_end.send_write_request_buffered(id, handle, offset, Cow::Borrowed(buf))
+        })?
+        .wait();
 
         self.write_futures.push_back(future);
         // Since a new future is pushed, flushing is again required.
@@ -445,22 +441,10 @@ impl AsyncWrite for TokioCompactFile<'_> {
         // one mutable borrow to self.
         let this = &mut *self;
 
-        // Get id, buffer and offset to avoid reference to this.
-        let id = this.inner.inner.get_id_mut();
-        let offset = this.offset;
-
-        // Reference it here to make it clear that we are
-        // using different part of Self.
-        let (write_end, handle) = this.inner.get_inner();
-
-        let future = write_end
-            .send_write_request_buffered_vectored2(id, handle, offset, &buffers)
-            .map_err(sftp_to_io_error)?
-            .wait();
-
-        // Requests is already added to write buffer, so wakeup
-        // the `flush_task`.
-        write_end.get_auxiliary().wakeup_flush_task();
+        let future = send_request(&mut this.inner, |write_end, id, handle, offset| {
+            write_end.send_write_request_buffered_vectored2(id, handle, offset, &buffers)
+        })?
+        .wait();
 
         self.write_futures.push_back(future);
         // Since a new future is pushed, flushing is again required.
