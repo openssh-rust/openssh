@@ -223,6 +223,18 @@ impl<'s> Sftp<'s> {
         WriteEnd::new(self.shared_data.clone()).into()
     }
 
+    /// Get maximum amount of bytes that one single write requests
+    /// can write.
+    pub fn max_write_len(&self) -> u32 {
+        self.shared_data.get_auxiliary().limits().write_len
+    }
+
+    /// Get maximum amount of bytes that one single read requests
+    /// can read.
+    pub fn max_read_len(&self) -> u32 {
+        self.shared_data.get_auxiliary().limits().read_len
+    }
+
     /// Return a new [`OpenOptions`] object.
     pub fn options(&self) -> OpenOptions<'_> {
         OpenOptions::new(self)
