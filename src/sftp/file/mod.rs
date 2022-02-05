@@ -373,10 +373,11 @@ impl File<'_> {
         Ok(Some(buffer))
     }
 
-    /// This function can write in at most [`File::max_write_len`] bytes.
-    pub async fn write(&mut self, buf: &[u8]) -> Result<(), Error> {
+    /// This function can write in at most [`File::max_write_len`] bytes,
+    /// anything longer than that will be truncated.
+    pub async fn write(&mut self, buf: &[u8]) -> Result<usize, Error> {
         if buf.is_empty() {
-            return Ok(());
+            return Ok(0);
         }
 
         let offset = self.offset;
@@ -403,10 +404,11 @@ impl File<'_> {
             .start_seek(io::SeekFrom::Current(n as i64))
             .map_err(SftpError::from)?;
 
-        Ok(())
+        Ok(n as usize)
     }
 
-    /// This function can write in at most [`File::max_write_len`] bytes.
+    /// This function can write in at most [`File::max_write_len`] bytes,
+    /// anything longer than that will be truncated.
     pub async fn write_vectorized(&mut self, bufs: &[IoSlice<'_>]) -> Result<usize, Error> {
         if bufs.is_empty() {
             return Ok(0);
@@ -440,7 +442,8 @@ impl File<'_> {
         Ok(n)
     }
 
-    /// This function can write in at most [`File::max_write_len`] bytes.
+    /// This function can write in at most [`File::max_write_len`] bytes,
+    /// anything longer than that will be truncated.
     pub async fn write_zero_copy(&mut self, bytes_slice: &[Bytes]) -> Result<usize, Error> {
         if bytes_slice.is_empty() {
             return Ok(0);
