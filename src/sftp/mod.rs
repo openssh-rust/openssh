@@ -1,20 +1,20 @@
 use super::{child::RemoteChildImp, ChildStdin, ChildStdout, Error, Session};
 
-use std::future::Future;
 use std::io;
 use std::marker::PhantomData;
 use std::path::{Path, PathBuf};
 use std::process::ExitStatus;
 
-use openssh_sftp_client::{connect_with_auxiliary, Error as SftpError, Extensions};
-use thread_local::ThreadLocal;
-use tokio::{sync::Notify, task, time};
-use tokio_util::sync::CancellationToken;
+use openssh_sftp_client::{connect_with_auxiliary, Error as SftpError};
+use tokio::{task, time};
 
 pub use openssh_sftp_client::{FileType, Permissions, UnixTimeStamp};
 
 mod options;
 pub use options::SftpOptions;
+
+mod auxiliary;
+use auxiliary::Auxiliary;
 
 mod cache;
 use cache::{Cache, WriteEndWithCachedId};
@@ -43,58 +43,6 @@ type Data = openssh_sftp_client::Data<Buffer>;
 
 async fn flush(shared_data: &SharedData) -> Result<(), Error> {
     Ok(shared_data.flush().await.map_err(SftpError::from)?)
-}
-
-#[derive(Debug, Default)]
-struct Limits {
-    read_len: u32,
-    write_len: u32,
-}
-
-#[derive(Debug)]
-struct Auxiliary {
-    extensions: Extensions,
-    limits: Limits,
-
-    thread_local_cache: ThreadLocal<Cache<Id>>,
-
-    /// cancel_token is used to cancel `Awaitable*Future`
-    /// when the read_task/flush_task has failed.
-    cancel_token: CancellationToken,
-
-    /// flush_end_notify is used to avoid unnecessary wakeup
-    /// in flush_task.
-    flush_end_notify: Notify,
-}
-
-impl Auxiliary {
-    fn new() -> Self {
-        Self {
-            extensions: Extensions::default(),
-            limits: Limits::default(),
-            thread_local_cache: ThreadLocal::new(),
-            cancel_token: CancellationToken::new(),
-            flush_end_notify: Notify::new(),
-        }
-    }
-
-    /// * `f` - the future must be cancel safe.
-    async fn cancel_if_task_failed<R, E, F>(&self, future: F) -> Result<R, Error>
-    where
-        F: Future<Output = Result<R, E>>,
-        E: Into<Error>,
-    {
-        tokio::select! {
-            res = future => res.map_err(Into::into),
-            _ = self.cancel_token.cancelled() => Err(
-                SftpError::BackgroundTaskFailure(&"read/flush task failed").into()
-            ),
-        }
-    }
-
-    fn wakeup_flush_task(&self) {
-        self.flush_end_notify.notify_one();
-    }
 }
 
 /// A file-oriented channel to a remote host.
@@ -151,14 +99,14 @@ impl<'s> Sftp<'s> {
         // however each read/write request also has a header and
         // it contains a handle, which is 4-byte long for openssh
         // but can be at most 256 bytes long for other implementations.
-        let limits = Limits {
+        let limits = auxiliary::Limits {
             read_len: read_len.try_into().unwrap_or(u32::MAX - 300),
             write_len: write_len.try_into().unwrap_or(u32::MAX - 300),
         };
 
-        let auxiliary = write_end.get_auxiliary_mut().unwrap();
-        auxiliary.extensions = extensions;
-        auxiliary.limits = limits;
+        let auxiliary = write_end.get_auxiliary();
+
+        *auxiliary.conn_info.write() = auxiliary::ConnInfo { limits, extensions };
         auxiliary.thread_local_cache.get_or(|| Cache::new(Some(id)));
 
         let shared_data = SharedData::clone(&write_end);
