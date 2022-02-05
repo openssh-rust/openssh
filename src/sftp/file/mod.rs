@@ -130,7 +130,7 @@ impl<'s> OpenOptions<'s> {
     async fn open_impl(&self, path: &Path) -> Result<File<'s>, Error> {
         let filename = Cow::Borrowed(path);
 
-        let params = if self.create {
+        let params = if self.create || self.create_new {
             let flags = if self.create_new {
                 CreateFlags::Excl
             } else if self.truncate {
