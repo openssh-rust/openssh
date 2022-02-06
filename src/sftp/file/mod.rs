@@ -523,6 +523,20 @@ impl File<'_> {
         Ok(buffer)
     }
 
+    /// Write entire `buf`.
+    ///
+    /// # Cancel Safety
+    ///
+    /// This function is cancel safe.
+    pub async fn write_all(&mut self, mut buf: &[u8]) -> Result<(), Error> {
+        while !buf.is_empty() {
+            let n = self.write(buf).await?;
+            buf = &buf[n..];
+        }
+
+        Ok(())
+    }
+
     /// Return the offset of the file.
     pub fn offset(&self) -> u64 {
         self.offset
