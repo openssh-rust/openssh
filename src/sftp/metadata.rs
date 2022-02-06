@@ -1,6 +1,6 @@
-use super::{Permissions, UnixTimeStamp};
+use super::UnixTimeStamp;
 
-use openssh_sftp_client::{FileAttrs, FileType as SftpFileType};
+use openssh_sftp_client::{FileAttrs, FileType as SftpFileType, Permissions as SftpPermissions};
 
 /// Builder of [`MetaData`].
 #[derive(Debug, Default, Copy, Clone)]
@@ -26,7 +26,7 @@ impl MetaDataBuilder {
 
     /// Set permissions of the metadata to be built.
     pub fn permissions(&mut self, perm: Permissions) -> &mut Self {
-        self.0.set_permissions(perm);
+        self.0.set_permissions(perm.0);
         self
     }
 
@@ -86,7 +86,7 @@ impl MetaData {
     /// Return `None` if the server did not return
     /// the permissions.
     pub fn permissions(&self) -> Option<Permissions> {
-        self.0.get_permissions()
+        self.0.get_permissions().map(Permissions)
     }
 
     /// Returns the file type.
@@ -153,5 +153,115 @@ impl FileType {
     /// Test whether this file type represents a character device.
     pub fn is_character_device(&self) -> bool {
         self.0 == SftpFileType::CharacterDevice
+    }
+}
+
+/// Representation of the various permissions on a file.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct Permissions(SftpPermissions);
+
+macro_rules! impl_getter_setter {
+    ($getter_name:ident, $setter_name:ident, $variant:ident, $variant_name:expr) => {
+        #[doc = "Tests whether "]
+        #[doc = $variant_name]
+        #[doc = " bit is set."]
+        pub fn $getter_name(&self) -> bool {
+            self.0.intersects(SftpPermissions::$variant)
+        }
+
+        #[doc = "Modify the "]
+        #[doc = $variant_name]
+        #[doc = " bit."]
+        pub fn $setter_name(&mut self, value: bool) {
+            self.0.set(SftpPermissions::$variant, value);
+        }
+    };
+}
+
+impl Permissions {
+    impl_getter_setter!(suid, set_suid, SET_UID, "set-user-id");
+    impl_getter_setter!(sgid, set_sgid, SET_GID, "set-group-id");
+    impl_getter_setter!(svtx, set_vtx, SET_VTX, "set-sticky-bit");
+
+    impl_getter_setter!(
+        read_by_owner,
+        set_read_by_owner,
+        READ_BY_OWNER,
+        "read by owner"
+    );
+    impl_getter_setter!(
+        write_by_owner,
+        set_write_by_owner,
+        WRITE_BY_OWNER,
+        "write by owner"
+    );
+    impl_getter_setter!(
+        execute_by_owner,
+        set_execute_by_owner,
+        EXECUTE_BY_OWNER,
+        "execute by owner"
+    );
+
+    impl_getter_setter!(
+        read_by_group,
+        set_read_by_group,
+        READ_BY_GROUP,
+        "read by group"
+    );
+    impl_getter_setter!(
+        write_by_group,
+        set_write_by_group,
+        WRITE_BY_GROUP,
+        "write by group"
+    );
+    impl_getter_setter!(
+        execute_by_group,
+        set_execute_by_group,
+        EXECUTE_BY_GROUP,
+        "execute by group"
+    );
+
+    impl_getter_setter!(
+        read_by_other,
+        set_read_by_other,
+        READ_BY_OTHER,
+        "read by other"
+    );
+    impl_getter_setter!(
+        write_by_other,
+        set_write_by_other,
+        WRITE_BY_OTHER,
+        "write by other"
+    );
+    impl_getter_setter!(
+        execute_by_other,
+        set_execute_by_other,
+        EXECUTE_BY_OTHER,
+        "execute by other"
+    );
+
+    /// Returns `true` if these permissions describe an unwritable file
+    /// that no one can write to.
+    pub fn readonly(&self) -> bool {
+        !self.write_by_owner() && !self.write_by_group() && !self.write_by_other()
+    }
+
+    /// Modifies the readonly flag for this set of permissions.
+    ///
+    /// If the readonly argument is true, it will remove write permissions
+    /// from all parties.
+    ///
+    /// Conversely, if it’s false, it will permit writing from all parties.
+    ///
+    /// This operation does not modify the filesystem.
+    ///
+    /// To modify the filesystem use the [`super::Fs::set_permissions`] or
+    /// the [`super::File::set_permissions`] function.
+    pub fn set_readonly(&mut self, readonly: bool) {
+        let writable = !readonly;
+
+        self.set_write_by_owner(writable);
+        self.set_write_by_group(writable);
+        self.set_write_by_other(writable);
     }
 }
