@@ -54,7 +54,7 @@ impl<'s> Fs<'s> {
     }
 
     fn concat_path_if_needed<'path>(&self, path: &'path Path) -> Cow<'path, Path> {
-        if path.is_absolute() {
+        if path.is_absolute() || self.cwd.as_os_str().is_empty() {
             Cow::Borrowed(path)
         } else {
             Cow::Owned(self.cwd.join(path))

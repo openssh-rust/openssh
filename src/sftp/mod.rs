@@ -265,7 +265,7 @@ impl<'s> Sftp<'s> {
         Fs::new(
             self,
             self.write_end(),
-            cwd.map(Into::into).unwrap_or_else(|| "~".into()),
+            cwd.map(Into::into).unwrap_or_else(|| "".into()),
         )
     }
 
