@@ -487,6 +487,42 @@ impl File<'_> {
         Ok(n)
     }
 
+    /// * `n` - number of bytes to read in.
+    ///
+    /// If `n == 0` or EOF is reached, then `buffer` is returned unchanged.
+    ///
+    /// # Cancel Safety
+    ///
+    /// This function is cancel safe.
+    pub async fn read_all(
+        &mut self,
+        mut n: usize,
+        mut buffer: BytesMut,
+    ) -> Result<BytesMut, Error> {
+        if n == 0 {
+            return Ok(buffer);
+        }
+
+        buffer.reserve(n);
+
+        while n > 0 {
+            let len = buffer.len();
+            if let Some(bytes) = self
+                .read(n.try_into().unwrap_or(u32::MAX), buffer.split_off(len))
+                .await?
+            {
+                n -= bytes.len();
+                buffer.unsplit(bytes);
+            } else {
+                return Err(
+                    SftpError::from(io::Error::new(io::ErrorKind::UnexpectedEof, "")).into(),
+                );
+            }
+        }
+
+        Ok(buffer)
+    }
+
     /// Return the offset of the file.
     pub fn offset(&self) -> u64 {
         self.offset
