@@ -151,7 +151,10 @@ async fn sftp_file_write_all_vectored() {
     let path = Path::new("/tmp/sftp_file_write_all_vectored");
 
     for session in connects().await {
-        let sftp = session.sftp(SftpOptions::new()).await.unwrap();
+        let sftp = session
+            .sftp(SftpOptions::new().max_write_len(200).max_read_len(200))
+            .await
+            .unwrap();
 
         let mut tester = SftpFileWriteAllTester::new(&sftp, path).await;
 
