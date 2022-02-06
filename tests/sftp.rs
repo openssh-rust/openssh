@@ -4,6 +4,7 @@ use common::*;
 use openssh::sftp::*;
 
 use std::cmp::{max, min};
+use std::io::IoSlice;
 use std::path::Path;
 
 use bytes::BytesMut;
@@ -73,42 +74,100 @@ async fn sftp_file_basics() {
     }
 }
 
+struct SftpFileWriteAllTester<'s> {
+    path: &'static Path,
+    file: File<'s>,
+    fs: Fs<'s>,
+    content: Vec<u8>,
+}
+
+impl<'s> SftpFileWriteAllTester<'s> {
+    async fn new(sftp: &'s Sftp<'s>, path: &'static Path) -> SftpFileWriteAllTester<'s> {
+        let max_len = max(sftp.max_write_len(), sftp.max_read_len()) as usize;
+        let content = b"HELLO, WORLD!\n".repeat(max_len / 8);
+
+        let file = sftp
+            .options()
+            .write(true)
+            .read(true)
+            .create(true)
+            .open(path)
+            .await
+            .unwrap();
+        let fs = sftp.fs("");
+
+        Self {
+            path,
+            file,
+            fs,
+            content,
+        }
+    }
+
+    async fn assert_content(mut self) {
+        let len = self.content.len();
+
+        self.file.rewind().await.unwrap();
+
+        let buffer = self
+            .file
+            .read_all(len, BytesMut::with_capacity(len))
+            .await
+            .unwrap();
+
+        assert_eq!(&*buffer, &*self.content);
+
+        // remove the file
+        self.fs.remove_file(self.path).await.unwrap();
+    }
+}
+
 #[tokio::test]
 #[cfg_attr(not(ci), ignore)]
 /// Test File::write_all, File::read_all and AsyncSeek implementation
 async fn sftp_file_write_all() {
-    let path = "/tmp/sftp_file_write_all";
+    let path = Path::new("/tmp/sftp_file_write_all");
 
     for session in connects().await {
         let sftp = session.sftp(SftpOptions::new()).await.unwrap();
 
-        let max_len = max(sftp.max_write_len(), sftp.max_read_len()) as usize;
-        let content = b"HELLO, WORLD!\n".repeat(max_len / 8);
+        let mut tester = SftpFileWriteAllTester::new(&sftp, path).await;
 
-        {
-            let mut file = sftp
-                .options()
-                .write(true)
-                .read(true)
-                .create(true)
-                .open(path)
-                .await
-                .unwrap();
-            let mut fs = sftp.fs("");
+        tester.file.write_all(&tester.content).await.unwrap();
+        tester.assert_content().await;
 
-            file.write_all(&content).await.unwrap();
-            file.rewind().await.unwrap();
+        // close sftp and session
+        sftp.close().await.unwrap();
+        session.close().await.unwrap();
+    }
+}
 
-            let buffer = file
-                .read_all(content.len(), BytesMut::with_capacity(content.len()))
-                .await
-                .unwrap();
+#[tokio::test]
+#[cfg_attr(not(ci), ignore)]
+/// Test File::write_all_vectorized, File::read_all and AsyncSeek implementation
+async fn sftp_file_write_all_vectored() {
+    let path = Path::new("/tmp/sftp_file_write_all_vectored");
 
-            assert_eq!(&*buffer, &*content);
+    for session in connects().await {
+        let sftp = session.sftp(SftpOptions::new()).await.unwrap();
 
-            // remove the file
-            fs.remove_file(path).await.unwrap();
-        }
+        let mut tester = SftpFileWriteAllTester::new(&sftp, path).await;
+
+        let content = &tester.content;
+        let len = content.len();
+
+        tester
+            .file
+            .write_all_vectorized(
+                [
+                    IoSlice::new(&content[..len / 2]),
+                    IoSlice::new(&content[len / 2..]),
+                ]
+                .as_mut_slice(),
+            )
+            .await
+            .unwrap();
+        tester.assert_content().await;
 
         // close sftp and session
         sftp.close().await.unwrap();
