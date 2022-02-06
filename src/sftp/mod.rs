@@ -9,7 +9,7 @@ use bytes::BytesMut;
 use openssh_sftp_client::{connect_with_auxiliary, Error as SftpError};
 use tokio::{task, time};
 
-pub use openssh_sftp_client::{Permissions, UnixTimeStamp};
+pub use openssh_sftp_client::{Permissions, UnixTimeStamp, UnixTimeStampError};
 
 mod options;
 pub use options::SftpOptions;
