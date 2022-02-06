@@ -1,7 +1,7 @@
 use super::UnixTimeStamp;
 
 use openssh_sftp_client::{FileAttrs, FileType as SftpFileType, Permissions as SftpPermissions};
-use std::os::unix::fs::PermissionsExt;
+use std::os::unix::fs::{FileTypeExt, PermissionsExt};
 
 /// Builder of [`MetaData`].
 #[derive(Debug, Default, Copy, Clone)]
@@ -135,24 +135,24 @@ impl FileType {
     pub fn is_symlink(&self) -> bool {
         self.0 == SftpFileType::Symlink
     }
+}
 
-    /// Tests whether this file type represents a FIFO.
-    pub fn is_fifo(&self) -> bool {
+/// Implement [`FileTypeExt`] just to be compatible with [`std::fs::FileType`].
+impl FileTypeExt for FileType {
+    fn is_fifo(&self) -> bool {
         self.0 == SftpFileType::FIFO
     }
 
     /// Tests whether this file type represents a socket.
-    pub fn is_socket(&self) -> bool {
+    fn is_socket(&self) -> bool {
         self.0 == SftpFileType::Socket
     }
 
-    /// Test whether this file type represents a block device.
-    pub fn is_block_device(&self) -> bool {
+    fn is_block_device(&self) -> bool {
         self.0 == SftpFileType::BlockDevice
     }
 
-    /// Test whether this file type represents a character device.
-    pub fn is_character_device(&self) -> bool {
+    fn is_char_device(&self) -> bool {
         self.0 == SftpFileType::CharacterDevice
     }
 }
