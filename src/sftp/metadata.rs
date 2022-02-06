@@ -1,6 +1,7 @@
 use super::UnixTimeStamp;
 
 use openssh_sftp_client::{FileAttrs, FileType as SftpFileType, Permissions as SftpPermissions};
+use std::os::unix::fs::PermissionsExt;
 
 /// Builder of [`MetaData`].
 #[derive(Debug, Default, Copy, Clone)]
@@ -263,5 +264,19 @@ impl Permissions {
         self.set_write_by_owner(writable);
         self.set_write_by_group(writable);
         self.set_write_by_other(writable);
+    }
+}
+
+impl PermissionsExt for Permissions {
+    fn mode(&self) -> u32 {
+        self.0.bits()
+    }
+
+    fn set_mode(&mut self, mode: u32) {
+        self.0 = SftpPermissions::from_bits_truncate(mode);
+    }
+
+    fn from_mode(mode: u32) -> Self {
+        Self(SftpPermissions::from_bits_truncate(mode))
     }
 }
