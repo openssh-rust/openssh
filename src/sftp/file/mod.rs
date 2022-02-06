@@ -9,12 +9,12 @@ use std::future::Future;
 use std::io::{self, IoSlice};
 use std::path::Path;
 use std::pin::Pin;
-use std::slice;
 use std::task::{Context, Poll};
 
 use bytes::{Buf, Bytes, BytesMut};
 use openssh_sftp_client::{CreateFlags, Data, FileAttrs, Handle};
 use tokio::io::AsyncSeek;
+use tokio_io_utility::IoSliceExt;
 
 mod tokio_compact_file;
 pub use tokio_compact_file::TokioCompactFile;
@@ -566,16 +566,7 @@ impl File<'_> {
                 }
             }
 
-            let buf = &bufs[0][n..];
-            // Safety:
-            //
-            // Due to the fact that buf is obtained using `IoSlice::deref`,
-            // it is limited by the lifetime of `IoSlice` it dereferenced from,
-            // thus it cannot be assigned back to bufs[0].
-            //
-            // The slice it returned from `IoSlice<'a>` actually lives as long
-            // as `'a`, so assignment is safe.
-            bufs[0] = IoSlice::new(unsafe { slice::from_raw_parts(buf.as_ptr(), buf.len()) });
+            bufs[0] = IoSlice::new(&bufs[0].into_inner()[n..]);
         }
     }
 
