@@ -6,10 +6,10 @@ use std::io::{self, IoSlice};
 use std::mem;
 use std::ops::Deref;
 use std::pin::Pin;
-use std::slice;
 use std::task::{Context, Poll};
 
 use bytes::Bytes;
+use tokio_io_utility::IoSliceExt;
 use tokio_util::sync::WaitForCancellationFuture;
 
 use openssh_sftp_client::Error as SftpError;
@@ -187,24 +187,6 @@ fn take_slices<T: Deref<Target = [u8]>>(
     Some((n, &bufs[..end], buf))
 }
 
-fn create_io_subslice<'a>(io_slice: &IoSlice<'a>, end: usize) -> IoSlice<'a> {
-    let slice = &io_slice[..end];
-
-    let ptr = slice.as_ptr();
-    let len = slice.len();
-
-    // safety: `IoSlice<'a>` holds a `&'a [u8]` internally.
-    //
-    // `IoSlice::deref` returns the internal slice, however due to limitations
-    // of `Deref` trait, the lifetime is further reduced to lifetime of
-    // `IoSlice`.
-    //
-    // The unsafe used here merely reverted it back to its original lifetime.
-    let slice: &'a [u8] = unsafe { slice::from_raw_parts(ptr, len) };
-
-    IoSlice::new(slice)
-}
-
 /// Return `Some((n, io_subslices, [reminder]))` where
 ///  - `n` is number of bytes in `io_subslices` and `reminder`.
 ///  - `io_subslices` is a subslice of `io_slices`
@@ -217,7 +199,9 @@ pub(super) fn take_io_slices<'a>(
     io_slices: &'a [IoSlice<'a>],
     limit: usize,
 ) -> Option<(usize, &'a [IoSlice<'a>], [IoSlice<'a>; 1])> {
-    take_slices(io_slices, limit, create_io_subslice)
+    take_slices(io_slices, limit, |io_slice, end| {
+        IoSlice::new(&io_slice.into_inner()[..end])
+    })
 }
 
 /// Return `Some((n, bytes_subslice, [reminder]))` where
