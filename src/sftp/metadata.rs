@@ -1,6 +1,6 @@
-use super::{FileType, Permissions, UnixTimeStamp};
+use super::{Permissions, UnixTimeStamp};
 
-use openssh_sftp_client::FileAttrs;
+use openssh_sftp_client::{FileAttrs, FileType as SftpFileType};
 
 /// Builder of [`MetaData`].
 #[derive(Debug, Default, Copy, Clone)]
@@ -94,7 +94,7 @@ impl MetaData {
     /// Return `None` if the server did not return
     /// the file type.
     pub fn file_type(&self) -> Option<FileType> {
-        self.0.get_filetype()
+        self.0.get_filetype().map(FileType)
     }
 
     /// Returns the last access time.
@@ -111,5 +111,47 @@ impl MetaData {
     /// the last modification time.
     pub fn modified(&self) -> Option<UnixTimeStamp> {
         self.0.get_time().map(|(_atime, mtime)| mtime)
+    }
+}
+
+/// A structure representing a type of file with accessors for each file type.
+/// It is returned by [`Metadata::file_type`] method.
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub struct FileType(SftpFileType);
+
+impl FileType {
+    /// Tests whether this file type represents a directory.
+    pub fn is_dir(&self) -> bool {
+        self.0 == SftpFileType::Directory
+    }
+
+    /// Tests whether this file type represents a regular file.
+    pub fn is_file(&self) -> bool {
+        self.0 == SftpFileType::RegularFile
+    }
+
+    /// Tests whether this file type represents a symbolic link.
+    pub fn is_symlink(&self) -> bool {
+        self.0 == SftpFileType::Symlink
+    }
+
+    /// Tests whether this file type represents a FIFO.
+    pub fn is_fifo(&self) -> bool {
+        self.0 == SftpFileType::FIFO
+    }
+
+    /// Tests whether this file type represents a socket.
+    pub fn is_socket(&self) -> bool {
+        self.0 == SftpFileType::Socket
+    }
+
+    /// Test whether this file type represents a block device.
+    pub fn is_block_device(&self) -> bool {
+        self.0 == SftpFileType::BlockDevice
+    }
+
+    /// Test whether this file type represents a character device.
+    pub fn is_character_device(&self) -> bool {
+        self.0 == SftpFileType::CharacterDevice
     }
 }
