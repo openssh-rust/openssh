@@ -1,5 +1,6 @@
 use super::{child::RemoteChildImp, ChildStdin, ChildStdout, Error, Session};
 
+use std::cmp::min;
 use std::io;
 use std::marker::PhantomData;
 use std::path::{Path, PathBuf};
@@ -105,9 +106,22 @@ impl<'s> Sftp<'s> {
         // however each read/write request also has a header and
         // it contains a handle, which is 4-byte long for openssh
         // but can be at most 256 bytes long for other implementations.
+
+        let read_len = read_len.try_into().unwrap_or(u32::MAX - 300);
+        let read_len = options
+            .get_max_read_len()
+            .map(|v| min(v, read_len))
+            .unwrap_or(read_len);
+
+        let write_len = write_len.try_into().unwrap_or(u32::MAX - 300);
+        let write_len = options
+            .get_max_write_len()
+            .map(|v| min(v, write_len))
+            .unwrap_or(write_len);
+
         let limits = auxiliary::Limits {
-            read_len: read_len.try_into().unwrap_or(u32::MAX - 300),
-            write_len: write_len.try_into().unwrap_or(u32::MAX - 300),
+            read_len,
+            write_len,
         };
 
         let auxiliary = write_end.get_auxiliary();

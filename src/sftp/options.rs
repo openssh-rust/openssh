@@ -4,6 +4,8 @@ use std::time::Duration;
 #[derive(Debug, Copy, Clone, Default)]
 pub struct SftpOptions {
     flush_interval: Option<Duration>,
+    max_read_len: Option<u32>,
+    max_write_len: Option<u32>,
 }
 
 impl SftpOptions {
@@ -11,6 +13,8 @@ impl SftpOptions {
     pub const fn new() -> Self {
         Self {
             flush_interval: None,
+            max_read_len: None,
+            max_write_len: None,
         }
     }
 
@@ -41,5 +45,31 @@ impl SftpOptions {
     pub(super) fn get_flush_interval(&self) -> Duration {
         self.flush_interval
             .unwrap_or_else(|| Duration::from_micros(500))
+    }
+
+    /// Set `max_read_len`.
+    ///
+    /// It can be used to reduce `max_read_len`, but cannot be used
+    /// to increase `max_read_len`.
+    pub const fn max_read_len(mut self, max_read_len: u32) -> Self {
+        self.max_read_len = Some(max_read_len);
+        self
+    }
+
+    pub(super) fn get_max_read_len(&self) -> Option<u32> {
+        self.max_read_len
+    }
+
+    /// Set `max_write_len`.
+    ///
+    /// It can be used to reduce `max_write_len`, but cannot be used
+    /// to increase `max_write_len`.
+    pub const fn max_write_len(mut self, max_write_len: u32) -> Self {
+        self.max_write_len = Some(max_write_len);
+        self
+    }
+
+    pub(super) fn get_max_write_len(&self) -> Option<u32> {
+        self.max_write_len
     }
 }
