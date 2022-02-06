@@ -1,6 +1,6 @@
 use super::{
-    Auxiliary, Buffer, Error, Id, MetaData, MetaDataBuilder, OwnedHandle, Sftp, SftpError,
-    WriteEnd, WriteEndWithCachedId,
+    Auxiliary, Buffer, Error, Id, MetaData, MetaDataBuilder, OwnedHandle, Permissions, Sftp,
+    SftpError, WriteEnd, WriteEndWithCachedId,
 };
 
 use std::borrow::Cow;
@@ -8,7 +8,6 @@ use std::cmp::min;
 use std::path::{Path, PathBuf};
 
 use bytes::BytesMut;
-use openssh_sftp_client::{FileAttrs, Permissions};
 
 mod dir;
 pub use dir::{DirEntry, ReadDir};
@@ -79,7 +78,7 @@ impl<'s> Fs<'s> {
     pub fn dir_builder(&mut self) -> DirBuilder<'_, 's> {
         DirBuilder {
             fs: self,
-            attrs: FileAttrs::new(),
+            metadata_builder: MetaDataBuilder::new(),
         }
     }
 
@@ -352,25 +351,25 @@ impl Dir<'_> {
 #[derive(Debug)]
 pub struct DirBuilder<'a, 's> {
     fs: &'a mut Fs<'s>,
-    attrs: FileAttrs,
+    metadata_builder: MetaDataBuilder,
 }
 
 impl DirBuilder<'_, '_> {
     /// Reset builder back to default.
     pub fn reset(&mut self) -> &mut Self {
-        self.attrs = FileAttrs::new();
+        self.metadata_builder = MetaDataBuilder::new();
         self
     }
 
     /// Set id of the dir to be built.
     pub fn id(&mut self, (uid, gid): (u32, u32)) -> &mut Self {
-        self.attrs.set_id(uid, gid);
+        self.metadata_builder.id((uid, gid));
         self
     }
 
     /// Set permissions of the dir to be built.
     pub fn permissions(&mut self, perm: Permissions) -> &mut Self {
-        self.attrs.set_permissions(perm);
+        self.metadata_builder.permissions(perm);
         self
     }
 
@@ -378,11 +377,10 @@ impl DirBuilder<'_, '_> {
         let fs = &mut self.fs;
 
         let path = fs.concat_path_if_needed(path);
+        let attrs = self.metadata_builder.create().into_inner();
 
         fs.write_end
-            .send_request(|write_end, id| {
-                Ok(write_end.send_mkdir_request(id, path, self.attrs)?.wait())
-            })
+            .send_request(|write_end, id| Ok(write_end.send_mkdir_request(id, path, attrs)?.wait()))
             .await
     }
 

@@ -1,4 +1,7 @@
-use super::{Auxiliary, Error, Id, MetaData, OwnedHandle, Permissions, Sftp, SftpError, WriteEnd};
+use super::{
+    Auxiliary, Error, Id, MetaData, MetaDataBuilder, OwnedHandle, Permissions, Sftp, SftpError,
+    WriteEnd,
+};
 
 use std::borrow::Cow;
 use std::cmp::{min, Ordering};
@@ -331,10 +334,9 @@ impl File<'_> {
     ///
     /// This function is cancel safe.
     pub async fn set_permissions(&mut self, perm: Permissions) -> Result<(), Error> {
-        let mut attrs = FileAttrs::new();
-        attrs.set_permissions(perm);
+        let metadata = MetaDataBuilder::new().permissions(perm).create();
 
-        self.set_metadata(MetaData::new(attrs)).await
+        self.set_metadata(metadata).await
     }
 
     /// Queries metadata about the underlying file.

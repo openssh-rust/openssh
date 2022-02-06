@@ -9,7 +9,7 @@ use bytes::BytesMut;
 use openssh_sftp_client::{connect_with_auxiliary, Error as SftpError};
 use tokio::{task, time};
 
-pub use openssh_sftp_client::{Permissions, UnixTimeStamp, UnixTimeStampError};
+pub use openssh_sftp_client::{UnixTimeStamp, UnixTimeStampError};
 
 mod options;
 pub use options::SftpOptions;
@@ -33,7 +33,7 @@ pub use fs::ReadDir;
 pub use fs::{Dir, DirBuilder, Fs};
 
 mod metadata;
-pub use metadata::{FileType, MetaData, MetaDataBuilder};
+pub use metadata::{FileType, MetaData, MetaDataBuilder, Permissions};
 
 type Buffer = BytesMut;
 
