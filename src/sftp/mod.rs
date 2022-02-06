@@ -260,15 +260,11 @@ impl<'s> Sftp<'s> {
     }
 
     /// * `cwd` - The current working dir for the [`Fs`].
-    ///           If `cwd` is `None`, then it is set to use
+    ///           If `cwd` is empty, then it is set to use
     ///           the default directory set by the remote
     ///           `sftp-server`.
-    pub fn fs(&self, cwd: Option<impl Into<PathBuf>>) -> Fs<'_> {
-        Fs::new(
-            self,
-            self.write_end(),
-            cwd.map(Into::into).unwrap_or_else(|| "".into()),
-        )
+    pub fn fs(&self, cwd: impl Into<PathBuf>) -> Fs<'_> {
+        Fs::new(self, self.write_end(), cwd.into())
     }
 
     /// Forcibly flush the write buffer.

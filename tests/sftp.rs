@@ -32,7 +32,7 @@ async fn sftp_file_basics() {
         let content = &content[..min(sftp.max_write_len() as usize, content.len())];
 
         {
-            let mut fs = sftp.fs(Some(""));
+            let mut fs = sftp.fs("");
 
             // Create new file with Excl and write to it.
             debug_assert_eq!(
@@ -94,7 +94,7 @@ async fn sftp_file_write_all() {
                 .open(path)
                 .await
                 .unwrap();
-            let mut fs = sftp.fs(Some(""));
+            let mut fs = sftp.fs("");
 
             file.write_all(&content).await.unwrap();
             file.rewind().await.unwrap();
@@ -127,7 +127,7 @@ async fn sftp_dir_basics() {
         let sftp = session.sftp(SftpOptions::new()).await.unwrap();
 
         {
-            let mut fs = sftp.fs(Some(""));
+            let mut fs = sftp.fs("");
 
             fs.create_dir(path).await.unwrap();
 
