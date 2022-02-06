@@ -94,9 +94,9 @@ async fn sftp_dir_basics() {
                 if filename == "." || filename == ".." {
                     continue;
                 } else if filename == "dir" {
-                    assert_eq!(entry.file_type().unwrap(), FileType::Directory);
+                    assert!(entry.file_type().unwrap().is_dir());
                 } else if filename == "file" {
-                    assert_eq!(entry.file_type().unwrap(), FileType::RegularFile);
+                    assert!(entry.file_type().unwrap().is_file());
                 } else {
                     unreachable!("Unreachable!");
                 }
