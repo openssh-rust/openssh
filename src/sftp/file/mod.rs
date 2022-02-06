@@ -486,6 +486,11 @@ impl File<'_> {
 
         Ok(n)
     }
+
+    /// Return the offset of the file.
+    pub fn offset(&self) -> u64 {
+        self.offset
+    }
 }
 
 impl AsyncSeek for File<'_> {
@@ -541,7 +546,7 @@ impl AsyncSeek for File<'_> {
         Ok(())
     }
 
-    /// This function is a no-op.
+    /// This function is a no-op, it simply return the offset.
     fn poll_complete(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<u64>> {
         Poll::Ready(Ok(self.offset))
     }
