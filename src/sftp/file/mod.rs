@@ -9,6 +9,7 @@ use std::future::Future;
 use std::io::{self, IoSlice};
 use std::path::Path;
 use std::pin::Pin;
+use std::slice;
 use std::task::{Context, Poll};
 
 use bytes::{Bytes, BytesMut};
@@ -535,6 +536,47 @@ impl File<'_> {
         }
 
         Ok(())
+    }
+
+    /// Write entire `buf`.
+    ///
+    /// # Cancel Safety
+    ///
+    /// This function is cancel safe.
+    pub async fn write_all_vectorized(
+        &mut self,
+        mut bufs: &mut [IoSlice<'_>],
+    ) -> Result<(), Error> {
+        if bufs.is_empty() {
+            return Ok(());
+        }
+
+        loop {
+            let mut n = self.write_vectorized(bufs).await?;
+
+            // This loop would also skip all `IoSlice` that is empty
+            // until the first non-empty `IoSlice` is met.
+            while bufs[0].len() <= n {
+                n -= bufs[0].len();
+                bufs = &mut bufs[1..];
+
+                if bufs.is_empty() {
+                    debug_assert_eq!(n, 0);
+                    return Ok(());
+                }
+            }
+
+            let buf = &bufs[0][n..];
+            // Safety:
+            //
+            // Due to the fact that buf is obtained using `IoSlice::deref`,
+            // it is limited by the lifetime of `IoSlice` it dereferenced from,
+            // thus it cannot be assigned back to bufs[0].
+            //
+            // The slice it returned from `IoSlice<'a>` actually lives as long
+            // as `'a`, so assignment is safe.
+            bufs[0] = IoSlice::new(unsafe { slice::from_raw_parts(buf.as_ptr(), buf.len()) });
+        }
     }
 
     /// Return the offset of the file.
