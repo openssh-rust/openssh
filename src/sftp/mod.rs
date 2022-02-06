@@ -260,7 +260,9 @@ impl<'s> Sftp<'s> {
     }
 
     /// * `cwd` - The current working dir for the [`Fs`].
-    ///           If `cwd` is `None`, then it is set to `~`.
+    ///           If `cwd` is `None`, then it is set to use
+    ///           the default directory set by the remote
+    ///           `sftp-server`.
     pub fn fs(&self, cwd: Option<impl Into<PathBuf>>) -> Fs<'_> {
         Fs::new(
             self,
