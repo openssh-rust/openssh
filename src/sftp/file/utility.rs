@@ -218,3 +218,31 @@ pub(super) fn take_bytes(
 ) -> Option<(usize, &[Bytes], [Bytes; 1])> {
     take_slices(bytes_slice, limit, |bytes, end| bytes.slice(0..end))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{take_io_slices, IoSlice};
+    use pretty_assertions::assert_eq;
+
+    #[test]
+    fn test_take_io_slices() {
+        let limit = 200;
+
+        let content = b"HELLO, WORLD!\n".repeat(limit / 8);
+        let len = content.len();
+
+        assert!(len / 2 < limit);
+
+        let io_slices = [
+            IoSlice::new(&content[..len / 2]),
+            IoSlice::new(&content[len / 2..]),
+        ];
+
+        let (n, io_subslices, reminder) = take_io_slices(&io_slices, limit).unwrap();
+
+        assert_eq!(n, limit);
+        assert_eq!(io_subslices.len(), 1);
+        assert_eq!(&*io_subslices[0], &*io_slices[0]);
+        assert_eq!(&*reminder[0], &io_slices[1][..(limit - len / 2)]);
+    }
+}
