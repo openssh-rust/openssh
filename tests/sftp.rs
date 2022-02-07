@@ -182,6 +182,42 @@ async fn sftp_file_write_all_vectored() {
 
 #[tokio::test]
 #[cfg_attr(not(ci), ignore)]
+/// Test File::write_all_vectorized, File::read_all and AsyncSeek implementation
+async fn sftp_file_write_all_zero_copy() {
+    let path = Path::new("/tmp/sftp_file_write_all_zero_copy");
+
+    for session in connects().await {
+        let sftp = session
+            .sftp(SftpOptions::new().max_write_len(200).max_read_len(200))
+            .await
+            .unwrap();
+
+        let mut tester = SftpFileWriteAllTester::new(&sftp, path).await;
+
+        let content = &tester.content;
+        let len = content.len();
+
+        tester
+            .file
+            .write_all_zero_copy(
+                [
+                    BytesMut::from(&content[..len / 2]).freeze(),
+                    BytesMut::from(&content[len / 2..]).freeze(),
+                ]
+                .as_mut_slice(),
+            )
+            .await
+            .unwrap();
+        tester.assert_content().await;
+
+        // close sftp and session
+        sftp.close().await.unwrap();
+        session.close().await.unwrap();
+    }
+}
+
+#[tokio::test]
+#[cfg_attr(not(ci), ignore)]
 /// Test creating, removing and iterating over dir, as well
 /// as removing file.
 async fn sftp_dir_basics() {
