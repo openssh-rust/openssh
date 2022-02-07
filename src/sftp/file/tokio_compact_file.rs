@@ -177,26 +177,14 @@ impl DerefMut for TokioCompactFile<'_> {
 
 impl AsyncSeek for TokioCompactFile<'_> {
     fn start_seek(mut self: Pin<&mut Self>, position: io::SeekFrom) -> io::Result<()> {
-        use io::SeekFrom::*;
-
-        match position {
-            Start(pos) => {
-                if pos == self.offset {
-                    return Ok(());
-                }
-            }
-            Current(n) => {
-                if n == 0 {
-                    return Ok(());
-                }
-            }
-            _ => (),
-        }
-
+        let prev_offset = self.offset();
         Pin::new(&mut self.inner).start_seek(position)?;
+        let new_offset = self.offset();
 
-        // Reset future since they are invalidated by change of offset.
-        self.read_future = None;
+        if new_offset != prev_offset {
+            // Reset future since they are invalidated by change of offset.
+            self.read_future = None;
+        }
 
         Ok(())
     }
