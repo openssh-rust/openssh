@@ -10,7 +10,7 @@ use std::path::Path;
 use bytes::BytesMut;
 use tokio::io::AsyncSeekExt;
 
-use pretty_assertions::{assert_eq, assert_ne};
+use pretty_assertions::assert_eq;
 
 #[tokio::test]
 #[cfg_attr(not(ci), ignore)]
