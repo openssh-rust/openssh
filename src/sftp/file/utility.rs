@@ -165,8 +165,6 @@ fn take_slices<T: Deref<Target = [u8]>>(
     }
 
     let buf = if end < bufs.len() {
-        n = limit;
-
         // In this branch, the loop 'buf terminate due to branch '1,
         // thus
         //
@@ -175,7 +173,11 @@ fn take_slices<T: Deref<Target = [u8]>>(
         //
         // And (limit - n) also cannot be 0, otherwise
         // branch '1 will not be executed.
-        [create_slice(&bufs[end], limit - n)]
+        let res = [create_slice(&bufs[end], limit - n)];
+
+        n = limit;
+
+        res
     } else {
         if n == 0 {
             return None;
