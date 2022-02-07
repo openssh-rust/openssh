@@ -4,7 +4,7 @@ use super::{
 };
 
 use std::borrow::Cow;
-use std::cmp::{min, Ordering};
+use std::cmp::min;
 use std::future::Future;
 use std::io::{self, IoSlice};
 use std::path::Path;
@@ -615,22 +615,15 @@ impl AsyncSeek for File<'_> {
         use io::SeekFrom::*;
 
         match position {
-            Start(pos) => {
-                if pos == self.offset {
-                    return Ok(());
-                }
-
-                self.offset = pos;
-            }
+            Start(pos) => self.offset = pos,
             End(_) => {
                 return Err(io::Error::new(
                     io::ErrorKind::Unsupported,
                     "Seeking from the end is unsupported",
-                ));
+                ))
             }
-            Current(n) => match n.cmp(&0) {
-                Ordering::Equal => return Ok(()),
-                Ordering::Greater => {
+            Current(n) => {
+                if n >= 0 {
                     self.offset =
                         self.offset
                             .checked_add(n.try_into().unwrap())
@@ -640,8 +633,7 @@ impl AsyncSeek for File<'_> {
                                     "Overflow occured during seeking",
                                 )
                             })?;
-                }
-                Ordering::Less => {
+                } else {
                     self.offset = self
                         .offset
                         .checked_sub((-n).try_into().unwrap())
@@ -652,7 +644,7 @@ impl AsyncSeek for File<'_> {
                             )
                         })?;
                 }
-            },
+            }
         }
 
         Ok(())
