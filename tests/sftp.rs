@@ -9,6 +9,7 @@ use std::path::Path;
 
 use bytes::BytesMut;
 use tokio::io::{AsyncReadExt, AsyncSeekExt};
+use tokio_io_utility::write_vectored_all;
 
 use pretty_assertions::assert_eq;
 
@@ -348,6 +349,41 @@ async fn sftp_tokio_compact_file_write_all() {
         let content = &tester.content;
 
         tester.file.write_all(&content).await.unwrap();
+        tester.assert_content().await;
+
+        // close sftp and session
+        sftp.close().await.unwrap();
+        session.close().await.unwrap();
+    }
+}
+
+#[tokio::test]
+#[cfg_attr(not(ci), ignore)]
+/// Test File::write_all_vectorized, File::read_all and AsyncSeek implementation
+async fn sftp_tokio_compact_file_write_vectored_all() {
+    let path = Path::new("/tmp/sftp_tokio_compact_file_write_vectored_all");
+
+    for session in connects().await {
+        let sftp = session
+            .sftp(SftpOptions::new().max_write_len(200).max_read_len(200))
+            .await
+            .unwrap();
+
+        let mut tester = SftpTokioCompactFileWriteAllTester::new(&sftp, path).await;
+
+        let content = &tester.content;
+        let len = content.len();
+
+        write_vectored_all(
+            &mut tester.file,
+            [
+                IoSlice::new(&content[..len / 2]),
+                IoSlice::new(&content[len / 2..]),
+            ]
+            .as_mut_slice(),
+        )
+        .await
+        .unwrap();
         tester.assert_content().await;
 
         // close sftp and session
