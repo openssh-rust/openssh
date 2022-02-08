@@ -435,6 +435,26 @@ async fn sftp_file_metadata() {
 
 #[tokio::test]
 #[cfg_attr(not(ci), ignore)]
+/// Test File::{set_len, metadata}.
+async fn sftp_file_sync_all() {
+    let path = Path::new("/tmp/sftp_file_sync_all");
+
+    for session in connects().await {
+        let sftp = session
+            .sftp(SftpOptions::new().max_write_len(200).max_read_len(200))
+            .await
+            .unwrap();
+
+        sftp.create(path).await.unwrap().sync_all().await.unwrap();
+
+        // close sftp and session
+        sftp.close().await.unwrap();
+        session.close().await.unwrap();
+    }
+}
+
+#[tokio::test]
+#[cfg_attr(not(ci), ignore)]
 /// Test creating, removing and iterating over dir, as well
 /// as removing file.
 async fn sftp_dir_basics() {
