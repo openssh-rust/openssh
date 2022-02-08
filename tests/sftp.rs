@@ -592,3 +592,38 @@ async fn sftp_fs_rename() {
         session.close().await.unwrap();
     }
 }
+
+#[tokio::test]
+#[cfg_attr(not(ci), ignore)]
+/// Test Fs::{metadata, set_metadata}.
+async fn sftp_fs_metadata() {
+    let path = Path::new("/tmp/sftp_fs_metadata");
+
+    let content = b"hello, world!\n";
+
+    for session in connects().await {
+        let sftp = session
+            .sftp(SftpOptions::new().max_write_len(200).max_read_len(200))
+            .await
+            .unwrap();
+
+        {
+            let mut fs = sftp.fs("");
+
+            fs.write(path, content).await.unwrap();
+            assert_eq!(
+                fs.metadata(path).await.unwrap().len().unwrap(),
+                content.len().try_into().unwrap()
+            );
+
+            fs.set_metadata(path, MetaDataBuilder::new().len(2834).create())
+                .await
+                .unwrap();
+            assert_eq!(fs.metadata(path).await.unwrap().len().unwrap(), 2834);
+        }
+
+        // close sftp and session
+        sftp.close().await.unwrap();
+        session.close().await.unwrap();
+    }
+}
