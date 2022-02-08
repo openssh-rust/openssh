@@ -495,3 +495,36 @@ async fn sftp_dir_basics() {
         session.close().await.unwrap();
     }
 }
+
+#[tokio::test]
+#[cfg_attr(not(ci), ignore)]
+/// Test creation of symlink and canonicalize/read_link
+async fn sftp_fs_symlink() {
+    let filename = Path::new("/tmp/sftp_fs_symlink_file");
+    let symlink = Path::new("/tmp/sftp_fs_symlink_symlink");
+
+    let content = b"hello, world!\n";
+
+    for session in connects().await {
+        let sftp = session.sftp(SftpOptions::new()).await.unwrap();
+
+        {
+            let mut fs = sftp.fs("");
+
+            fs.write(filename, content).await.unwrap();
+            fs.symlink(filename, symlink).await.unwrap();
+
+            assert_eq!(&*fs.read(symlink).await.unwrap(), content);
+
+            assert_eq!(fs.canonicalize(filename).await.unwrap(), filename);
+            assert_eq!(fs.canonicalize(symlink).await.unwrap(), filename);
+            assert_eq!(fs.read_link(symlink).await.unwrap(), filename);
+
+            fs.remove_file(symlink).await.unwrap();
+        }
+
+        // close sftp and session
+        sftp.close().await.unwrap();
+        session.close().await.unwrap();
+    }
+}
