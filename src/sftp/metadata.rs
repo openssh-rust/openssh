@@ -180,6 +180,12 @@ macro_rules! impl_getter_setter {
 }
 
 impl Permissions {
+    /// Create a new permissions object with zero permissions
+    /// set.
+    pub const fn new() -> Self {
+        Self(SftpPermissions::empty())
+    }
+
     impl_getter_setter!(suid, set_suid, SET_UID, "set-user-id");
     impl_getter_setter!(sgid, set_sgid, SET_GID, "set-group-id");
     impl_getter_setter!(svtx, set_vtx, SET_VTX, "set-sticky-bit");
