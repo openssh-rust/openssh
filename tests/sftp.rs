@@ -401,7 +401,7 @@ async fn sftp_tokio_compact_file_write_vectored_all() {
 
 #[tokio::test]
 #[cfg_attr(not(ci), ignore)]
-/// Test File::{set_len, metadata}.
+/// Test File::{set_len, set_permissions, metadata}.
 async fn sftp_file_metadata() {
     let path = Path::new("/tmp/sftp_file_metadata");
 
@@ -435,7 +435,7 @@ async fn sftp_file_metadata() {
 
 #[tokio::test]
 #[cfg_attr(not(ci), ignore)]
-/// Test File::{set_len, metadata}.
+/// Test File::sync_all.
 async fn sftp_file_sync_all() {
     let path = Path::new("/tmp/sftp_file_sync_all");
 
