@@ -401,6 +401,40 @@ async fn sftp_tokio_compact_file_write_vectored_all() {
 
 #[tokio::test]
 #[cfg_attr(not(ci), ignore)]
+/// Test File::{set_len, metadata}.
+async fn sftp_file_metadata() {
+    let path = Path::new("/tmp/sftp_file_metadata");
+
+    for session in connects().await {
+        let sftp = session
+            .sftp(SftpOptions::new().max_write_len(200).max_read_len(200))
+            .await
+            .unwrap();
+
+        {
+            let mut file = sftp
+                .options()
+                .read(true)
+                .write(true)
+                .create(true)
+                .truncate(true)
+                .open(path)
+                .await
+                .unwrap();
+            assert_eq!(file.metadata().await.unwrap().len().unwrap(), 0);
+
+            file.set_len(28802).await.unwrap();
+            assert_eq!(file.metadata().await.unwrap().len().unwrap(), 28802);
+        }
+
+        // close sftp and session
+        sftp.close().await.unwrap();
+        session.close().await.unwrap();
+    }
+}
+
+#[tokio::test]
+#[cfg_attr(not(ci), ignore)]
 /// Test creating, removing and iterating over dir, as well
 /// as removing file.
 async fn sftp_dir_basics() {
