@@ -560,3 +560,35 @@ async fn sftp_fs_hardlink() {
         session.close().await.unwrap();
     }
 }
+
+#[tokio::test]
+#[cfg_attr(not(ci), ignore)]
+/// Test creation of rename and canonicalize
+async fn sftp_fs_rename() {
+    let filename = Path::new("/tmp/sftp_fs_rename_file");
+    let renamed = Path::new("/tmp/sftp_fs_rename_renamed");
+
+    let content = b"hello, world!\n";
+
+    for session in connects().await {
+        let sftp = session.sftp(SftpOptions::new()).await.unwrap();
+
+        {
+            let mut fs = sftp.fs("");
+
+            fs.write(filename, content).await.unwrap();
+            fs.rename(filename, renamed).await.unwrap();
+
+            fs.read(filename).await.unwrap_err();
+
+            assert_eq!(&*fs.read(renamed).await.unwrap(), content);
+            assert_eq!(fs.canonicalize(renamed).await.unwrap(), renamed);
+
+            fs.remove_file(renamed).await.unwrap();
+        }
+
+        // close sftp and session
+        sftp.close().await.unwrap();
+        session.close().await.unwrap();
+    }
+}
