@@ -8,7 +8,7 @@ use std::io::IoSlice;
 use std::path::Path;
 
 use bytes::BytesMut;
-use tokio::io::AsyncSeekExt;
+use tokio::io::{AsyncReadExt, AsyncSeekExt};
 
 use pretty_assertions::assert_eq;
 
@@ -54,6 +54,8 @@ async fn sftp_file_basics() {
             debug_assert_eq!(&*fs.read(path).await.unwrap(), &*content);
 
             // Create new file with Trunc and write to it.
+            //
+            // Sftp::Create opens the file truncated.
             debug_assert_eq!(
                 sftp.create(path)
                     .await
@@ -209,6 +211,67 @@ async fn sftp_file_write_all_zero_copy() {
             .await
             .unwrap();
         tester.assert_content().await;
+
+        // close sftp and session
+        sftp.close().await.unwrap();
+        session.close().await.unwrap();
+    }
+}
+
+#[tokio::test]
+#[cfg_attr(not(ci), ignore)]
+/// Test creating new TokioCompactFile, truncating and opening existing file,
+/// basic read, write and removal.
+async fn sftp_tokio_compact_file_basics() {
+    let path = "/tmp/sftp_tokio_compact_file_basics";
+    let content = b"HELLO, WORLD!\n".repeat(200);
+
+    for session in connects().await {
+        let sftp = session.sftp(SftpOptions::new()).await.unwrap();
+        let content = &content[..min(sftp.max_write_len() as usize, content.len())];
+
+        let read_entire_file = || async {
+            let mut buffer = Vec::with_capacity(content.len());
+
+            let mut file: TokioCompactFile = sftp.open(path).await.unwrap().into();
+            file.read_to_end(&mut buffer).await.unwrap();
+            file.close().await.unwrap();
+
+            buffer
+        };
+
+        {
+            let mut fs = sftp.fs("");
+
+            let mut file = sftp
+                .options()
+                .write(true)
+                .create_new(true)
+                .open(path)
+                .await
+                .map(TokioCompactFile::new)
+                .unwrap();
+
+            // Create new file with Excl and write to it.
+            debug_assert_eq!(file.write(&content).await.unwrap(), content.len());
+
+            file.flush().await.unwrap();
+            file.close().await.unwrap();
+
+            debug_assert_eq!(&*read_entire_file().await, &*content);
+
+            // Create new file with Trunc and write to it.
+            //
+            // Sftp::Create opens the file truncated.
+            let mut file = sftp.create(path).await.map(TokioCompactFile::new).unwrap();
+            debug_assert_eq!(file.write(&content).await.unwrap(), content.len());
+            file.close().await.unwrap();
+
+            debug_assert_eq!(&*read_entire_file().await, &*content);
+
+            // remove the file
+            fs.remove_file(path).await.unwrap();
+        }
 
         // close sftp and session
         sftp.close().await.unwrap();
