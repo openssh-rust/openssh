@@ -266,6 +266,13 @@ async fn sftp_tokio_compact_file_basics() {
             // Sftp::Create opens the file truncated.
             let mut file = sftp.create(path).await.map(TokioCompactFile::new).unwrap();
             debug_assert_eq!(file.write(&content).await.unwrap(), content.len());
+
+            // close also flush the internal future buffers, but using a
+            // different implementation from `TokioCompactFile::poll_flush`
+            // since it is executed in async context.
+            //
+            // Call `close` without calling `flush` first would force
+            // `close` to do all the flush work, thus testing its implementation
             file.close().await.unwrap();
 
             debug_assert_eq!(&*read_entire_file().await, &*content);
