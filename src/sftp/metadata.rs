@@ -32,8 +32,8 @@ impl MetaDataBuilder {
     }
 
     /// Set size of the metadata to built.
-    pub fn size(&mut self, size: u64) -> &mut Self {
-        self.0.set_size(size);
+    pub fn len(&mut self, len: u64) -> &mut Self {
+        self.0.set_size(len);
         self
     }
 
