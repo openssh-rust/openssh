@@ -325,6 +325,21 @@ impl<'s> Fs<'s> {
     pub async fn read(&mut self, path: impl AsRef<Path>) -> Result<BytesMut, Error> {
         self.read_impl(path.as_ref()).await
     }
+
+    async fn write_impl(&mut self, path: &Path, content: &[u8]) -> Result<(), Error> {
+        let path = self.concat_path_if_needed(path);
+
+        self.sftp.create(path).await?.write_all(content).await
+    }
+
+    /// Open/Create a file for writing and write the entire `contents` into it.
+    pub async fn write(
+        &mut self,
+        path: impl AsRef<Path>,
+        content: impl AsRef<[u8]>,
+    ) -> Result<(), Error> {
+        self.write_impl(path.as_ref(), content.as_ref()).await
+    }
 }
 
 /// Remote Directory
