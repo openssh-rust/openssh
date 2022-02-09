@@ -63,10 +63,10 @@ pub struct TokioCompactFile<'s> {
     buffer: BytesMut,
 
     read_future: Option<AwaitableDataFuture<Buffer>>,
-    read_cancellation_future: SelfRefWaitForCancellationFuture,
+    read_cancellation_future: SelfRefWaitForCancellationFuture<'s>,
 
     write_futures: VecDeque<AwaitableStatusFuture<Buffer>>,
-    write_cancellation_future: SelfRefWaitForCancellationFuture,
+    write_cancellation_future: SelfRefWaitForCancellationFuture<'s>,
 }
 
 impl<'s> TokioCompactFile<'s> {
@@ -78,26 +78,15 @@ impl<'s> TokioCompactFile<'s> {
             buffer: BytesMut::new(),
 
             read_future: None,
-            read_cancellation_future: SelfRefWaitForCancellationFuture::default(),
+            read_cancellation_future: unsafe { SelfRefWaitForCancellationFuture::new() },
 
             write_futures: VecDeque::new(),
-            write_cancellation_future: SelfRefWaitForCancellationFuture::default(),
+            write_cancellation_future: unsafe { SelfRefWaitForCancellationFuture::new() },
         }
     }
 
-    /// safety:
-    ///
-    /// This must be called before fields of `TokioCompactFile`
-    /// get dropped.
-    unsafe fn drop_cancellation_futures(&mut self) {
-        self.read_cancellation_future.drop();
-        self.write_cancellation_future.drop();
-    }
-
     /// Return the inner [`File`].
-    pub fn into_inner(mut self) -> File<'s> {
-        // safety: It is called before read/write_cancellation_future is dropped
-        unsafe { self.drop_cancellation_futures() };
+    pub fn into_inner(self) -> File<'s> {
         self.destructure().0
     }
 
@@ -140,13 +129,6 @@ impl<'s> From<File<'s>> for TokioCompactFile<'s> {
 impl<'s> From<TokioCompactFile<'s>> for File<'s> {
     fn from(file: TokioCompactFile<'s>) -> Self {
         file.into_inner()
-    }
-}
-
-impl Drop for TokioCompactFile<'_> {
-    fn drop(&mut self) {
-        // safety: It is called before read/write_cancellation_future is dropped
-        unsafe { self.drop_cancellation_futures() };
     }
 }
 

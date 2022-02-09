@@ -1,8 +1,9 @@
-use super::super::Auxiliary;
+use super::super::{Auxiliary, Sftp};
 
 use std::fmt;
 use std::future::Future;
 use std::io::{self, IoSlice};
+use std::marker::PhantomData;
 use std::mem;
 use std::ops::Deref;
 use std::pin::Pin;
@@ -17,9 +18,14 @@ use openssh_sftp_client::Error as SftpError;
 const WAIT_FOR_CANCELLATION_FUTURE_SIZE: usize =
     mem::size_of::<WaitForCancellationFuture<'static>>();
 
+/// lifetime 's is reference to `sftp::Sftp`
+///
+/// # Safety
+///
+/// As long as `sftp::Sftp` is valid, the cancellation token it references
+/// to must be kept valid by `sftp::Sftp::SharedData`.
 #[repr(transparent)]
-#[derive(Default)]
-pub(super) struct SelfRefWaitForCancellationFuture(
+pub(super) struct SelfRefWaitForCancellationFuture<'s>(
     /// WaitForCancellationFuture is erased to an array
     /// since it is a holds a reference to `Auxiliary::cancel_token`,
     /// which lives as long as `Self`.
@@ -29,9 +35,10 @@ pub(super) struct SelfRefWaitForCancellationFuture(
     ///
     /// However, in rust, leaking is permitted, thus we have to box it.
     Option<Pin<Box<[u8; WAIT_FOR_CANCELLATION_FUTURE_SIZE]>>>,
+    PhantomData<&'s Sftp<'s>>,
 );
 
-impl fmt::Debug for SelfRefWaitForCancellationFuture {
+impl fmt::Debug for SelfRefWaitForCancellationFuture<'_> {
     fn fmt<'this>(&'this self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let future = self.0.as_ref().map(
             |reference: &Pin<Box<[u8; WAIT_FOR_CANCELLATION_FUTURE_SIZE]>>| {
@@ -53,15 +60,8 @@ impl fmt::Debug for SelfRefWaitForCancellationFuture {
     }
 }
 
-impl Drop for SelfRefWaitForCancellationFuture {
-    fn drop(&mut self) {
-        debug_assert!(self.0.is_none());
-    }
-}
-
-impl SelfRefWaitForCancellationFuture {
-    /// This function must be called once and exactly once in `Drop` implementation.
-    pub(super) unsafe fn drop<'this>(&'this mut self) {
+impl Drop for SelfRefWaitForCancellationFuture<'_> {
+    fn drop<'this>(&'this mut self) {
         if let Some(pinned_boxed) = self.0.take() {
             let ptr = Box::into_raw(
                 Pin::<Box<[u8; WAIT_FOR_CANCELLATION_FUTURE_SIZE]>>::into_inner(pinned_boxed),
@@ -73,8 +73,17 @@ impl SelfRefWaitForCancellationFuture {
             //  - The box is used to store WaitForCancellationFuture<'this>
             //  - [u8; _] and WaitForCancellationFuture has the same size
             let _: Box<WaitForCancellationFuture<'this>> =
-                Box::from_raw(ptr as *mut WaitForCancellationFuture<'this>);
+                unsafe { Box::from_raw(ptr as *mut WaitForCancellationFuture<'this>) };
         }
+    }
+}
+
+impl SelfRefWaitForCancellationFuture<'_> {
+    /// # Safety
+    ///
+    /// lifetime `'s` must be the same as `&'s Sftp<'s>`.
+    pub(super) unsafe fn new() -> Self {
+        Self(None, PhantomData)
     }
 
     fn error() -> io::Error {
