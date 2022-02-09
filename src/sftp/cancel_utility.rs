@@ -50,24 +50,18 @@ impl<'s> BoxedWaitForCancellationFuture<'s> {
         )
     }
 
-    fn init_future_if_needed(&mut self, auxiliary: &'s Auxiliary) {
-        if self.0.is_none() {
-            self.0 = Some(Box::pin(auxiliary.cancel_token.cancelled()));
-        }
-    }
-
     pub(super) fn get_wait_for_cancel_future(
         &mut self,
         auxiliary: &'s Auxiliary,
     ) -> Pin<&mut WaitForCancellationFuture<'s>> {
-        self.init_future_if_needed(auxiliary);
+        if self.0.is_none() {
+            self.0 = Some(Box::pin(auxiliary.cancel_token.cancelled()));
+        }
 
-        let reference: &mut Pin<Box<WaitForCancellationFuture<'s>>> =
-            self.0.as_mut().expect("self.0 is just set to Some");
-
-        let future: Pin<&mut WaitForCancellationFuture<'s>> = reference.as_mut();
-
-        future
+        self.0
+            .as_mut()
+            .expect("self.0 is just set to Some")
+            .as_mut()
     }
 
     /// Return `Ok(())` if the task hasn't failed yet and the context has
