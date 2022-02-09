@@ -173,6 +173,17 @@ mod scp;
 pub use scp::{Mode, RemoteFile, Scp};
 
 /// Sftp implementation
+///
+/// # Cancel Safety
+///
+/// All `async` functions in this module is cancel safe.
+///
+/// Internally, this is archived by first writing requests into a write buffer
+/// containing [`bytes::Bytes`] and then flush all buffers at once periodically
+/// to archive cancel safety and improve efficiencies.
+///
+/// However, cancelling the future does not actually has any effect,
+/// since the requests are sent regardless of the cancellation.
 #[cfg(feature = "sftp")]
 #[cfg_attr(docsrs, doc(cfg(feature = "sftp")))]
 pub mod sftp;
