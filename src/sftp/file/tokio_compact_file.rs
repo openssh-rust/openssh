@@ -295,6 +295,8 @@ impl AsyncRead for TokioCompactFile<'_> {
 /// since sftp v3 guarantees that requests on the same file handler
 /// is processed sequentially.
 ///
+/// NOTE that these writes cannot be cancelled.
+///
 /// [`TokioCompactFile`] can read in at most [`File::max_write_len`] bytes.
 impl AsyncWrite for TokioCompactFile<'_> {
     fn poll_write(

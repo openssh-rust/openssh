@@ -189,10 +189,6 @@ impl<'s> Sftp<'s> {
     }
 
     /// Close sftp connection
-    ///
-    /// # Cancel Safety
-    ///
-    /// This function is cancel safe.
     pub async fn close(self) -> Result<(), Error> {
         // Flush the data.
         //
@@ -254,9 +250,10 @@ impl<'s> Sftp<'s> {
         OpenOptions::new(self)
     }
 
-    /// # Cancel Safety
+    /// Opens a file in write-only mode.
     ///
-    /// This function is cancel safe.
+    /// This function will create a file if it does not exist, and will truncate
+    /// it if it does.
     pub async fn create(&self, path: impl AsRef<Path>) -> Result<File<'_>, Error> {
         self.options()
             .write(true)
@@ -266,9 +263,7 @@ impl<'s> Sftp<'s> {
             .await
     }
 
-    /// # Cancel Safety
-    ///
-    /// This function is cancel safe.
+    /// Attempts to open a file in read-only mode.
     pub async fn open(&self, path: impl AsRef<Path>) -> Result<File<'_>, Error> {
         self.options().read(true).open(path).await
     }
