@@ -8,11 +8,6 @@ use std::task::{Context, Poll};
 use tokio_util::sync::WaitForCancellationFuture;
 
 /// lifetime 's is reference to `sftp::Sftp`
-///
-/// # Safety
-///
-/// As long as `sftp::Sftp` is valid, the cancellation token it references
-/// to must be kept valid by `sftp::Sftp::SharedData`.
 #[repr(transparent)]
 #[derive(Debug)]
 pub(super) struct BoxedWaitForCancellationFuture<'s>(
