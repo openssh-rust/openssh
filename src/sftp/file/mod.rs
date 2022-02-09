@@ -166,6 +166,9 @@ impl<'s> OpenOptions<'s> {
 /// Cloning [`File`] instance would return a new one that shares the same
 /// underlying file handle as the existing File instance, while reads, writes
 /// and seeks can be performed independently.
+///
+/// If you want a file that implements [`tokio::io::AsyncRead`] and
+/// [`tokio::io::AsyncWrite`], checkout [`TokioCompactFile`].
 #[derive(Debug, Clone)]
 pub struct File<'s> {
     inner: OwnedHandle<'s>,
