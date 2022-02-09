@@ -343,7 +343,8 @@ impl File<'_> {
 
     /// * `n` - number of bytes to read in
     ///
-    /// This function can read in at most [`File::max_read_len`] bytes.
+    /// This function can read in at most [`File::max_read_len`] bytes
+    /// at a time.
     ///
     /// If the [`File`] has reached EOF or `n == 0`, then `None` is returned.
     pub async fn read(&mut self, n: u32, buffer: BytesMut) -> Result<Option<BytesMut>, Error> {
@@ -376,8 +377,8 @@ impl File<'_> {
         Ok(Some(buffer))
     }
 
-    /// This function can write in at most [`File::max_write_len`] bytes,
-    /// anything longer than that will be truncated.
+    /// This function can write at most [`File::max_write_len`] bytes in one
+    /// function call, anything longer than that will be truncated.
     pub async fn write(&mut self, buf: &[u8]) -> Result<usize, Error> {
         if buf.is_empty() {
             return Ok(0);
@@ -410,8 +411,8 @@ impl File<'_> {
         Ok(n as usize)
     }
 
-    /// This function can write in at most [`File::max_write_len`] bytes,
-    /// anything longer than that will be truncated.
+    /// This function can write at most [`File::max_write_len`] bytes in one
+    /// function call, anything longer than that will be truncated.
     pub async fn write_vectorized(&mut self, bufs: &[IoSlice<'_>]) -> Result<usize, Error> {
         if bufs.is_empty() {
             return Ok(0);
@@ -445,8 +446,8 @@ impl File<'_> {
         Ok(n)
     }
 
-    /// This function can write in at most [`File::max_write_len`] bytes,
-    /// anything longer than that will be truncated.
+    /// This function can write at most [`File::max_write_len`] bytes in one
+    /// function call, anything longer than that will be truncated.
     pub async fn write_zero_copy(&mut self, bytes_slice: &[Bytes]) -> Result<usize, Error> {
         if bytes_slice.is_empty() {
             return Ok(0);
