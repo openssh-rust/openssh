@@ -68,8 +68,7 @@ pub(super) struct WriteEndWithCachedId<'s>(
     ///
     /// However, rust does not guarantee on 'no leaking', thus it is possible
     /// and safe for user to `mem::forget` the future returned, and thus
-    /// causing the linked list to not be removed and point to invalid
-    /// memory locations.
+    /// causing the linked list to point to invalid memory locations.
     ///
     /// To avoid this, we have to box this future.
     ///
