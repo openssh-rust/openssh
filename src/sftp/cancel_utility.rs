@@ -88,19 +88,12 @@ impl SelfRefWaitForCancellationFuture<'_> {
         )
     }
 
-    /// Return `Ok(())` if the task hasn't failed yet and the context has
-    /// already been registered.
-    pub(super) fn poll_for_task_failure<'this, 'auxiliary: 'this>(
+    fn init_future_if_needed<'this, 'auxiliary: 'this>(
         &'this mut self,
-        cx: &mut Context<'_>,
         auxiliary: &'auxiliary Auxiliary,
-    ) -> Result<(), io::Error> {
+    ) {
         if self.0.is_none() {
             let cancel_token = &auxiliary.cancel_token;
-
-            if cancel_token.is_cancelled() {
-                return Err(Self::error());
-            }
 
             let future: WaitForCancellationFuture<'this> = cancel_token.cancelled();
             // safety:
@@ -108,27 +101,46 @@ impl SelfRefWaitForCancellationFuture<'_> {
             //  - [u8; _] and WaitForCancellationFuture has the same size
             self.0 = Some(Box::pin(unsafe { mem::transmute(future) }));
         }
+    }
 
-        {
-            let reference: &mut Pin<Box<[u8; WAIT_FOR_CANCELLATION_FUTURE_SIZE]>> =
-                self.0.as_mut().expect("self.0 is just set to Some");
+    pub(super) fn get_wait_for_cancel_future<'this, 'auxiliary: 'this>(
+        &'this mut self,
+        auxiliary: &'auxiliary Auxiliary,
+    ) -> Pin<&mut WaitForCancellationFuture<'this>> {
+        self.init_future_if_needed(auxiliary);
 
-            let reference: Pin<&mut [u8; WAIT_FOR_CANCELLATION_FUTURE_SIZE]> = Pin::new(reference);
+        let reference: &mut Pin<Box<[u8; WAIT_FOR_CANCELLATION_FUTURE_SIZE]>> =
+            self.0.as_mut().expect("self.0 is just set to Some");
 
-            // safety:
-            //  - The box is used to store WaitForCancellationFuture<'this>
-            //  - &mut [u8; _] and &mut WaitForCancellationFuture has the same size
-            let future: Pin<&mut WaitForCancellationFuture<'this>> =
-                unsafe { mem::transmute(reference) };
+        let reference: Pin<&mut [u8; WAIT_FOR_CANCELLATION_FUTURE_SIZE]> = Pin::new(reference);
 
-            match future.poll(cx) {
-                Poll::Ready(_) => (),
-                Poll::Pending => return Ok(()),
-            }
+        // safety:
+        //  - The box is used to store WaitForCancellationFuture<'this>
+        //  - &mut [u8; _] and &mut WaitForCancellationFuture has the same size
+        let future: Pin<&mut WaitForCancellationFuture<'this>> =
+            unsafe { mem::transmute(reference) };
+
+        future
+    }
+
+    /// Return `Ok(())` if the task hasn't failed yet and the context has
+    /// already been registered.
+    pub(super) fn poll_for_task_failure<'this, 'auxiliary: 'this>(
+        &'this mut self,
+        cx: &mut Context<'_>,
+        auxiliary: &'auxiliary Auxiliary,
+    ) -> Result<(), io::Error> {
+        if auxiliary.cancel_token.is_cancelled() {
+            return Err(Self::error());
         }
 
-        self.0 = None;
+        match self.get_wait_for_cancel_future(auxiliary).poll(cx) {
+            Poll::Ready(_) => {
+                self.0 = None;
 
-        Err(Self::error())
+                Err(Self::error())
+            }
+            Poll::Pending => Ok(()),
+        }
     }
 }
