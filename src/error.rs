@@ -132,7 +132,7 @@ impl fmt::Display for Error {
             Error::InvalidCommand => write!(f, "invalid command: Command contains null byte."),
 
             #[cfg(feature = "sftp")]
-            Error::SftpError(_) => write!(f, "Sftp error"),
+            Error::SftpError(ref sftp_error) => write!(f, "Sftp error: {}", sftp_error),
 
             #[cfg(feature = "sftp")]
             Error::TaskJoinError(_) => write!(f, "Failed to join tokio task"),
