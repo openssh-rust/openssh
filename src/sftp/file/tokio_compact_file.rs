@@ -195,7 +195,8 @@ impl AsyncSeek for TokioCompactFile<'_> {
     }
 }
 
-/// [`TokioCompactFile`] can read in at most [`File::max_read_len`] bytes.
+/// [`TokioCompactFile`] can read in at most [`File::max_read_len`] bytes
+/// at a time.
 impl AsyncRead for TokioCompactFile<'_> {
     fn poll_read(
         mut self: Pin<&mut Self>,
@@ -308,7 +309,8 @@ impl AsyncRead for TokioCompactFile<'_> {
 /// [`AsyncWrite::poll_write`] or [`AsyncWrite::poll_write_vectored`] and
 /// calling [`AsyncWrite::poll_flush`] when the message is complete.
 ///
-/// [`TokioCompactFile`] can read in at most [`File::max_write_len`] bytes.
+/// [`TokioCompactFile`] can write at most [`File::max_write_len`] bytes
+/// at a time.
 impl AsyncWrite for TokioCompactFile<'_> {
     fn poll_write(
         mut self: Pin<&mut Self>,
