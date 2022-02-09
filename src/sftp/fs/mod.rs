@@ -22,12 +22,16 @@ type SendLinkingRequest =
 pub struct Fs<'s> {
     sftp: &'s Sftp<'s>,
 
-    write_end: WriteEndWithCachedId,
+    write_end: WriteEndWithCachedId<'s>,
     cwd: Box<Path>,
 }
 
 impl<'s> Fs<'s> {
-    pub(super) fn new(sftp: &'s Sftp<'s>, write_end: WriteEndWithCachedId, cwd: PathBuf) -> Self {
+    pub(super) fn new(
+        sftp: &'s Sftp<'s>,
+        write_end: WriteEndWithCachedId<'s>,
+        cwd: PathBuf,
+    ) -> Self {
         Self {
             sftp,
 

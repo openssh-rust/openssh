@@ -232,8 +232,8 @@ impl<'s> Sftp<'s> {
         }
     }
 
-    fn write_end(&self) -> WriteEndWithCachedId {
-        WriteEnd::new(self.shared_data.clone()).into()
+    fn write_end(&self) -> WriteEndWithCachedId<'_> {
+        WriteEndWithCachedId::new(self, self.shared_data.clone())
     }
 
     /// Get maximum amount of bytes that one single write requests

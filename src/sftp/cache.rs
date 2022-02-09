@@ -1,4 +1,4 @@
-use super::{Error, Id, SharedData, WriteEnd};
+use super::{Error, Id, SelfRefWaitForCancellationFuture, Sftp, SharedData, WriteEnd};
 
 use std::any::type_name;
 use std::cell::Cell;
@@ -57,21 +57,36 @@ impl IdCacher for SharedData {
 }
 
 #[derive(Debug)]
-pub(super) struct WriteEndWithCachedId(WriteEnd, Option<Id>);
+pub(super) struct WriteEndWithCachedId<'s>(
+    WriteEnd,
+    Option<Id>,
+    /// WaitForCancellationFuture adds itself as an entry to the internal
+    /// linked list of CancellationToken when `poll`ed.
+    ///
+    /// Thus, in its `Drop::drop` implementation, it is removed from the
+    /// linked list.
+    ///
+    /// However, rust does not guarantee on 'no leaking', thus it is possible
+    /// and safe for user to `mem::forget` the future returned, and thus
+    /// causing the linked list to not be removed and point to invalid
+    /// memory locations.
+    ///
+    /// To avoid this, we have to box this future.
+    ///
+    /// However, allocate a new box each time a future is called is super
+    /// expensive, thus we keep it cached so that we can reuse it.
+    SelfRefWaitForCancellationFuture<'s>,
+);
 
-impl From<WriteEnd> for WriteEndWithCachedId {
-    fn from(write_end: WriteEnd) -> Self {
-        Self(write_end, None)
-    }
-}
-
-impl Clone for WriteEndWithCachedId {
+impl Clone for WriteEndWithCachedId<'_> {
     fn clone(&self) -> Self {
-        self.0.clone().into()
+        Self(self.0.clone(), None, unsafe {
+            SelfRefWaitForCancellationFuture::new()
+        })
     }
 }
 
-impl Deref for WriteEndWithCachedId {
+impl Deref for WriteEndWithCachedId<'_> {
     type Target = WriteEnd;
 
     fn deref(&self) -> &Self::Target {
@@ -79,13 +94,13 @@ impl Deref for WriteEndWithCachedId {
     }
 }
 
-impl DerefMut for WriteEndWithCachedId {
+impl DerefMut for WriteEndWithCachedId<'_> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
 }
 
-impl Drop for WriteEndWithCachedId {
+impl Drop for WriteEndWithCachedId<'_> {
     fn drop(&mut self) {
         if let Some(id) = self.1.take() {
             self.cache_id(id);
@@ -93,7 +108,13 @@ impl Drop for WriteEndWithCachedId {
     }
 }
 
-impl WriteEndWithCachedId {
+impl<'s> WriteEndWithCachedId<'s> {
+    pub(super) fn new(_sftp: &'s Sftp<'s>, shared_data: SharedData) -> Self {
+        Self(WriteEnd::new(shared_data), None, unsafe {
+            SelfRefWaitForCancellationFuture::new()
+        })
+    }
+
     pub(super) fn get_id_mut(&mut self) -> Id {
         self.1
             .take()
@@ -113,14 +134,21 @@ impl WriteEndWithCachedId {
     }
 
     /// * `f` - the future must be cancel safe.
-    pub(super) async fn cancel_if_task_failed<R, E, F>(&self, future: F) -> Result<R, Error>
+    pub(super) async fn cancel_if_task_failed<R, E, F>(&mut self, future: F) -> Result<R, Error>
     where
         F: Future<Output = Result<R, E>>,
         E: Into<Error>,
     {
+        let cancel_err = || Err(SftpError::BackgroundTaskFailure(&"read/flush task failed").into());
+        let auxiliary = self.0.get_auxiliary();
+
+        if auxiliary.cancel_token.is_cancelled() {
+            return cancel_err();
+        }
+
         tokio::select! {
             res = future => res.map_err(Into::into),
-            _ = self.0.get_auxiliary().cancel_token.cancelled() => Err(
+            _ = self.2.get_wait_for_cancel_future(auxiliary) => Err(
                 SftpError::BackgroundTaskFailure(&"read/flush task failed").into()
             ),
         }

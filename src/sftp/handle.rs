@@ -15,7 +15,7 @@ use derive_destructure2::destructure;
 pub(super) struct OwnedHandle<'s> {
     phantom_data: PhantomData<&'s Sftp<'s>>,
 
-    pub(super) write_end: WriteEndWithCachedId,
+    pub(super) write_end: WriteEndWithCachedId<'s>,
     pub(super) handle: Arc<HandleOwned>,
 }
 
@@ -32,8 +32,8 @@ impl Drop for OwnedHandle<'_> {
     }
 }
 
-impl OwnedHandle<'_> {
-    pub(super) fn new(write_end: WriteEndWithCachedId, handle: HandleOwned) -> Self {
+impl<'s> OwnedHandle<'s> {
+    pub(super) fn new(write_end: WriteEndWithCachedId<'s>, handle: HandleOwned) -> Self {
         Self {
             phantom_data: PhantomData,
 
@@ -80,8 +80,8 @@ impl OwnedHandle<'_> {
     }
 }
 
-impl Deref for OwnedHandle<'_> {
-    type Target = WriteEndWithCachedId;
+impl<'s> Deref for OwnedHandle<'s> {
+    type Target = WriteEndWithCachedId<'s>;
 
     fn deref(&self) -> &Self::Target {
         &self.write_end
