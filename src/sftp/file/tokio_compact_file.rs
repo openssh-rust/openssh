@@ -54,7 +54,8 @@ where
 }
 
 /// File that implements [`AsyncRead`], [`AsyncSeek`] and [`AsyncWrite`],
-/// that is compatible with [`tokio::fs::File`].
+/// that is compatible with
+/// [`tokio::fs::File`](https://docs.rs/tokio/latest/tokio/fs/struct.File.html).
 #[derive(Debug, destructure)]
 pub struct TokioCompactFile<'s> {
     inner: File<'s>,
@@ -286,16 +287,26 @@ impl AsyncRead for TokioCompactFile<'_> {
     }
 }
 
-/// [`File::poll_write`] only writes data to the buffer.
+/// [`TokioCompactFile::poll_write`] only writes data to the buffer.
 ///
-/// [`File::poll_write`] and [`File::poll_write_vectored`] would
-/// send at most one sftp request.
+/// [`TokioCompactFile::poll_write`] and
+/// [`TokioCompactFile::poll_write_vectored`] would send at most one
+/// sftp request.
 ///
 /// It is perfectly safe to buffer requests and send them in one go,
 /// since sftp v3 guarantees that requests on the same file handler
 /// is processed sequentially.
 ///
 /// NOTE that these writes cannot be cancelled.
+///
+/// One maybe obvious note when using append-mode:
+///
+/// make sure that all data that belongs together is written
+/// to the file in one operation.
+///
+/// This can be done by concatenating strings before passing them to
+/// [`AsyncWrite::poll_write`] or [`AsyncWrite::poll_write_vectored`] and
+/// calling [`AsyncWrite::poll_flush`] when the message is complete.
 ///
 /// [`TokioCompactFile`] can read in at most [`File::max_write_len`] bytes.
 impl AsyncWrite for TokioCompactFile<'_> {

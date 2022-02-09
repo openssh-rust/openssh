@@ -76,18 +76,7 @@ impl<'s> OpenOptions<'s> {
     /// all writes are atomic: no writes get mangled because
     /// another process writes at the same time.
     ///
-    /// One maybe obvious note when using append-mode:
-    ///
-    /// make sure that all data that belongs together is written
-    /// to the file in one operation.
-    ///
-    /// This can be done by concatenating strings before passing them to
-    /// [`File::poll_write`] or [`File::poll_write_vectored`] and
-    /// calling [`File::poll_flush`] when the message is complete.
-    ///
-    /// Note
-    ///
-    /// This function doesn’t create the file if it doesn’t exist.
+    /// Note that this function doesn’t create the file if it doesn’t exist.
     /// Use the [`OpenOptions::create`] method to do so.
     pub fn append(&mut self, append: bool) -> &mut Self {
         self.options = self.options.append(append);
