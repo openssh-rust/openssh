@@ -1,6 +1,5 @@
 use super::{Auxiliary, SftpError};
 
-use std::fmt;
 use std::future::Future;
 use std::io;
 use std::pin::Pin;
@@ -15,6 +14,7 @@ use tokio_util::sync::WaitForCancellationFuture;
 /// As long as `sftp::Sftp` is valid, the cancellation token it references
 /// to must be kept valid by `sftp::Sftp::SharedData`.
 #[repr(transparent)]
+#[derive(Debug)]
 pub(super) struct BoxedWaitForCancellationFuture<'s>(
     /// WaitForCancellationFuture is erased to an array
     /// since it is a holds a reference to `Auxiliary::cancel_token`,
@@ -26,14 +26,6 @@ pub(super) struct BoxedWaitForCancellationFuture<'s>(
     /// However, in rust, leaking is permitted, thus we have to box it.
     Option<Pin<Box<WaitForCancellationFuture<'s>>>>,
 );
-
-impl fmt::Debug for BoxedWaitForCancellationFuture<'_> {
-    fn fmt<'this>(&'this self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_tuple("BoxedWaitForCancellationFuture")
-            .field(&self.0.as_ref())
-            .finish()
-    }
-}
 
 impl<'s> BoxedWaitForCancellationFuture<'s> {
     /// # Safety
