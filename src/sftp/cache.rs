@@ -1,4 +1,4 @@
-use super::{Auxiliary, Error, Id, SelfRefWaitForCancellationFuture, Sftp, SharedData, WriteEnd};
+use super::{Auxiliary, BoxedWaitForCancellationFuture, Error, Id, Sftp, SharedData, WriteEnd};
 
 use std::any::type_name;
 use std::cell::Cell;
@@ -74,7 +74,7 @@ pub(super) struct WriteEndWithCachedId<'s>(
     ///
     /// However, allocate a new box each time a future is called is super
     /// expensive, thus we keep it cached so that we can reuse it.
-    SelfRefWaitForCancellationFuture<'s>,
+    BoxedWaitForCancellationFuture<'s>,
     &'s Sftp<'s>,
 );
 
@@ -83,7 +83,7 @@ impl Clone for WriteEndWithCachedId<'_> {
         Self(
             self.0.clone(),
             None,
-            SelfRefWaitForCancellationFuture::new(),
+            BoxedWaitForCancellationFuture::new(),
             self.3,
         )
     }
@@ -116,7 +116,7 @@ impl<'s> WriteEndWithCachedId<'s> {
         Self(
             WriteEnd::new(shared_data),
             None,
-            SelfRefWaitForCancellationFuture::new(),
+            BoxedWaitForCancellationFuture::new(),
             sftp,
         )
     }

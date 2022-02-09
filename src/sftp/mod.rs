@@ -13,7 +13,7 @@ use tokio::{task, time};
 pub use openssh_sftp_client::{UnixTimeStamp, UnixTimeStampError};
 
 mod cancel_utility;
-use cancel_utility::SelfRefWaitForCancellationFuture;
+use cancel_utility::BoxedWaitForCancellationFuture;
 
 mod options;
 pub use options::SftpOptions;

@@ -15,7 +15,7 @@ use tokio_util::sync::WaitForCancellationFuture;
 /// As long as `sftp::Sftp` is valid, the cancellation token it references
 /// to must be kept valid by `sftp::Sftp::SharedData`.
 #[repr(transparent)]
-pub(super) struct SelfRefWaitForCancellationFuture<'s>(
+pub(super) struct BoxedWaitForCancellationFuture<'s>(
     /// WaitForCancellationFuture is erased to an array
     /// since it is a holds a reference to `Auxiliary::cancel_token`,
     /// which lives as long as `Self`.
@@ -27,15 +27,15 @@ pub(super) struct SelfRefWaitForCancellationFuture<'s>(
     Option<Pin<Box<WaitForCancellationFuture<'s>>>>,
 );
 
-impl fmt::Debug for SelfRefWaitForCancellationFuture<'_> {
+impl fmt::Debug for BoxedWaitForCancellationFuture<'_> {
     fn fmt<'this>(&'this self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_tuple("SelfRefWaitForCancellationFuture")
+        f.debug_tuple("BoxedWaitForCancellationFuture")
             .field(&self.0.as_ref())
             .finish()
     }
 }
 
-impl<'s> SelfRefWaitForCancellationFuture<'s> {
+impl<'s> BoxedWaitForCancellationFuture<'s> {
     /// # Safety
     ///
     /// lifetime `'s` must be the same as `&'s Sftp<'s>`.

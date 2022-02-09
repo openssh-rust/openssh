@@ -1,4 +1,4 @@
-use super::super::{Buffer, Data, SelfRefWaitForCancellationFuture};
+use super::super::{BoxedWaitForCancellationFuture, Buffer, Data};
 use super::utility::take_io_slices;
 use super::{Error, File, Id, SftpError, WriteEnd};
 
@@ -63,10 +63,10 @@ pub struct TokioCompactFile<'s> {
     buffer: BytesMut,
 
     read_future: Option<AwaitableDataFuture<Buffer>>,
-    read_cancellation_future: SelfRefWaitForCancellationFuture<'s>,
+    read_cancellation_future: BoxedWaitForCancellationFuture<'s>,
 
     write_futures: VecDeque<AwaitableStatusFuture<Buffer>>,
-    write_cancellation_future: SelfRefWaitForCancellationFuture<'s>,
+    write_cancellation_future: BoxedWaitForCancellationFuture<'s>,
 }
 
 impl<'s> TokioCompactFile<'s> {
@@ -78,10 +78,10 @@ impl<'s> TokioCompactFile<'s> {
             buffer: BytesMut::new(),
 
             read_future: None,
-            read_cancellation_future: SelfRefWaitForCancellationFuture::new(),
+            read_cancellation_future: BoxedWaitForCancellationFuture::new(),
 
             write_futures: VecDeque::new(),
-            write_cancellation_future: SelfRefWaitForCancellationFuture::new(),
+            write_cancellation_future: BoxedWaitForCancellationFuture::new(),
         }
     }
 
