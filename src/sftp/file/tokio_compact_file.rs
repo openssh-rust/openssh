@@ -1,5 +1,5 @@
-use super::super::{Buffer, Data};
-use super::utility::{take_io_slices, SelfRefWaitForCancellationFuture};
+use super::super::{Buffer, Data, SelfRefWaitForCancellationFuture};
+use super::utility::take_io_slices;
 use super::{Error, File, Id, SftpError, WriteEnd};
 
 use std::borrow::Cow;
