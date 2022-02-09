@@ -108,11 +108,7 @@ impl<'s> TokioCompactFile<'s> {
         }
 
         while let Some(future) = self.write_futures.pop_front() {
-            let id = write_end
-                .get_auxiliary()
-                .cancel_if_task_failed(future)
-                .await?
-                .0;
+            let id = write_end.cancel_if_task_failed(future).await?.0;
             write_end.cache_id_mut(id);
         }
 
