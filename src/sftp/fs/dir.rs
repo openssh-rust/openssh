@@ -6,7 +6,9 @@ use std::path::Path;
 use std::slice::{Iter, IterMut};
 use std::vec::IntoIter;
 
-/// Dir entry
+/// Entries returned by the [`ReadDir`].
+///
+/// This is a specialized version of [`std::fs::DirEntry`].
 #[repr(transparent)]
 #[derive(Debug, Clone)]
 pub struct DirEntry(NameEntry);
@@ -33,7 +35,7 @@ impl DirEntry {
     }
 }
 
-/// Read dir
+/// Reads the the entries in a directory.
 #[repr(transparent)]
 #[derive(Debug, Clone)]
 pub struct ReadDir(pub(super) Box<[DirEntry]>);

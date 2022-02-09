@@ -188,6 +188,9 @@ pub use scp::{Mode, RemoteFile, Scp};
 ///
 /// However, cancelling the future does not actually has any effect,
 /// since the requests are sent regardless of the cancellation.
+///
+/// Thus, if you cancel a future that changes the remote filesystem in any way,
+/// then the change would still happen regardless.
 #[cfg(feature = "sftp")]
 #[cfg_attr(docsrs, doc(cfg(feature = "sftp")))]
 pub mod sftp;
