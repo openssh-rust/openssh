@@ -78,10 +78,10 @@ impl<'s> TokioCompactFile<'s> {
             buffer: BytesMut::new(),
 
             read_future: None,
-            read_cancellation_future: unsafe { SelfRefWaitForCancellationFuture::new() },
+            read_cancellation_future: SelfRefWaitForCancellationFuture::new(),
 
             write_futures: VecDeque::new(),
-            write_cancellation_future: unsafe { SelfRefWaitForCancellationFuture::new() },
+            write_cancellation_future: SelfRefWaitForCancellationFuture::new(),
         }
     }
 

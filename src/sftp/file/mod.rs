@@ -179,8 +179,8 @@ pub struct File<'s> {
     offset: u64,
 }
 
-impl File<'_> {
-    fn get_auxiliary(&self) -> &Auxiliary {
+impl<'s> File<'s> {
+    fn get_auxiliary(&self) -> &'s Auxiliary {
         self.inner.get_auxiliary()
     }
 

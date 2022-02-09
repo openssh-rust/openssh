@@ -1,4 +1,4 @@
-use super::{Error, Id, SelfRefWaitForCancellationFuture, Sftp, SharedData, WriteEnd};
+use super::{Auxiliary, Error, Id, SelfRefWaitForCancellationFuture, Sftp, SharedData, WriteEnd};
 
 use std::any::type_name;
 use std::cell::Cell;
@@ -75,13 +75,17 @@ pub(super) struct WriteEndWithCachedId<'s>(
     /// However, allocate a new box each time a future is called is super
     /// expensive, thus we keep it cached so that we can reuse it.
     SelfRefWaitForCancellationFuture<'s>,
+    &'s Sftp<'s>,
 );
 
 impl Clone for WriteEndWithCachedId<'_> {
     fn clone(&self) -> Self {
-        Self(self.0.clone(), None, unsafe {
-            SelfRefWaitForCancellationFuture::new()
-        })
+        Self(
+            self.0.clone(),
+            None,
+            SelfRefWaitForCancellationFuture::new(),
+            self.3,
+        )
     }
 }
 
@@ -108,10 +112,13 @@ impl Drop for WriteEndWithCachedId<'_> {
 }
 
 impl<'s> WriteEndWithCachedId<'s> {
-    pub(super) fn new(_sftp: &'s Sftp<'s>, shared_data: SharedData) -> Self {
-        Self(WriteEnd::new(shared_data), None, unsafe {
-            SelfRefWaitForCancellationFuture::new()
-        })
+    pub(super) fn new(sftp: &'s Sftp<'s>, shared_data: SharedData) -> Self {
+        Self(
+            WriteEnd::new(shared_data),
+            None,
+            SelfRefWaitForCancellationFuture::new(),
+            sftp,
+        )
     }
 
     pub(super) fn get_id_mut(&mut self) -> Id {
@@ -139,7 +146,7 @@ impl<'s> WriteEndWithCachedId<'s> {
         E: Into<Error>,
     {
         let cancel_err = || Err(SftpError::BackgroundTaskFailure(&"read/flush task failed").into());
-        let auxiliary = self.0.get_auxiliary();
+        let auxiliary = self.3.shared_data.get_auxiliary();
 
         if auxiliary.cancel_token.is_cancelled() {
             return cancel_err();
@@ -172,5 +179,9 @@ impl<'s> WriteEndWithCachedId<'s> {
         self.cache_id_mut(id);
 
         Ok(ret)
+    }
+
+    pub(super) fn get_auxiliary(&self) -> &'s Auxiliary {
+        self.3.shared_data.get_auxiliary()
     }
 }
