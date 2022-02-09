@@ -1,8 +1,7 @@
-use super::{Cache, Error, Id, SftpError};
+use super::{Cache, Id};
 
 use openssh_sftp_client::Extensions;
 use parking_lot::RwLock;
-use std::future::Future;
 use thread_local::ThreadLocal;
 use tokio::sync::Notify;
 use tokio_util::sync::CancellationToken;
@@ -41,20 +40,6 @@ impl Auxiliary {
             thread_local_cache: ThreadLocal::new(),
             cancel_token: CancellationToken::new(),
             flush_end_notify: Notify::new(),
-        }
-    }
-
-    /// * `f` - the future must be cancel safe.
-    pub(super) async fn cancel_if_task_failed<R, E, F>(&self, future: F) -> Result<R, Error>
-    where
-        F: Future<Output = Result<R, E>>,
-        E: Into<Error>,
-    {
-        tokio::select! {
-            res = future => res.map_err(Into::into),
-            _ = self.cancel_token.cancelled() => Err(
-                SftpError::BackgroundTaskFailure(&"read/flush task failed").into()
-            ),
         }
     }
 

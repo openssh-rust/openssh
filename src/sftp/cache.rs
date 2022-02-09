@@ -112,6 +112,20 @@ impl WriteEndWithCachedId {
         }
     }
 
+    /// * `f` - the future must be cancel safe.
+    pub(super) async fn cancel_if_task_failed<R, E, F>(&self, future: F) -> Result<R, Error>
+    where
+        F: Future<Output = Result<R, E>>,
+        E: Into<Error>,
+    {
+        tokio::select! {
+            res = future => res.map_err(Into::into),
+            _ = self.0.get_auxiliary().cancel_token.cancelled() => Err(
+                SftpError::BackgroundTaskFailure(&"read/flush task failed").into()
+            ),
+        }
+    }
+
     pub(super) async fn send_request<Func, F, R>(&mut self, f: Func) -> Result<R, Error>
     where
         Func: FnOnce(&mut WriteEnd, Id) -> Result<F, SftpError>,
@@ -122,13 +136,11 @@ impl WriteEndWithCachedId {
 
         let future = f(write_end, id)?;
 
-        let auxiliary = write_end.get_auxiliary();
-
         // Requests is already added to write buffer, so wakeup
         // the `flush_task`.
-        auxiliary.wakeup_flush_task();
+        write_end.get_auxiliary().wakeup_flush_task();
 
-        let (id, ret) = auxiliary.cancel_if_task_failed(future).await?;
+        let (id, ret) = self.cancel_if_task_failed(future).await?;
 
         self.cache_id_mut(id);
 
