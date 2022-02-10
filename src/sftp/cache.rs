@@ -184,4 +184,8 @@ impl<'s> WriteEndWithCachedId<'s> {
     pub(super) fn get_auxiliary(&self) -> &'s Auxiliary {
         self.sftp.shared_data.get_auxiliary()
     }
+
+    pub(super) fn sftp(&self) -> &'s Sftp<'_> {
+        self.sftp
+    }
 }
