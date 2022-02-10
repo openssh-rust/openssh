@@ -356,7 +356,7 @@ impl AsyncWrite for TokioCompactFile<'_> {
                 // on stack.
                 //
                 // It is also cancel safe, so we don't need to store it.
-                Pin::new(&mut Box::pin(this.inner.inner.try_flush())).poll(cx)
+                Pin::new(&mut Box::pin(this.inner.sftp().try_flush())).poll(cx)
             )?;
         }
 

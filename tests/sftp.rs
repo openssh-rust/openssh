@@ -8,7 +8,7 @@ use std::io::IoSlice;
 use std::path::Path;
 
 use bytes::BytesMut;
-use tokio::io::{AsyncReadExt, AsyncSeekExt};
+use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 use tokio_io_utility::write_vectored_all;
 
 use pretty_assertions::assert_eq;
