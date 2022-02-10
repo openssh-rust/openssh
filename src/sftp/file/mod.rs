@@ -247,32 +247,6 @@ impl<'s> File<'s> {
         self.inner.write_end.sftp()
     }
 
-    /// Forcibly flush the write buffer.
-    ///
-    /// If another thread is doing flushing, then this function would return
-    /// without doing anything and return `false`.
-    ///
-    /// # Cancel Safety
-    ///
-    /// This function is cancel safe.
-    pub async fn try_flush(&self) -> Result<bool, io::Error> {
-        Ok(self.inner.write_end.try_flush().await?)
-    }
-
-    /// Forcibly flush the write buffer.
-    ///
-    /// If another thread is doing flushing, then this function would
-    /// wait until it completes or cancelled the future.
-    ///
-    /// # Cancel Safety
-    ///
-    /// This function is cancel safe.
-    pub async fn flush(&self) -> Result<(), io::Error> {
-        self.inner.write_end.flush().await?;
-
-        Ok(())
-    }
-
     /// Change the metadata of a file or a directory.
     ///
     /// # Cancel Safety
