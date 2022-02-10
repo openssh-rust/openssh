@@ -14,12 +14,14 @@ use tokio::io::AsyncWriteExt;
 /// A file-oriented channel to a remote host.
 ///
 /// You likely want [`Scp::write_to`] and [`Scp::read_from`].
+#[cfg_attr(docsrs, doc(cfg(feature = "scp")))]
 #[derive(Debug, Clone)]
 pub struct Scp<'s> {
     session: &'s Session,
 }
 
 /// A file access mode.
+#[cfg_attr(docsrs, doc(cfg(feature = "scp")))]
 #[derive(Debug, Clone, Copy)]
 pub enum Mode {
     /// Read-only access.
@@ -55,6 +57,7 @@ impl Mode {
 /// actually tries to read the first byte. For that reason, you should **make sure to call
 /// [`close`](RemoteFile::close)** to observe any errors that may have occurred when operating on
 /// the remote file.
+#[cfg_attr(docsrs, doc(cfg(feature = "scp")))]
 #[derive(Debug)]
 pub struct RemoteFile<'s> {
     cat: super::RemoteChild<'s>,
