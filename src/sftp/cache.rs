@@ -57,9 +57,10 @@ impl IdCacher for SharedData {
 }
 
 #[derive(Debug)]
-pub(super) struct WriteEndWithCachedId<'s>(
-    WriteEnd,
-    Option<Id>,
+pub(super) struct WriteEndWithCachedId<'s> {
+    sftp: &'s Sftp<'s>,
+    inner: WriteEnd,
+    id: Option<Id>,
     /// WaitForCancellationFuture adds itself as an entry to the internal
     /// linked list of CancellationToken when `poll`ed.
     ///
@@ -74,18 +75,17 @@ pub(super) struct WriteEndWithCachedId<'s>(
     ///
     /// However, allocate a new box each time a future is called is super
     /// expensive, thus we keep it cached so that we can reuse it.
-    BoxedWaitForCancellationFuture<'s>,
-    &'s Sftp<'s>,
-);
+    wait_for_cancell_future: BoxedWaitForCancellationFuture<'s>,
+}
 
 impl Clone for WriteEndWithCachedId<'_> {
     fn clone(&self) -> Self {
-        Self(
-            self.0.clone(),
-            None,
-            BoxedWaitForCancellationFuture::new(),
-            self.3,
-        )
+        Self {
+            sftp: self.sftp,
+            inner: self.inner.clone(),
+            id: None,
+            wait_for_cancell_future: BoxedWaitForCancellationFuture::new(),
+        }
     }
 }
 
@@ -93,19 +93,19 @@ impl Deref for WriteEndWithCachedId<'_> {
     type Target = WriteEnd;
 
     fn deref(&self) -> &Self::Target {
-        &self.0
+        &self.inner
     }
 }
 
 impl DerefMut for WriteEndWithCachedId<'_> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
+        &mut self.inner
     }
 }
 
 impl Drop for WriteEndWithCachedId<'_> {
     fn drop(&mut self) {
-        if let Some(id) = self.1.take() {
+        if let Some(id) = self.id.take() {
             self.cache_id(id);
         }
     }
@@ -113,27 +113,27 @@ impl Drop for WriteEndWithCachedId<'_> {
 
 impl<'s> WriteEndWithCachedId<'s> {
     pub(super) fn new(sftp: &'s Sftp<'s>, shared_data: SharedData) -> Self {
-        Self(
-            WriteEnd::new(shared_data),
-            None,
-            BoxedWaitForCancellationFuture::new(),
+        Self {
             sftp,
-        )
+            inner: WriteEnd::new(shared_data),
+            id: None,
+            wait_for_cancell_future: BoxedWaitForCancellationFuture::new(),
+        }
     }
 
     pub(super) fn get_id_mut(&mut self) -> Id {
-        self.1
+        self.id
             .take()
-            .unwrap_or_else(|| self.0.get_thread_local_cached_id())
+            .unwrap_or_else(|| self.inner.get_thread_local_cached_id())
     }
 
     pub(super) fn cache_id(&self, id: Id) {
-        self.0.cache_id(id);
+        self.inner.cache_id(id);
     }
 
     pub(super) fn cache_id_mut(&mut self, id: Id) {
-        if self.1.is_none() {
-            self.1 = Some(id);
+        if self.id.is_none() {
+            self.id = Some(id);
         } else {
             self.cache_id(id);
         }
@@ -146,7 +146,7 @@ impl<'s> WriteEndWithCachedId<'s> {
         E: Into<Error>,
     {
         let cancel_err = || Err(SftpError::BackgroundTaskFailure(&"read/flush task failed").into());
-        let auxiliary = self.3.shared_data.get_auxiliary();
+        let auxiliary = self.sftp.shared_data.get_auxiliary();
 
         if auxiliary.cancel_token.is_cancelled() {
             return cancel_err();
@@ -154,7 +154,7 @@ impl<'s> WriteEndWithCachedId<'s> {
 
         tokio::select! {
             res = future => res.map_err(Into::into),
-            _ = self.2.get_wait_for_cancel_future(auxiliary) => Err(
+            _ = self.wait_for_cancell_future.get_wait_for_cancel_future(auxiliary) => Err(
                 SftpError::BackgroundTaskFailure(&"read/flush task failed").into()
             ),
         }
@@ -166,13 +166,13 @@ impl<'s> WriteEndWithCachedId<'s> {
         F: Future<Output = Result<(Id, R), SftpError>> + 'static,
     {
         let id = self.get_id_mut();
-        let write_end = &mut self.0;
+        let write_end = &mut self.inner;
 
         let future = f(write_end, id)?;
 
         // Requests is already added to write buffer, so wakeup
         // the `flush_task`.
-        write_end.get_auxiliary().wakeup_flush_task();
+        self.get_auxiliary().wakeup_flush_task();
 
         let (id, ret) = self.cancel_if_task_failed(future).await?;
 
@@ -182,6 +182,6 @@ impl<'s> WriteEndWithCachedId<'s> {
     }
 
     pub(super) fn get_auxiliary(&self) -> &'s Auxiliary {
-        self.3.shared_data.get_auxiliary()
+        self.sftp.shared_data.get_auxiliary()
     }
 }
