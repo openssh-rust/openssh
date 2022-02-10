@@ -276,7 +276,7 @@ impl<'s> Sftp<'s> {
     ///           the default directory set by the remote
     ///           `sftp-server`.
     pub fn fs(&self, cwd: impl Into<PathBuf>) -> Fs<'_> {
-        Fs::new(self, self.write_end(), cwd.into())
+        Fs::new(self.write_end(), cwd.into())
     }
 
     /// Forcibly flush the write buffer.

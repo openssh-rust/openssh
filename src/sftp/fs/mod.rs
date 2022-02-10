@@ -1,6 +1,6 @@
 use super::{
-    Auxiliary, Buffer, Error, Id, MetaData, MetaDataBuilder, OwnedHandle, Permissions, Sftp,
-    SftpError, WriteEnd, WriteEndWithCachedId,
+    Auxiliary, Buffer, Error, Id, MetaData, MetaDataBuilder, OwnedHandle, Permissions, SftpError,
+    WriteEnd, WriteEndWithCachedId,
 };
 
 use std::borrow::Cow;
@@ -20,21 +20,13 @@ type SendLinkingRequest =
 /// A struct used to perform operations on remote filesystem.
 #[derive(Debug, Clone)]
 pub struct Fs<'s> {
-    sftp: &'s Sftp<'s>,
-
     write_end: WriteEndWithCachedId<'s>,
     cwd: Box<Path>,
 }
 
 impl<'s> Fs<'s> {
-    pub(super) fn new(
-        sftp: &'s Sftp<'s>,
-        write_end: WriteEndWithCachedId<'s>,
-        cwd: PathBuf,
-    ) -> Self {
+    pub(super) fn new(write_end: WriteEndWithCachedId<'s>, cwd: PathBuf) -> Self {
         Self {
-            sftp,
-
             write_end,
             cwd: cwd.into_boxed_path(),
         }
@@ -285,7 +277,7 @@ impl<'s> Fs<'s> {
     async fn read_impl(&mut self, path: &Path) -> Result<BytesMut, Error> {
         let path = self.concat_path_if_needed(path);
 
-        let mut file = self.sftp.open(path).await?;
+        let mut file = self.write_end.sftp().open(path).await?;
         let max_read_len = file.max_read_len();
 
         let cap_to_reserve: usize = if let Some(len) = file.metadata().await?.len() {
@@ -333,7 +325,12 @@ impl<'s> Fs<'s> {
     async fn write_impl(&mut self, path: &Path, content: &[u8]) -> Result<(), Error> {
         let path = self.concat_path_if_needed(path);
 
-        self.sftp.create(path).await?.write_all(content).await
+        self.write_end
+            .sftp()
+            .create(path)
+            .await?
+            .write_all(content)
+            .await
     }
 
     /// Open/Create a file for writing and write the entire `contents` into it.
