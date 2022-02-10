@@ -242,6 +242,11 @@ impl<'s> File<'s> {
         self.inner.close().await
     }
 
+    /// Return the underlying sftp.
+    pub fn sftp(&self) -> &'s Sftp<'s> {
+        self.inner.write_end.sftp()
+    }
+
     /// Forcibly flush the write buffer.
     ///
     /// If another thread is doing flushing, then this function would return
