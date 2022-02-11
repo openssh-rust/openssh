@@ -285,7 +285,11 @@ impl AsyncRead for TokioCompactFile<'_> {
 ///
 /// This can be done by concatenating strings before passing them to
 /// [`AsyncWrite::poll_write`] or [`AsyncWrite::poll_write_vectored`] and
-/// calling [`AsyncWrite::poll_flush`] when the message is complete.
+/// calling [`AsyncWrite::poll_flush`] on [`TokioCompactFile`] when the message
+/// is complete.
+///
+/// Calling [`AsyncWrite::poll_flush`] on [`TokioCompactFile`] would wait on
+/// writes in the order they are sent.
 ///
 /// [`TokioCompactFile`] can write at most [`File::max_write_len`] bytes
 /// at a time.
