@@ -45,7 +45,7 @@ impl MetaDataBuilder {
 
 /// Metadata information about a file.
 #[repr(transparent)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct MetaData(FileAttrs);
 
 #[allow(clippy::len_without_is_empty)]
