@@ -6,6 +6,7 @@ pub struct SftpOptions {
     flush_interval: Option<Duration>,
     max_read_len: Option<u32>,
     max_write_len: Option<u32>,
+    max_pending_requests: Option<usize>,
 }
 
 impl SftpOptions {
@@ -15,6 +16,7 @@ impl SftpOptions {
             flush_interval: None,
             max_read_len: None,
             max_write_len: None,
+            max_pending_requests: None,
         }
     }
 
@@ -71,5 +73,20 @@ impl SftpOptions {
 
     pub(super) fn get_max_write_len(&self) -> Option<u32> {
         self.max_write_len
+    }
+
+    /// Set `max_pending_requests`.
+    ///
+    /// If the pending_requests is larger than max_pending_requests, then the
+    /// flush task will flush the write buffer without waiting for `flush_interval`.
+    ///
+    /// It is set to 100 by default.
+    pub const fn max_pending_requests(mut self, max_pending_requests: usize) -> Self {
+        self.max_pending_requests = Some(max_pending_requests);
+        self
+    }
+
+    pub(super) fn get_max_pending_requests(&self) -> usize {
+        self.max_pending_requests.unwrap_or(100)
     }
 }

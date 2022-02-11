@@ -5,6 +5,7 @@ use std::io;
 use std::marker::PhantomData;
 use std::path::{Path, PathBuf};
 use std::process::ExitStatus;
+use std::sync::atomic::Ordering;
 
 use bytes::BytesMut;
 use openssh_sftp_client::{connect_with_auxiliary, Error as SftpError};
@@ -129,7 +130,11 @@ impl<'s> Sftp<'s> {
 
         let auxiliary = write_end.get_auxiliary();
 
-        *auxiliary.conn_info.write() = auxiliary::ConnInfo { limits, extensions };
+        *auxiliary.conn_info.write() = auxiliary::ConnInfo {
+            limits,
+            extensions,
+            max_pending_requests: options.get_max_pending_requests(),
+        };
         auxiliary.thread_local_cache.get_or(|| Cache::new(Some(id)));
 
         let shared_data = SharedData::clone(&write_end);
@@ -146,7 +151,18 @@ impl<'s> Sftp<'s> {
             // The loop can only return `Err`
             loop {
                 flush_end_notify.notified().await;
-                interval.tick().await;
+
+                tokio::select! {
+                    _ = interval.tick() => (),
+                    _ = auxiliary.requests_too_many_notify.notified() => (),
+                };
+
+                // Since flush_task is only cancelled when all requests
+                // are sent, it is OK to set pending_requests to 0 here.
+                //
+                // Setting it after flushing will incur a race condition,
+                // thus it is set before flushing.
+                auxiliary.pending_requests.store(0, Ordering::Relaxed);
 
                 // Wait until another thread is done or cancelled flushing
                 // and try flush it again just in case the flushing is cancelled
@@ -288,7 +304,16 @@ impl<'s> Sftp<'s> {
     ///
     /// This function is cancel safe.
     pub async fn try_flush(&self) -> Result<bool, io::Error> {
-        Ok(self.shared_data.try_flush().await?)
+        let auxiliary = self.shared_data.get_auxiliary();
+
+        let prev_pending_requests = auxiliary.pending_requests.load(Ordering::Relaxed);
+
+        if self.shared_data.try_flush().await? {
+            auxiliary.consume_pending_requests(prev_pending_requests);
+            Ok(true)
+        } else {
+            Ok(false)
+        }
     }
 
     /// Forcibly flush the write buffer.
@@ -300,7 +325,11 @@ impl<'s> Sftp<'s> {
     ///
     /// This function is cancel safe.
     pub async fn flush(&self) -> Result<(), io::Error> {
+        let auxiliary = self.shared_data.get_auxiliary();
+
+        let prev_pending_requests = auxiliary.pending_requests.load(Ordering::Relaxed);
         self.shared_data.flush().await?;
+        auxiliary.consume_pending_requests(prev_pending_requests);
 
         Ok(())
     }

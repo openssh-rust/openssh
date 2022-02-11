@@ -2,6 +2,7 @@ use super::{Cache, Id};
 
 use openssh_sftp_client::Extensions;
 use parking_lot::RwLock;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use thread_local::ThreadLocal;
 use tokio::sync::Notify;
 use tokio_util::sync::CancellationToken;
@@ -16,6 +17,7 @@ pub(super) struct Limits {
 pub(super) struct ConnInfo {
     pub(super) limits: Limits,
     pub(super) extensions: Extensions,
+    pub(super) max_pending_requests: usize,
 }
 
 #[derive(Debug)]
@@ -31,6 +33,12 @@ pub(super) struct Auxiliary {
     /// flush_end_notify is used to avoid unnecessary wakeup
     /// in flush_task.
     pub(super) flush_end_notify: Notify,
+
+    pub(super) pending_requests: AtomicUsize,
+
+    /// `Notify::notify_one` is called if
+    /// pending_requests == max_pending_requests.
+    pub(super) requests_too_many_notify: Notify,
 }
 
 impl Auxiliary {
@@ -40,11 +48,35 @@ impl Auxiliary {
             thread_local_cache: ThreadLocal::new(),
             cancel_token: CancellationToken::new(),
             flush_end_notify: Notify::new(),
+
+            pending_requests: AtomicUsize::new(0),
+            requests_too_many_notify: Notify::new(),
         }
     }
 
     pub(super) fn wakeup_flush_task(&self) {
         self.flush_end_notify.notify_one();
+
+        let max_pending_requests = self.conn_info.read().max_pending_requests;
+
+        // Use `==` here to avoid unnecessary wakeup of flush_task.
+        if self.pending_requests.fetch_add(1, Ordering::Relaxed) == max_pending_requests {
+            self.requests_too_many_notify.notify_one();
+        }
+    }
+
+    pub(super) fn consume_pending_requests(&self, requests_consumed: usize) {
+        let max_pending_requests = self.conn_info.read().max_pending_requests;
+
+        // If pending_requests is still greater than max_pending_request
+        // (might be caused by new requests), then wakeup flush_task.
+        if self
+            .pending_requests
+            .fetch_sub(requests_consumed, Ordering::Relaxed)
+            >= max_pending_requests
+        {
+            self.requests_too_many_notify.notify_one();
+        }
     }
 
     pub(super) fn extensions(&self) -> Extensions {
