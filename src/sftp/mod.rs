@@ -148,6 +148,8 @@ impl<'s> Sftp<'s> {
 
             let auxiliary = shared_data.get_auxiliary();
             let flush_end_notify = &auxiliary.flush_end_notify;
+            let pending_requests = &auxiliary.pending_requests;
+            let max_pending_requests = auxiliary.max_pending_requests();
 
             let _cancel_guard = auxiliary.cancel_token.clone().drop_guard();
 
@@ -166,22 +168,24 @@ impl<'s> Sftp<'s> {
                     _ = auxiliary.requests_too_many_notify.notified() => (),
                 };
 
-                // Since flush_task is only cancelled when all requests
-                // are sent, it is OK to set pending_requests to 0 here.
-                //
-                // Setting it after flushing will incur a race condition,
-                // thus it is set before flushing.
-                auxiliary.pending_requests.store(0, Ordering::Relaxed);
+                let mut prev_pending_requests = pending_requests.load(Ordering::Relaxed);
 
-                // Wait until another thread is done or cancelled flushing
-                // and try flush it again just in case the flushing is cancelled
-                flush(&shared_data).await?;
+                loop {
+                    // Wait until another thread is done or cancelled flushing
+                    // and try flush it again just in case the flushing is cancelled
+                    flush(&shared_data).await?;
+
+                    prev_pending_requests =
+                        pending_requests.fetch_sub(prev_pending_requests, Ordering::Relaxed);
+
+                    if prev_pending_requests < max_pending_requests {
+                        break;
+                    }
+                }
             }
         });
 
         let read_task = task::spawn(async move {
-            let mut read_end = read_end;
-
             let cancel_guard = read_end
                 .get_shared_data()
                 .get_auxiliary()

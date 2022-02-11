@@ -57,10 +57,8 @@ impl Auxiliary {
     pub(super) fn wakeup_flush_task(&self) {
         self.flush_end_notify.notify_one();
 
-        let max_pending_requests = self.conn_info().max_pending_requests;
-
         // Use `==` here to avoid unnecessary wakeup of flush_task.
-        if self.pending_requests.fetch_add(1, Ordering::Relaxed) == max_pending_requests {
+        if self.pending_requests.fetch_add(1, Ordering::Relaxed) == self.max_pending_requests() {
             self.requests_too_many_notify.notify_one();
         }
     }
@@ -81,5 +79,9 @@ impl Auxiliary {
         // since writing to conn_info is only done in `Sftp::new`,
         // reading these variable should never block.
         self.conn_info().limits
+    }
+
+    pub(super) fn max_pending_requests(&self) -> usize {
+        self.conn_info().max_pending_requests
     }
 }
