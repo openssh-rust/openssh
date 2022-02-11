@@ -130,11 +130,14 @@ impl<'s> Sftp<'s> {
 
         let auxiliary = write_end.get_auxiliary();
 
-        *auxiliary.conn_info.write() = auxiliary::ConnInfo {
-            limits,
-            extensions,
-            max_pending_requests: options.get_max_pending_requests(),
-        };
+        auxiliary
+            .conn_info
+            .set(auxiliary::ConnInfo {
+                limits,
+                extensions,
+                max_pending_requests: options.get_max_pending_requests(),
+            })
+            .expect("auxiliary.conn_info shall be empty");
         auxiliary.thread_local_cache.get_or(|| Cache::new(Some(id)));
 
         let shared_data = SharedData::clone(&write_end);

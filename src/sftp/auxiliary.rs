@@ -1,19 +1,19 @@
 use super::{Cache, Id};
 
+use once_cell::sync::OnceCell;
 use openssh_sftp_client::Extensions;
-use parking_lot::RwLock;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use thread_local::ThreadLocal;
 use tokio::sync::Notify;
 use tokio_util::sync::CancellationToken;
 
-#[derive(Debug, Default, Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub(super) struct Limits {
     pub(super) read_len: u32,
     pub(super) write_len: u32,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub(super) struct ConnInfo {
     pub(super) limits: Limits,
     pub(super) extensions: Extensions,
@@ -22,7 +22,7 @@ pub(super) struct ConnInfo {
 
 #[derive(Debug)]
 pub(super) struct Auxiliary {
-    pub(super) conn_info: RwLock<ConnInfo>,
+    pub(super) conn_info: OnceCell<ConnInfo>,
 
     pub(super) thread_local_cache: ThreadLocal<Cache<Id>>,
 
@@ -44,7 +44,7 @@ pub(super) struct Auxiliary {
 impl Auxiliary {
     pub(super) fn new() -> Self {
         Self {
-            conn_info: RwLock::new(ConnInfo::default()),
+            conn_info: OnceCell::new(),
             thread_local_cache: ThreadLocal::new(),
             cancel_token: CancellationToken::new(),
             flush_end_notify: Notify::new(),
@@ -57,7 +57,7 @@ impl Auxiliary {
     pub(super) fn wakeup_flush_task(&self) {
         self.flush_end_notify.notify_one();
 
-        let max_pending_requests = self.conn_info.read().max_pending_requests;
+        let max_pending_requests = self.conn_info().max_pending_requests;
 
         // Use `==` here to avoid unnecessary wakeup of flush_task.
         if self.pending_requests.fetch_add(1, Ordering::Relaxed) == max_pending_requests {
@@ -66,7 +66,7 @@ impl Auxiliary {
     }
 
     pub(super) fn consume_pending_requests(&self, requests_consumed: usize) {
-        let max_pending_requests = self.conn_info.read().max_pending_requests;
+        let max_pending_requests = self.conn_info().max_pending_requests;
 
         // If pending_requests is still greater than max_pending_request
         // (might be caused by new requests), then wakeup flush_task.
@@ -79,15 +79,21 @@ impl Auxiliary {
         }
     }
 
+    fn conn_info(&self) -> &ConnInfo {
+        self.conn_info
+            .get()
+            .expect("auxiliary.conn_info shall be initialized by sftp::Sftp::new")
+    }
+
     pub(super) fn extensions(&self) -> Extensions {
         // since writing to conn_info is only done in `Sftp::new`,
         // reading these variable should never block.
-        self.conn_info.read().extensions
+        self.conn_info().extensions
     }
 
     pub(super) fn limits(&self) -> Limits {
         // since writing to conn_info is only done in `Sftp::new`,
         // reading these variable should never block.
-        self.conn_info.read().limits
+        self.conn_info().limits
     }
 }
