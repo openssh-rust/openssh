@@ -157,6 +157,12 @@ impl<'s> Sftp<'s> {
 
                 tokio::select! {
                     _ = interval.tick() => (),
+                    // tokio::sync::Notify is cancel safe, however
+                    // cancelling it would lose the place in the queue.
+                    //
+                    // However, since flush_task is the only one who
+                    // calls `requests_too_many_notify.notified()`, it
+                    // is totally fine to cancel here.
                     _ = auxiliary.requests_too_many_notify.notified() => (),
                 };
 
