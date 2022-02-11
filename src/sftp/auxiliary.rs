@@ -63,6 +63,11 @@ impl Auxiliary {
         }
     }
 
+    pub(super) fn consume_pending_requests(&self, requests_consumed: usize) {
+        self.pending_requests
+            .fetch_sub(requests_consumed, Ordering::Relaxed);
+    }
+
     fn conn_info(&self) -> &ConnInfo {
         self.conn_info
             .get()
