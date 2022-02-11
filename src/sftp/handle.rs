@@ -1,8 +1,7 @@
-use super::{Error, Id, Sftp, WriteEnd, WriteEndWithCachedId};
+use super::{Error, Id, WriteEnd, WriteEndWithCachedId};
 
 use std::borrow::Cow;
 use std::future::Future;
-use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
 
@@ -13,8 +12,6 @@ use derive_destructure2::destructure;
 /// Remote Directory
 #[derive(Debug, Clone, destructure)]
 pub(super) struct OwnedHandle<'s> {
-    phantom_data: PhantomData<&'s Sftp<'s>>,
-
     pub(super) write_end: WriteEndWithCachedId<'s>,
     pub(super) handle: Arc<HandleOwned>,
 }
@@ -35,8 +32,6 @@ impl Drop for OwnedHandle<'_> {
 impl<'s> OwnedHandle<'s> {
     pub(super) fn new(write_end: WriteEndWithCachedId<'s>, handle: HandleOwned) -> Self {
         Self {
-            phantom_data: PhantomData,
-
             write_end,
             handle: Arc::new(handle),
         }
