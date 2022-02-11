@@ -313,16 +313,7 @@ impl<'s> Sftp<'s> {
     ///
     /// This function is cancel safe.
     pub async fn try_flush(&self) -> Result<bool, io::Error> {
-        let auxiliary = self.shared_data.get_auxiliary();
-
-        let prev_pending_requests = auxiliary.pending_requests.load(Ordering::Relaxed);
-
-        if self.shared_data.try_flush().await? {
-            auxiliary.consume_pending_requests(prev_pending_requests);
-            Ok(true)
-        } else {
-            Ok(false)
-        }
+        Ok(self.shared_data.try_flush().await?)
     }
 
     /// Forcibly flush the write buffer.
@@ -334,11 +325,7 @@ impl<'s> Sftp<'s> {
     ///
     /// This function is cancel safe.
     pub async fn flush(&self) -> Result<(), io::Error> {
-        let auxiliary = self.shared_data.get_auxiliary();
-
-        let prev_pending_requests = auxiliary.pending_requests.load(Ordering::Relaxed);
         self.shared_data.flush().await?;
-        auxiliary.consume_pending_requests(prev_pending_requests);
 
         Ok(())
     }

@@ -65,20 +65,6 @@ impl Auxiliary {
         }
     }
 
-    pub(super) fn consume_pending_requests(&self, requests_consumed: usize) {
-        let max_pending_requests = self.conn_info().max_pending_requests;
-
-        // If pending_requests is still greater than max_pending_request
-        // (might be caused by new requests), then wakeup flush_task.
-        if self
-            .pending_requests
-            .fetch_sub(requests_consumed, Ordering::Relaxed)
-            >= max_pending_requests
-        {
-            self.requests_too_many_notify.notify_one();
-        }
-    }
-
     fn conn_info(&self) -> &ConnInfo {
         self.conn_info
             .get()
