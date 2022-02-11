@@ -5,6 +5,7 @@ use openssh::sftp::*;
 
 use std::cmp::{max, min};
 use std::io::IoSlice;
+use std::num::NonZeroU32;
 use std::path::Path;
 
 use bytes::BytesMut;
@@ -152,10 +153,15 @@ async fn sftp_file_write_all() {
 /// Test File::write_all_vectorized, File::read_all and AsyncSeek implementation
 async fn sftp_file_write_all_vectored() {
     let path = Path::new("/tmp/sftp_file_write_all_vectored");
+    let max_rw_len = NonZeroU32::new(200).unwrap();
 
     for session in connects().await {
         let sftp = session
-            .sftp(SftpOptions::new().max_write_len(200).max_read_len(200))
+            .sftp(
+                SftpOptions::new()
+                    .max_write_len(max_rw_len)
+                    .max_read_len(max_rw_len),
+            )
             .await
             .unwrap();
 
@@ -188,10 +194,15 @@ async fn sftp_file_write_all_vectored() {
 /// Test File::write_all_vectorized, File::read_all and AsyncSeek implementation
 async fn sftp_file_write_all_zero_copy() {
     let path = Path::new("/tmp/sftp_file_write_all_zero_copy");
+    let max_rw_len = NonZeroU32::new(200).unwrap();
 
     for session in connects().await {
         let sftp = session
-            .sftp(SftpOptions::new().max_write_len(200).max_read_len(200))
+            .sftp(
+                SftpOptions::new()
+                    .max_write_len(max_rw_len)
+                    .max_read_len(max_rw_len),
+            )
             .await
             .unwrap();
 
@@ -344,10 +355,15 @@ impl<'s> SftpTokioCompactFileWriteAllTester<'s> {
 /// Test File::write_all_vectorized, File::read_all and AsyncSeek implementation
 async fn sftp_tokio_compact_file_write_all() {
     let path = Path::new("/tmp/sftp_tokio_compact_file_write_all");
+    let max_rw_len = NonZeroU32::new(200).unwrap();
 
     for session in connects().await {
         let sftp = session
-            .sftp(SftpOptions::new().max_write_len(200).max_read_len(200))
+            .sftp(
+                SftpOptions::new()
+                    .max_write_len(max_rw_len)
+                    .max_read_len(max_rw_len),
+            )
             .await
             .unwrap();
 
@@ -369,10 +385,15 @@ async fn sftp_tokio_compact_file_write_all() {
 /// Test File::write_all_vectorized, File::read_all and AsyncSeek implementation
 async fn sftp_tokio_compact_file_write_vectored_all() {
     let path = Path::new("/tmp/sftp_tokio_compact_file_write_vectored_all");
+    let max_rw_len = NonZeroU32::new(200).unwrap();
 
     for session in connects().await {
         let sftp = session
-            .sftp(SftpOptions::new().max_write_len(200).max_read_len(200))
+            .sftp(
+                SftpOptions::new()
+                    .max_write_len(max_rw_len)
+                    .max_read_len(max_rw_len),
+            )
             .await
             .unwrap();
 
@@ -404,10 +425,15 @@ async fn sftp_tokio_compact_file_write_vectored_all() {
 /// Test File::{set_len, set_permissions, metadata}.
 async fn sftp_file_metadata() {
     let path = Path::new("/tmp/sftp_file_metadata");
+    let max_rw_len = NonZeroU32::new(200).unwrap();
 
     for session in connects().await {
         let sftp = session
-            .sftp(SftpOptions::new().max_write_len(200).max_read_len(200))
+            .sftp(
+                SftpOptions::new()
+                    .max_write_len(max_rw_len)
+                    .max_read_len(max_rw_len),
+            )
             .await
             .unwrap();
 
@@ -438,10 +464,15 @@ async fn sftp_file_metadata() {
 /// Test File::sync_all.
 async fn sftp_file_sync_all() {
     let path = Path::new("/tmp/sftp_file_sync_all");
+    let max_rw_len = NonZeroU32::new(200).unwrap();
 
     for session in connects().await {
         let sftp = session
-            .sftp(SftpOptions::new().max_write_len(200).max_read_len(200))
+            .sftp(
+                SftpOptions::new()
+                    .max_write_len(max_rw_len)
+                    .max_read_len(max_rw_len),
+            )
             .await
             .unwrap();
 
@@ -598,12 +629,16 @@ async fn sftp_fs_rename() {
 /// Test Fs::{metadata, set_metadata}.
 async fn sftp_fs_metadata() {
     let path = Path::new("/tmp/sftp_fs_metadata");
-
+    let max_rw_len = NonZeroU32::new(200).unwrap();
     let content = b"hello, world!\n";
 
     for session in connects().await {
         let sftp = session
-            .sftp(SftpOptions::new().max_write_len(200).max_read_len(200))
+            .sftp(
+                SftpOptions::new()
+                    .max_write_len(max_rw_len)
+                    .max_read_len(max_rw_len),
+            )
             .await
             .unwrap();
 

@@ -1,12 +1,13 @@
+use std::num::{NonZeroU32, NonZeroUsize};
 use std::time::Duration;
 
 /// Options when creating [`super::Sftp`].
 #[derive(Debug, Copy, Clone, Default)]
 pub struct SftpOptions {
     flush_interval: Option<Duration>,
-    max_read_len: Option<u32>,
-    max_write_len: Option<u32>,
-    max_pending_requests: Option<usize>,
+    max_read_len: Option<NonZeroU32>,
+    max_write_len: Option<NonZeroU32>,
+    max_pending_requests: Option<NonZeroUsize>,
 }
 
 impl SftpOptions {
@@ -53,26 +54,26 @@ impl SftpOptions {
     ///
     /// It can be used to reduce `max_read_len`, but cannot be used
     /// to increase `max_read_len`.
-    pub const fn max_read_len(mut self, max_read_len: u32) -> Self {
+    pub const fn max_read_len(mut self, max_read_len: NonZeroU32) -> Self {
         self.max_read_len = Some(max_read_len);
         self
     }
 
     pub(super) fn get_max_read_len(&self) -> Option<u32> {
-        self.max_read_len
+        self.max_read_len.map(NonZeroU32::get)
     }
 
     /// Set `max_write_len`.
     ///
     /// It can be used to reduce `max_write_len`, but cannot be used
     /// to increase `max_write_len`.
-    pub const fn max_write_len(mut self, max_write_len: u32) -> Self {
+    pub const fn max_write_len(mut self, max_write_len: NonZeroU32) -> Self {
         self.max_write_len = Some(max_write_len);
         self
     }
 
     pub(super) fn get_max_write_len(&self) -> Option<u32> {
-        self.max_write_len
+        self.max_write_len.map(NonZeroU32::get)
     }
 
     /// Set `max_pending_requests`.
@@ -81,12 +82,14 @@ impl SftpOptions {
     /// flush task will flush the write buffer without waiting for `flush_interval`.
     ///
     /// It is set to 100 by default.
-    pub const fn max_pending_requests(mut self, max_pending_requests: usize) -> Self {
+    pub const fn max_pending_requests(mut self, max_pending_requests: NonZeroUsize) -> Self {
         self.max_pending_requests = Some(max_pending_requests);
         self
     }
 
     pub(super) fn get_max_pending_requests(&self) -> usize {
-        self.max_pending_requests.unwrap_or(100)
+        self.max_pending_requests
+            .map(NonZeroUsize::get)
+            .unwrap_or(100)
     }
 }
