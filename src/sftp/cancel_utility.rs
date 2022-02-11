@@ -30,17 +30,15 @@ impl<'s> BoxedWaitForCancellationFuture<'s> {
         Self(None)
     }
 
-    fn error() -> io::Error {
-        io::Error::new(
-            io::ErrorKind::Other,
-            SftpError::BackgroundTaskFailure(&"read/flush task failed"),
-        )
+    pub(super) fn cancel_error() -> SftpError {
+        SftpError::BackgroundTaskFailure(&"read/flush task failed")
     }
 
-    pub(super) fn get_wait_for_cancel_future(
-        &mut self,
-        auxiliary: &'s Auxiliary,
-    ) -> Pin<&mut WaitForCancellationFuture<'s>> {
+    fn cancel_io_error() -> io::Error {
+        io::Error::new(io::ErrorKind::Other, Self::cancel_error())
+    }
+
+    fn get_future(&mut self, auxiliary: &'s Auxiliary) -> Pin<&mut WaitForCancellationFuture<'s>> {
         if self.0.is_none() {
             self.0 = Some(Box::pin(auxiliary.cancel_token.cancelled()));
         }
@@ -51,6 +49,17 @@ impl<'s> BoxedWaitForCancellationFuture<'s> {
             .as_mut()
     }
 
+    /// * `f` - the future must be cancel safe.
+    ///
+    /// Wait for task cancellation.
+    pub(super) async fn wait(&mut self, auxiliary: &'s Auxiliary) {
+        if !auxiliary.cancel_token.is_cancelled() {
+            self.get_future(auxiliary).await;
+            // Drop future since a completed future cannot be polled again.
+            self.0 = None;
+        }
+    }
+
     /// Return `Ok(())` if the task hasn't failed yet and the context has
     /// already been registered.
     pub(super) fn poll_for_task_failure(
@@ -59,14 +68,15 @@ impl<'s> BoxedWaitForCancellationFuture<'s> {
         auxiliary: &'s Auxiliary,
     ) -> Result<(), io::Error> {
         if auxiliary.cancel_token.is_cancelled() {
-            return Err(Self::error());
+            return Err(Self::cancel_io_error());
         }
 
-        match self.get_wait_for_cancel_future(auxiliary).poll(cx) {
+        match self.get_future(auxiliary).poll(cx) {
             Poll::Ready(_) => {
+                // Drop future since a completed future cannot be called again.
                 self.0 = None;
 
-                Err(Self::error())
+                Err(Self::cancel_io_error())
             }
             Poll::Pending => Ok(()),
         }

@@ -145,7 +145,7 @@ impl<'s> WriteEndWithCachedId<'s> {
         F: Future<Output = Result<R, E>>,
         E: Into<Error>,
     {
-        let cancel_err = || Err(SftpError::BackgroundTaskFailure(&"read/flush task failed").into());
+        let cancel_err = || Err(BoxedWaitForCancellationFuture::cancel_error().into());
         let auxiliary = self.sftp.shared_data.get_auxiliary();
 
         if auxiliary.cancel_token.is_cancelled() {
@@ -154,9 +154,7 @@ impl<'s> WriteEndWithCachedId<'s> {
 
         tokio::select! {
             res = future => res.map_err(Into::into),
-            _ = self.wait_for_cancell_future.get_wait_for_cancel_future(auxiliary) => Err(
-                SftpError::BackgroundTaskFailure(&"read/flush task failed").into()
-            ),
+            _ = self.wait_for_cancell_future.wait(auxiliary) => cancel_err(),
         }
     }
 
