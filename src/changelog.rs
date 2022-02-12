@@ -45,7 +45,7 @@ pub mod unreleased {}
 ///  - A new type [`Stdio`] is used for setting stdin/stdout/stderr.
 ///  - [`ChildStdin`], [`ChildStdout`] and [`ChildStderr`] are now aliases
 ///    for [`tokio_pipe::PipeRead`] and [`tokio_pipe::PipeWrite`].
-///  - [`Command::spawn`] and [`Command::status`] now confirms to
+///  - [`Command::spawn`] and [`Command::status`] now conforms to
 ///    [`std::process::Command`] and [`tokio::process::Command`], in which
 ///    stdin, stdout and stderr are inherit by default.
 ///  - [`Command::spawn`] is now an `async` method.
