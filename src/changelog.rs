@@ -8,6 +8,7 @@ use crate::*;
 ///
 /// ## Added
 ///  - Added changelog
+#[doc(hidden)]
 pub mod unreleased {}
 
 /// ## Added
