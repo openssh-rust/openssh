@@ -176,7 +176,7 @@ pub(crate) mod process_impl;
 #[cfg(feature = "native-mux")]
 pub(crate) mod native_mux_impl;
 
-#[cfg(docsrs)]
+#[cfg(doc)]
 /// Changelog for this crate.
 pub mod changelog;
 
