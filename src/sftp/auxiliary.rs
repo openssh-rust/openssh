@@ -38,7 +38,7 @@ pub(super) struct Auxiliary {
 
     /// `Notify::notify_one` is called if
     /// pending_requests == max_pending_requests.
-    pub(super) requests_too_many_notify: Notify,
+    pub(super) flush_immediately: Notify,
 }
 
 impl Auxiliary {
@@ -50,7 +50,7 @@ impl Auxiliary {
             flush_end_notify: Notify::new(),
 
             pending_requests: AtomicUsize::new(0),
-            requests_too_many_notify: Notify::new(),
+            flush_immediately: Notify::new(),
         }
     }
 
@@ -59,7 +59,7 @@ impl Auxiliary {
 
         // Use `==` here to avoid unnecessary wakeup of flush_task.
         if self.pending_requests.fetch_add(1, Ordering::Relaxed) == self.max_pending_requests() {
-            self.requests_too_many_notify.notify_one();
+            self.flush_immediately.notify_one();
         }
     }
 

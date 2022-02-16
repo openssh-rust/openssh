@@ -163,9 +163,9 @@ impl<'s> Sftp<'s> {
                     // cancelling it would lose the place in the queue.
                     //
                     // However, since flush_task is the only one who
-                    // calls `requests_too_many_notify.notified()`, it
+                    // calls `flush_immediately.notified()`, it
                     // is totally fine to cancel here.
-                    _ = auxiliary.requests_too_many_notify.notified() => (),
+                    _ = auxiliary.flush_immediately.notified() => (),
                 };
 
                 let mut prev_pending_requests = pending_requests.load(Ordering::Relaxed);
