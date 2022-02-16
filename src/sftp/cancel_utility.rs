@@ -23,9 +23,6 @@ pub(super) struct BoxedWaitForCancellationFuture<'s>(
 );
 
 impl<'s> BoxedWaitForCancellationFuture<'s> {
-    /// # Safety
-    ///
-    /// lifetime `'s` must be the same as `&'s Sftp<'s>`.
     pub(super) fn new() -> Self {
         Self(None)
     }
