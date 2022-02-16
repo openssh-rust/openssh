@@ -349,7 +349,7 @@ impl AsyncWrite for TokioCompactFile<'_> {
         // flush only if there is pending awaitable writes
         if this.need_flush {
             this.inner.sftp().trigger_flushing();
-            this.inner.need_flush = true;
+            this.inner.need_flush = false;
         }
 
         this.write_cancellation_future
