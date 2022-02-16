@@ -101,10 +101,7 @@ impl<'s> TokioCompactFile<'s> {
         let write_end = &mut self.inner.inner.write_end;
 
         if need_flush {
-            // If another thread is doing the flushing, then
-            // wait until it is done and try to flush again,
-            // just in case it cancell the flushing.
-            write_end.flush().await.map_err(SftpError::from)?;
+            write_end.sftp().trigger_flushing();
         }
 
         while let Some(future) = self.write_futures.pop_front() {
