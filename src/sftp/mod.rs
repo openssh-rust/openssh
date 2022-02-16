@@ -225,9 +225,6 @@ impl<'s> Sftp<'s> {
     pub async fn close(self) -> Result<(), Error> {
         // Flush the data.
         //
-        // Since there is no reference to `Sftp`, the only requests that
-        // haven't yet flushed should be close requests.
-        //
         // And there will not be any new requests.
         flush(&self.shared_data).await?;
 
