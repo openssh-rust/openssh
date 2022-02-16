@@ -348,17 +348,8 @@ impl AsyncWrite for TokioCompactFile<'_> {
 
         // flush only if there is pending awaitable writes
         if this.need_flush {
-            // WriteEnd::flush return true if flush succeeds, false if not.
-            //
-            // If it succeeds, then we no longer need to flush it.
-            this.inner.need_flush = !ready!(
-                // Future returned by WriteEnd::flush does not contain
-                // self-reference, so it can be optimized and placed
-                // on stack.
-                //
-                // It is also cancel safe, so we don't need to store it.
-                Pin::new(&mut Box::pin(this.inner.sftp().try_flush())).poll(cx)
-            )?;
+            this.inner.sftp().trigger_flushing();
+            this.inner.need_flush = true;
         }
 
         this.write_cancellation_future
