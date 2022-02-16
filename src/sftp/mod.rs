@@ -343,4 +343,17 @@ impl<'s> Sftp<'s> {
 
         Ok(())
     }
+
+    /// Trigger flushing in the `flush_task`.
+    ///
+    /// If there are pending requests, then flushing would happen immediately.
+    ///
+    /// If not, then the next time a request is queued in the write buffer, it
+    /// will be immediately flushed.
+    pub fn trigger_flushing(&self) {
+        self.shared_data
+            .get_auxiliary()
+            .flush_immediately
+            .notify_one();
+    }
 }
