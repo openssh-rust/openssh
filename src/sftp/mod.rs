@@ -308,13 +308,17 @@ impl<'s> Sftp<'s> {
         Fs::new(self.write_end(), cwd.into())
     }
 
+    fn auxiliary(&self) -> &Auxiliary {
+        self.shared_data.get_auxiliary()
+    }
+
     /// without doing anything and return `false`.
     ///
     /// # Cancel Safety
     ///
     /// This function is cancel safe.
     pub async fn try_flush(&self) -> Result<bool, io::Error> {
-        let auxiliary = self.shared_data.get_auxiliary();
+        let auxiliary = self.auxiliary();
 
         let prev_pending_requests = auxiliary.pending_requests.load(Ordering::Relaxed);
 
@@ -335,7 +339,7 @@ impl<'s> Sftp<'s> {
     ///
     /// This function is cancel safe.
     pub async fn flush(&self) -> Result<(), io::Error> {
-        let auxiliary = self.shared_data.get_auxiliary();
+        let auxiliary = self.auxiliary();
 
         let prev_pending_requests = auxiliary.pending_requests.load(Ordering::Relaxed);
         self.shared_data.flush().await?;
@@ -351,9 +355,11 @@ impl<'s> Sftp<'s> {
     /// If not, then the next time a request is queued in the write buffer, it
     /// will be immediately flushed.
     pub fn trigger_flushing(&self) {
-        self.shared_data
-            .get_auxiliary()
-            .flush_immediately
-            .notify_one();
+        self.auxiliary().flush_immediately.notify_one();
+    }
+
+    /// Return number of pending requests in the write buffer.
+    pub fn get_pending_requests(&self) -> usize {
+        self.auxiliary().pending_requests.load(Ordering::Relaxed)
     }
 }
