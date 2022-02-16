@@ -1,6 +1,6 @@
 use super::{
-    Auxiliary, Buffer, Error, Id, MetaData, MetaDataBuilder, OwnedHandle, Permissions, SftpError,
-    WriteEnd, WriteEndWithCachedId,
+    Auxiliary, Buffer, Error, Id, MetaData, MetaDataBuilder, OwnedHandle, Permissions, Sftp,
+    SftpError, WriteEnd, WriteEndWithCachedId,
 };
 
 use std::borrow::Cow;
@@ -34,6 +34,11 @@ impl<'s> Fs<'s> {
 
     fn get_auxiliary(&self) -> &Auxiliary {
         self.write_end.get_auxiliary()
+    }
+
+    /// Return the underlying sftp.
+    pub fn sftp(&self) -> &'s Sftp<'s> {
+        self.write_end.sftp()
     }
 
     /// Return current working dir.
