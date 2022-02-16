@@ -10,6 +10,7 @@ use std::sync::atomic::Ordering;
 use bytes::BytesMut;
 use openssh_sftp_client::{connect_with_auxiliary, Error as SftpError};
 use tokio::{task, time};
+use tokio_util::sync::CancellationToken;
 
 pub use openssh_sftp_client::{UnixTimeStamp, UnixTimeStampError};
 
@@ -361,5 +362,14 @@ impl<'s> Sftp<'s> {
     /// Return number of pending requests in the write buffer.
     pub fn get_pending_requests(&self) -> usize {
         self.auxiliary().pending_requests.load(Ordering::Relaxed)
+    }
+
+    /// Return a cancellation token that will be cancelled if the `flush_task`
+    /// or `read_task` failed or when `sftp::Sftp::close` is called.
+    ///
+    /// Cancelling this returned token has no effect on any function in this
+    /// module.
+    pub fn get_cancellation_token(&self) -> CancellationToken {
+        self.auxiliary().cancel_token.child_token()
     }
 }
