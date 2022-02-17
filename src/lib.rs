@@ -167,10 +167,10 @@ pub use child::RemoteChild;
 mod error;
 pub use error::Error;
 
+/// Scp implementation using commands such as cat, dd and etc.
 #[cfg(feature = "scp")]
-mod scp;
-#[cfg(feature = "scp")]
-pub use scp::{Mode, RemoteFile, Scp};
+#[cfg_attr(docsrs, doc(cfg(feature = "scp")))]
+pub mod scp;
 
 /// Sftp implementation
 ///
@@ -430,8 +430,8 @@ impl Session {
     /// See [`Scp`] for details on how to interact with the remote files.
     #[cfg(feature = "scp")]
     #[cfg_attr(docsrs, doc(cfg(feature = "scp")))]
-    pub fn scp(&self) -> Scp<'_> {
-        Scp::new(self)
+    pub fn scp(&self) -> scp::Scp<'_> {
+        scp::Scp::new(self)
     }
 
     /// Prepare to perform file operations on the remote host using

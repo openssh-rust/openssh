@@ -17,6 +17,8 @@ use tokio::{
 };
 
 use openssh::*;
+#[cfg(feature = "scp")]
+use scp::*;
 
 // TODO: how do we test the connection actually _failing_ so that the master reports an error?
 
