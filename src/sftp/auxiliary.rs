@@ -89,4 +89,8 @@ impl Auxiliary {
     pub(super) fn max_pending_requests(&self) -> usize {
         self.conn_info().max_pending_requests
     }
+
+    pub(super) fn get_pending_requests(&self) -> usize {
+        self.pending_requests.load(Ordering::Relaxed)
+    }
 }
