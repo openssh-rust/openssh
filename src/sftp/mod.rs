@@ -358,7 +358,7 @@ impl<'s> Sftp<'s> {
 
     /// Return number of pending requests in the write buffer.
     pub fn get_pending_requests(&self) -> usize {
-        self.auxiliary().get_pending_requests()
+        self.auxiliary().pending_requests.load(Ordering::Relaxed)
     }
 
     /// Return a cancellation token that will be cancelled if the `flush_task`

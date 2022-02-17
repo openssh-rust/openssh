@@ -101,7 +101,7 @@ impl<'s> TokioCompactFile<'s> {
         let write_end = &mut self.inner.inner.write_end;
 
         // Only flush if there are pending requests
-        if need_flush && write_end.get_auxiliary().get_pending_requests() != 0 {
+        if need_flush && write_end.sftp().get_pending_requests() != 0 {
             write_end.sftp().trigger_flushing();
         }
 
@@ -350,7 +350,7 @@ impl AsyncWrite for TokioCompactFile<'_> {
         // Flush only if there is pending awaitable writes
         if this.need_flush {
             // Only flush if there are pending requests
-            if this.inner.get_auxiliary().get_pending_requests() != 0 {
+            if this.inner.sftp().get_pending_requests() != 0 {
                 this.inner.sftp().trigger_flushing();
             }
             this.inner.need_flush = false;
