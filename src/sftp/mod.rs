@@ -291,7 +291,7 @@ impl<'s> Sftp<'s> {
     }
 
     /// Return a cancellation token that will be cancelled if the `flush_task`
-    /// or `read_task` failed or when `sftp::Sftp::close` is called.
+    /// or `read_task` failed is called.
     ///
     /// Cancelling this returned token has no effect on any function in this
     /// module.
