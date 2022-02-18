@@ -10,7 +10,7 @@ use std::sync::atomic::Ordering;
 use bytes::BytesMut;
 use derive_destructure2::destructure;
 use openssh_sftp_client::{connect_with_auxiliary, Error as SftpError};
-use tokio::{task, time};
+use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
 
 pub use openssh_sftp_client::{UnixTimeStamp, UnixTimeStampError};
@@ -20,6 +20,9 @@ use cancel_utility::BoxedWaitForCancellationFuture;
 
 mod options;
 pub use options::SftpOptions;
+
+mod tasks;
+use tasks::{create_flush_task, create_read_task};
 
 mod auxiliary;
 use auxiliary::Auxiliary;
@@ -45,6 +48,7 @@ pub use metadata::{FileType, MetaData, MetaDataBuilder, Permissions};
 type Buffer = BytesMut;
 
 type WriteEnd = openssh_sftp_client::WriteEnd<Buffer, Auxiliary>;
+type ReadEnd = openssh_sftp_client::ReadEnd<Buffer, Auxiliary>;
 type SharedData = openssh_sftp_client::SharedData<Buffer, Auxiliary>;
 type Id = openssh_sftp_client::Id<Buffer>;
 type Data = openssh_sftp_client::Data<Buffer>;
@@ -60,8 +64,8 @@ pub struct Sftp<'s> {
     child: RemoteChildImp,
 
     shared_data: SharedData,
-    flush_task: task::JoinHandle<Result<(), Error>>,
-    read_task: task::JoinHandle<Result<(), Error>>,
+    flush_task: JoinHandle<Result<(), Error>>,
+    read_task: JoinHandle<Result<(), Error>>,
 }
 
 impl<'s> Sftp<'s> {
@@ -142,95 +146,15 @@ impl<'s> Sftp<'s> {
             .expect("auxiliary.conn_info shall be empty");
         auxiliary.thread_local_cache.get_or(|| Cache::new(Some(id)));
 
-        let shared_data = SharedData::clone(&write_end);
-        let flush_interval = options.get_flush_interval();
-        let flush_task = task::spawn(async move {
-            let mut interval = time::interval(flush_interval);
-            interval.set_missed_tick_behavior(time::MissedTickBehavior::Delay);
-
-            let auxiliary = shared_data.get_auxiliary();
-            let flush_end_notify = &auxiliary.flush_end_notify;
-            let pending_requests = &auxiliary.pending_requests;
-            let shutdown_requested = &auxiliary.shutdown_requested;
-            let max_pending_requests = auxiliary.max_pending_requests();
-
-            let cancel_guard = auxiliary.cancel_token.clone().drop_guard();
-
-            // The loop can only return `Err`
-            loop {
-                flush_end_notify.notified().await;
-
-                tokio::select! {
-                    _ = interval.tick() => (),
-                    // tokio::sync::Notify is cancel safe, however
-                    // cancelling it would lose the place in the queue.
-                    //
-                    // However, since flush_task is the only one who
-                    // calls `flush_immediately.notified()`, it
-                    // is totally fine to cancel here.
-                    _ = auxiliary.flush_immediately.notified() => (),
-                };
-
-                let mut prev_pending_requests = pending_requests.load(Ordering::Relaxed);
-
-                loop {
-                    // Wait until another thread is done or cancelled flushing
-                    // and try flush it again just in case the flushing is cancelled
-                    flush(&shared_data).await?;
-
-                    prev_pending_requests =
-                        pending_requests.fetch_sub(prev_pending_requests, Ordering::Relaxed);
-
-                    if prev_pending_requests < max_pending_requests {
-                        break;
-                    }
-                }
-
-                if shutdown_requested.load(Ordering::Relaxed) {
-                    // Once shutdown_requested is sent, there will be no
-                    // new requests.
-                    //
-                    // Flushing here will ensure all pending requests is sent.
-                    flush(&shared_data).await?;
-
-                    cancel_guard.disarm();
-
-                    break Ok(());
-                }
-            }
-        });
-
-        let read_task = task::spawn(async move {
-            let cancel_guard = read_end
-                .get_shared_data()
-                .get_auxiliary()
-                .cancel_token
-                .clone()
-                .drop_guard();
-
-            loop {
-                let new_requests_submit = read_end.wait_for_new_request().await;
-                if new_requests_submit == 0 {
-                    // All responses is read in and there is no
-                    // write_end/shared_data left.
-                    cancel_guard.disarm();
-                    break Ok::<_, Error>(());
-                }
-
-                // If attempt to read in more than new_requests_submit, then
-                // `read_in_one_packet` might block forever.
-                for _ in 0..new_requests_submit {
-                    read_end.read_in_one_packet().await?;
-                }
-            }
-        });
+        let flush_task =
+            create_flush_task(SharedData::clone(&write_end), options.get_flush_interval());
 
         Ok(Self {
             phantom_data: PhantomData,
             child,
 
             shared_data: write_end.into_shared_data(),
-            read_task,
+            read_task: create_read_task(read_end),
             flush_task,
         })
     }
