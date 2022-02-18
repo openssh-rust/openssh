@@ -2,7 +2,7 @@ use super::{Cache, Id};
 
 use once_cell::sync::OnceCell;
 use openssh_sftp_client::Extensions;
-use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use thread_local::ThreadLocal;
 use tokio::sync::Notify;
 use tokio_util::sync::CancellationToken;
@@ -38,6 +38,8 @@ pub(super) struct Auxiliary {
     /// requires a request id that is 32 bits.
     pub(super) pending_requests: AtomicU32,
 
+    pub(super) shutdown_requested: AtomicBool,
+
     /// `Notify::notify_one` is called if
     /// pending_requests == max_pending_requests.
     pub(super) flush_immediately: Notify,
@@ -52,6 +54,7 @@ impl Auxiliary {
             flush_end_notify: Notify::new(),
 
             pending_requests: AtomicU32::new(0),
+            shutdown_requested: AtomicBool::new(false),
             flush_immediately: Notify::new(),
         }
     }
@@ -90,5 +93,12 @@ impl Auxiliary {
 
     pub(super) fn max_pending_requests(&self) -> u32 {
         self.conn_info().max_pending_requests as u32
+    }
+
+    pub(super) fn requests_shutdown(&self) {
+        self.shutdown_requested.store(true, Ordering::Relaxed);
+
+        self.flush_immediately.notify_one();
+        self.flush_end_notify.notify_one();
     }
 }

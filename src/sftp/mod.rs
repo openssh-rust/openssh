@@ -150,9 +150,10 @@ impl<'s> Sftp<'s> {
             let auxiliary = shared_data.get_auxiliary();
             let flush_end_notify = &auxiliary.flush_end_notify;
             let pending_requests = &auxiliary.pending_requests;
+            let shutdown_requested = &auxiliary.shutdown_requested;
             let max_pending_requests = auxiliary.max_pending_requests();
 
-            let _cancel_guard = auxiliary.cancel_token.clone().drop_guard();
+            let cancel_guard = auxiliary.cancel_token.clone().drop_guard();
 
             // The loop can only return `Err`
             loop {
@@ -182,6 +183,18 @@ impl<'s> Sftp<'s> {
                     if prev_pending_requests < max_pending_requests {
                         break;
                     }
+                }
+
+                if shutdown_requested.load(Ordering::Relaxed) {
+                    // Once shutdown_requested is sent, there will be no
+                    // new requests.
+                    //
+                    // Flushing here will ensure all pending requests is sent.
+                    flush(&shared_data).await?;
+
+                    cancel_guard.disarm();
+
+                    break Ok(());
                 }
             }
         });
@@ -223,21 +236,10 @@ impl<'s> Sftp<'s> {
 
     /// Close sftp connection
     pub async fn close(self) -> Result<(), Error> {
-        // Flush the data.
-        //
-        // And there will not be any new requests.
-        flush(&self.shared_data).await?;
+        // This will terminate flush_task, otherwise read_task would not return.
+        self.shared_data.get_auxiliary().requests_shutdown();
 
-        // Terminate flush_task, otherwise read_task would not return.
-        self.flush_task.abort();
-        match self.flush_task.await {
-            Ok(res) => res?,
-            Err(join_err) => {
-                if !join_err.is_cancelled() {
-                    return Err(join_err.into());
-                }
-            }
-        }
+        self.flush_task.await??;
 
         // Drop the shared_data, otherwise read_task would not return.
         debug_assert_eq!(self.shared_data.strong_count(), 2);
