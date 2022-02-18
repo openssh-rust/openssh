@@ -8,6 +8,7 @@ use std::process::ExitStatus;
 use std::sync::atomic::Ordering;
 
 use bytes::BytesMut;
+use derive_destructure2::destructure;
 use openssh_sftp_client::{connect_with_auxiliary, Error as SftpError};
 use tokio::{task, time};
 use tokio_util::sync::CancellationToken;
@@ -53,7 +54,7 @@ async fn flush(shared_data: &SharedData) -> Result<(), Error> {
 }
 
 /// A file-oriented channel to a remote host.
-#[derive(Debug)]
+#[derive(Debug, destructure)]
 pub struct Sftp<'s> {
     phantom_data: PhantomData<&'s Session>,
     child: RemoteChildImp,
@@ -236,20 +237,22 @@ impl<'s> Sftp<'s> {
 
     /// Close sftp connection
     pub async fn close(self) -> Result<(), Error> {
-        // This will terminate flush_task, otherwise read_task would not return.
-        self.shared_data.get_auxiliary().requests_shutdown();
+        let (_phantom_data, child, shared_data, flush_task, read_task) = self.destructure();
 
-        self.flush_task.await??;
+        // This will terminate flush_task, otherwise read_task would not return.
+        shared_data.get_auxiliary().requests_shutdown();
+
+        flush_task.await??;
 
         // Drop the shared_data, otherwise read_task would not return.
-        debug_assert_eq!(self.shared_data.strong_count(), 2);
-        drop(self.shared_data);
+        debug_assert_eq!(shared_data.strong_count(), 2);
+        drop(shared_data);
 
         // Wait for responses for all requests buffered and sent.
-        self.read_task.await??;
+        read_task.await??;
 
         let res: Result<ExitStatus, Error> =
-            crate::child::delegate!(self.child, child, { child.wait().await });
+            crate::child::delegate!(child, child, { child.wait().await });
         let exit_status = res?;
 
         if !exit_status.success() {
@@ -370,5 +373,12 @@ impl<'s> Sftp<'s> {
     /// module.
     pub fn get_cancellation_token(&self) -> CancellationToken {
         self.auxiliary().cancel_token.child_token()
+    }
+}
+
+impl Drop for Sftp<'_> {
+    fn drop(&mut self) {
+        // This will terminate flush_task, otherwise read_task would not return.
+        self.shared_data.get_auxiliary().requests_shutdown();
     }
 }
