@@ -427,7 +427,7 @@ impl Session {
     /// Prepare to perform file operations on the remote host, by using
     /// shell command like dd, cat, tee.
     ///
-    /// See [`Scp`] for details on how to interact with the remote files.
+    /// See [`scp::Scp`] for details on how to interact with the remote files.
     #[cfg(feature = "scp")]
     #[cfg_attr(docsrs, doc(cfg(feature = "scp")))]
     pub fn scp(&self) -> scp::Scp<'_> {
