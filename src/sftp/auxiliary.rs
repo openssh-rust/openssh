@@ -17,7 +17,7 @@ pub(super) struct Limits {
 pub(super) struct ConnInfo {
     pub(super) limits: Limits,
     pub(super) extensions: Extensions,
-    pub(super) max_pending_requests: usize,
+    pub(super) max_pending_requests: u16,
 }
 
 #[derive(Debug)]
@@ -87,6 +87,6 @@ impl Auxiliary {
     }
 
     pub(super) fn max_pending_requests(&self) -> usize {
-        self.conn_info().max_pending_requests
+        self.conn_info().max_pending_requests as usize
     }
 }

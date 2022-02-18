@@ -1,4 +1,4 @@
-use std::num::{NonZeroU32, NonZeroUsize};
+use std::num::{NonZeroU16, NonZeroU32};
 use std::time::Duration;
 
 /// Options when creating [`super::Sftp`].
@@ -7,7 +7,7 @@ pub struct SftpOptions {
     flush_interval: Option<Duration>,
     max_read_len: Option<NonZeroU32>,
     max_write_len: Option<NonZeroU32>,
-    max_pending_requests: Option<NonZeroUsize>,
+    max_pending_requests: Option<NonZeroU16>,
 }
 
 impl SftpOptions {
@@ -82,14 +82,14 @@ impl SftpOptions {
     /// flush task will flush the write buffer without waiting for `flush_interval`.
     ///
     /// It is set to 100 by default.
-    pub const fn max_pending_requests(mut self, max_pending_requests: NonZeroUsize) -> Self {
+    pub const fn max_pending_requests(mut self, max_pending_requests: NonZeroU16) -> Self {
         self.max_pending_requests = Some(max_pending_requests);
         self
     }
 
-    pub(super) fn get_max_pending_requests(&self) -> usize {
+    pub(super) fn get_max_pending_requests(&self) -> u16 {
         self.max_pending_requests
-            .map(NonZeroUsize::get)
+            .map(NonZeroU16::get)
             .unwrap_or(100)
     }
 }
