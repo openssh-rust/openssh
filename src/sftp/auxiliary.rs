@@ -2,7 +2,7 @@ use super::{Cache, Id};
 
 use once_cell::sync::OnceCell;
 use openssh_sftp_client::Extensions;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicU32, Ordering};
 use thread_local::ThreadLocal;
 use tokio::sync::Notify;
 use tokio_util::sync::CancellationToken;
@@ -34,7 +34,9 @@ pub(super) struct Auxiliary {
     /// in flush_task.
     pub(super) flush_end_notify: Notify,
 
-    pub(super) pending_requests: AtomicUsize,
+    /// There can be at most `u32::MAX` pending requests, since each request
+    /// requires a request id that is 32 bits.
+    pub(super) pending_requests: AtomicU32,
 
     /// `Notify::notify_one` is called if
     /// pending_requests == max_pending_requests.
@@ -49,7 +51,7 @@ impl Auxiliary {
             cancel_token: CancellationToken::new(),
             flush_end_notify: Notify::new(),
 
-            pending_requests: AtomicUsize::new(0),
+            pending_requests: AtomicU32::new(0),
             flush_immediately: Notify::new(),
         }
     }
@@ -63,7 +65,7 @@ impl Auxiliary {
         }
     }
 
-    pub(super) fn consume_pending_requests(&self, requests_consumed: usize) {
+    pub(super) fn consume_pending_requests(&self, requests_consumed: u32) {
         self.pending_requests
             .fetch_sub(requests_consumed, Ordering::Relaxed);
     }
@@ -86,7 +88,7 @@ impl Auxiliary {
         self.conn_info().limits
     }
 
-    pub(super) fn max_pending_requests(&self) -> usize {
-        self.conn_info().max_pending_requests as usize
+    pub(super) fn max_pending_requests(&self) -> u32 {
+        self.conn_info().max_pending_requests as u32
     }
 }

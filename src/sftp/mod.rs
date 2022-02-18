@@ -357,7 +357,7 @@ impl<'s> Sftp<'s> {
     }
 
     /// Return number of pending requests in the write buffer.
-    pub fn get_pending_requests(&self) -> usize {
+    pub fn get_pending_requests(&self) -> u32 {
         self.auxiliary().pending_requests.load(Ordering::Relaxed)
     }
 
