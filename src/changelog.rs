@@ -8,6 +8,7 @@ use crate::*;
 ///
 /// ## Added
 ///  - Added changelog
+///  - Added [`SessionBuilder::compression`]
 #[doc(hidden)]
 pub mod unreleased {}
 
