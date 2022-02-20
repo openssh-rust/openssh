@@ -40,6 +40,7 @@ impl SftpOptions {
     /// NOTE that it is perfectly OK to set `flush_interval` to 0 and
     /// it would not slowdown the program, as flushing is only performed
     /// on daemon.
+    #[must_use]
     pub const fn flush_interval(mut self, flush_interval: Duration) -> Self {
         self.flush_interval = Some(flush_interval);
         self
@@ -54,6 +55,7 @@ impl SftpOptions {
     ///
     /// It can be used to reduce `max_read_len`, but cannot be used
     /// to increase `max_read_len`.
+    #[must_use]
     pub const fn max_read_len(mut self, max_read_len: NonZeroU32) -> Self {
         self.max_read_len = Some(max_read_len);
         self
@@ -67,6 +69,7 @@ impl SftpOptions {
     ///
     /// It can be used to reduce `max_write_len`, but cannot be used
     /// to increase `max_write_len`.
+    #[must_use]
     pub const fn max_write_len(mut self, max_write_len: NonZeroU32) -> Self {
         self.max_write_len = Some(max_write_len);
         self
@@ -82,6 +85,7 @@ impl SftpOptions {
     /// flush task will flush the write buffer without waiting for `flush_interval`.
     ///
     /// It is set to 100 by default.
+    #[must_use]
     pub const fn max_pending_requests(mut self, max_pending_requests: NonZeroU16) -> Self {
         self.max_pending_requests = Some(max_pending_requests);
         self
