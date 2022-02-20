@@ -19,11 +19,6 @@ jobs:
            - clippy
      - script: cargo fmt -- --check
        displayName: cargo fmt --check
-
-     - script: cargo clippy --no-default-features --features process-mux,scp,sftp -- -D warnings -A unknown-lints
-       displayName: cargo clippy --no-default-features --features process-mux,scp,sftp -- -D warnings
-     - script: cargo clippy --no-default-features --features native-mux,scp,sftp -- -D warnings -A unknown-lints
-       displayName: cargo clippy --no-default-features --features native-mux,scp,sftp -- -D warnings
      - script: cargo clippy --all-features -- -D warnings -A unknown-lints
        displayName: cargo clippy --all-features -- -D warnings
 
