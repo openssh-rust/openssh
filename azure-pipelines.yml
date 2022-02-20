@@ -83,11 +83,7 @@ jobs:
  # This represents the minimum Rust version supported.
  # Tests are not run as tests may require newer versions of rust.
  - job: msrv
-<<<<<<< HEAD
    displayName: "Minimum supported Rust version: 1.56.1"
-=======
-   displayName: "Minimum supported Rust version: 1.53.0"
->>>>>>> ae8f333 (Bump MSRV to 1.53.0)
    dependsOn: []
    pool:
      vmImage: ubuntu-latest
