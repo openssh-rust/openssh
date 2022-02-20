@@ -13,7 +13,7 @@ use openssh_sftp_client::{connect_with_auxiliary, Error as SftpError};
 use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
 
-pub use openssh_sftp_client::{UnixTimeStamp, UnixTimeStampError};
+pub use openssh_sftp_client::{Extensions, UnixTimeStamp, UnixTimeStampError};
 
 mod cancel_utility;
 use cancel_utility::BoxedWaitForCancellationFuture;
@@ -69,33 +69,18 @@ pub struct Sftp<'s> {
 }
 
 impl<'s> Sftp<'s> {
-    pub(crate) async fn new(
-        child: RemoteChildImp,
-        stdin: ChildStdin,
-        stdout: ChildStdout,
+    async fn set_limits(
+        &self,
+        write_end: WriteEnd,
         options: SftpOptions,
-    ) -> Result<Sftp<'s>, Error> {
-        let (mut write_end, mut read_end, extensions) = connect_with_auxiliary(
-            stdout,
-            stdin,
-            Auxiliary::new(options.get_max_pending_requests()),
-        )
-        .await?;
+        extensions: Extensions,
+    ) -> Result<(), Error> {
+        let mut write_end = WriteEndWithCachedId::new(self, write_end);
 
-        let id = write_end.create_response_id();
-
-        let (id, read_len, write_len) = if extensions.limits {
-            let awaitable = write_end.send_limits_request(id)?;
-
-            flush(&write_end).await?;
-
-            // Call wait_for_new_request to consume the pending new requests
-            let new_requests_submit = read_end.wait_for_new_request().await;
-            debug_assert_eq!(new_requests_submit, 1);
-
-            read_end.read_in_one_packet().await?;
-
-            let (id, mut limits) = awaitable.wait().await?;
+        let (read_len, write_len) = if extensions.limits {
+            let mut limits = write_end
+                .send_request(|write_end, id| Ok(write_end.send_limits_request(id)?.wait()))
+                .await?;
 
             if limits.read_len == 0 {
                 limits.read_len =
@@ -107,10 +92,9 @@ impl<'s> Sftp<'s> {
                     openssh_sftp_client::OPENSSH_PORTABLE_DEFAULT_UPLOAD_BUFLEN as u64;
             }
 
-            (id, limits.read_len, limits.write_len)
+            (limits.read_len, limits.write_len)
         } else {
             (
-                id,
                 openssh_sftp_client::OPENSSH_PORTABLE_DEFAULT_DOWNLOAD_BUFLEN as u64,
                 openssh_sftp_client::OPENSSH_PORTABLE_DEFAULT_UPLOAD_BUFLEN as u64,
             )
@@ -138,25 +122,48 @@ impl<'s> Sftp<'s> {
             write_len,
         };
 
-        let auxiliary = write_end.get_auxiliary();
-
-        auxiliary
+        write_end
+            .get_auxiliary()
             .conn_info
             .set(auxiliary::ConnInfo { limits, extensions })
             .expect("auxiliary.conn_info shall be empty");
-        auxiliary.thread_local_cache.get_or(|| Cache::new(Some(id)));
 
-        let flush_task =
-            create_flush_task(SharedData::clone(&write_end), options.get_flush_interval());
+        Ok(())
+    }
 
-        Ok(Self {
+    pub(crate) async fn new(
+        child: RemoteChildImp,
+        stdin: ChildStdin,
+        stdout: ChildStdout,
+        options: SftpOptions,
+    ) -> Result<Sftp<'s>, Error> {
+        let (write_end, read_end, extensions) = connect_with_auxiliary(
+            stdout,
+            stdin,
+            Auxiliary::new(options.get_max_pending_requests()),
+        )
+        .await?;
+
+        // Create sftp here.
+        //
+        // It would also gracefully shutdown `flush_task` and `read_task` if
+        // the future is cancelled or error is encounted.
+        let sftp = Self {
             phantom_data: PhantomData,
             child,
 
-            shared_data: write_end.into_shared_data(),
+            shared_data: SharedData::clone(&write_end),
+
+            flush_task: create_flush_task(
+                SharedData::clone(&write_end),
+                options.get_flush_interval(),
+            ),
             read_task: create_read_task(read_end),
-            flush_task,
-        })
+        };
+
+        sftp.set_limits(write_end, options, extensions).await?;
+
+        Ok(sftp)
     }
 
     /// Close sftp connection
@@ -189,7 +196,7 @@ impl<'s> Sftp<'s> {
     }
 
     fn write_end(&self) -> WriteEndWithCachedId<'_> {
-        WriteEndWithCachedId::new(self, self.shared_data.clone())
+        WriteEndWithCachedId::new(self, WriteEnd::new(self.shared_data.clone()))
     }
 
     /// Get maximum amount of bytes that one single write requests

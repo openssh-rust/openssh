@@ -112,10 +112,10 @@ impl Drop for WriteEndWithCachedId<'_> {
 }
 
 impl<'s> WriteEndWithCachedId<'s> {
-    pub(super) fn new(sftp: &'s Sftp<'s>, shared_data: SharedData) -> Self {
+    pub(super) fn new(sftp: &'s Sftp<'s>, inner: WriteEnd) -> Self {
         Self {
             sftp,
-            inner: WriteEnd::new(shared_data),
+            inner,
             id: None,
             wait_for_cancell_future: BoxedWaitForCancellationFuture::new(),
         }
