@@ -77,27 +77,27 @@ impl<'s> Sftp<'s> {
     ) -> Result<(), Error> {
         let mut write_end = WriteEndWithCachedId::new(self, write_end);
 
+        let default_download_buflen =
+            openssh_sftp_client::OPENSSH_PORTABLE_DEFAULT_DOWNLOAD_BUFLEN as u64;
+        let default_upload_buflen =
+            openssh_sftp_client::OPENSSH_PORTABLE_DEFAULT_UPLOAD_BUFLEN as u64;
+
         let (read_len, write_len) = if extensions.limits {
             let mut limits = write_end
                 .send_request(|write_end, id| Ok(write_end.send_limits_request(id)?.wait()))
                 .await?;
 
             if limits.read_len == 0 {
-                limits.read_len =
-                    openssh_sftp_client::OPENSSH_PORTABLE_DEFAULT_DOWNLOAD_BUFLEN as u64;
+                limits.read_len = default_download_buflen;
             }
 
             if limits.write_len == 0 {
-                limits.write_len =
-                    openssh_sftp_client::OPENSSH_PORTABLE_DEFAULT_UPLOAD_BUFLEN as u64;
+                limits.write_len = default_upload_buflen;
             }
 
             (limits.read_len, limits.write_len)
         } else {
-            (
-                openssh_sftp_client::OPENSSH_PORTABLE_DEFAULT_DOWNLOAD_BUFLEN as u64,
-                openssh_sftp_client::OPENSSH_PORTABLE_DEFAULT_UPLOAD_BUFLEN as u64,
-            )
+            (default_download_buflen, default_upload_buflen)
         };
 
         // sftp can accept packet as large as u32::MAX,
