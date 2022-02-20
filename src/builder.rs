@@ -49,6 +49,7 @@ pub struct SessionBuilder {
     known_hosts_check: KnownHosts,
     control_dir: Option<PathBuf>,
     config_file: Option<PathBuf>,
+    compression: Option<bool>,
 }
 
 impl Default for SessionBuilder {
@@ -62,6 +63,7 @@ impl Default for SessionBuilder {
             known_hosts_check: KnownHosts::Add,
             control_dir: None,
             config_file: None,
+            compression: None,
         }
     }
 }
@@ -134,6 +136,21 @@ impl SessionBuilder {
     /// Defaults to `None`.
     pub fn config_file(&mut self, p: impl AsRef<Path>) -> &mut Self {
         self.config_file = Some(p.as_ref().to_path_buf());
+        self
+    }
+
+    /// Enable or disable compression (including stdin, stdout, stderr, data
+    /// for forwarded TCP and unix-domain connections, sftp and scp
+    /// connections).
+    ///
+    /// Note that the ssh server can forcibly disable the compression.
+    ///
+    /// By default, ssh uses configure value set in `~/.ssh/config`.
+    ///
+    /// If `~/.ssh/config` does not enable compression, then it is disabled
+    /// by default.
+    pub fn compression(&mut self, compression: bool) -> &mut Self {
+        self.compression = Some(compression);
         self
     }
 
@@ -275,6 +292,12 @@ impl SessionBuilder {
 
         if let Some(ref config_file) = self.config_file {
             init.arg("-F").arg(config_file);
+        }
+
+        if let Some(compression) = self.compression {
+            let arg = if compression { "yes" } else { "no" };
+
+            init.arg("-o").arg(format!("Compression={}", arg));
         }
 
         init.arg(destination);
