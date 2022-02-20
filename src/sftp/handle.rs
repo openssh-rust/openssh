@@ -1,13 +1,12 @@
-use super::{Error, Id, WriteEnd, WriteEndWithCachedId};
+use super::{Error, Id, SftpError, WriteEnd, WriteEndWithCachedId};
 
 use std::borrow::Cow;
 use std::future::Future;
 use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
 
-use openssh_sftp_client::{Error as SftpError, Handle, HandleOwned};
-
 use derive_destructure2::destructure;
+use openssh_sftp_client::{Handle, HandleOwned};
 
 /// Remote Directory
 #[derive(Debug, Clone, destructure)]
@@ -55,20 +54,20 @@ impl<'s> OwnedHandle<'s> {
     /// # Cancel Safety
     ///
     /// This function is cancel safe.
-    pub(super) async fn close(mut self) -> Result<(), Error> {
+    pub(super) async fn close(self) -> Result<(), Error> {
         if Arc::strong_count(&self.handle) == 1 {
             // This is the last reference to the arc
 
-            let res = self
-                .send_request(|write_end, handle, id| {
-                    Ok(write_end.send_close_request(id, handle)?.wait())
-                })
-                .await;
-
             // Release resources without running `Drop::drop`
-            self.destructure();
+            let (mut write_end, handle) = self.destructure();
 
-            res
+            write_end
+                .send_request(|write_end, id| {
+                    Ok(write_end
+                        .send_close_request(id, Cow::Borrowed(&handle))?
+                        .wait())
+                })
+                .await
         } else {
             Ok(())
         }
