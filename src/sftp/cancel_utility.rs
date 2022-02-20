@@ -11,10 +11,6 @@ use tokio_util::sync::WaitForCancellationFuture;
 #[repr(transparent)]
 #[derive(Debug)]
 pub(super) struct BoxedWaitForCancellationFuture<'s>(
-    /// WaitForCancellationFuture is erased to an array
-    /// since it is a holds a reference to `Auxiliary::cancel_token`,
-    /// which lives as long as `Self`.
-    ///
     /// WaitForCancellationFuture is boxed since it stores an intrusive node
     /// inline, which is removed from waitlist on drop.
     ///
