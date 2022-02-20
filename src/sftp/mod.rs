@@ -175,7 +175,14 @@ impl<'s> Sftp<'s> {
             read_task: create_read_task(read_end),
         };
 
-        sftp.set_limits(write_end, options, extensions).await?;
+        match sftp.set_limits(write_end, options, extensions).await {
+            Err(Error::SftpError(SftpError::BackgroundTaskFailure(_))) => {
+                // Wait on flush_task and read_task to get a more detailed error message.
+                sftp.close().await?;
+                std::unreachable!("Error must have occurred in either read_task or flush_task")
+            }
+            res => res?,
+        }
 
         Ok(sftp)
     }
