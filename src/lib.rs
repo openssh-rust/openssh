@@ -176,7 +176,7 @@ pub mod scp;
 ///
 /// # Cancel Safety
 ///
-/// All `async` functions in this module is cancel safe.
+/// All `async` functions in this module are cancel safe.
 ///
 /// Internally, this is archived by first writing requests into a write buffer
 /// containing [`bytes::Bytes`] and then flush all buffers at once periodically
