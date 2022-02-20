@@ -143,7 +143,7 @@ impl SessionBuilder {
     /// for forwarded TCP and unix-domain connections, sftp and scp
     /// connections).
     ///
-    /// NOTE that the ssh server can forcibly disable the compression.
+    /// Note that the ssh server can forcibly disable the compression.
     ///
     /// By default, ssh uses configure value set in `~/.ssh/config`.
     ///
