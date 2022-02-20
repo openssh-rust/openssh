@@ -149,8 +149,6 @@ impl SessionBuilder {
     ///
     /// If `~/.ssh/config` does not enable compression, then it is disabled
     /// by default.
-    ///
-    /// Defaults to `None`.
     pub fn compression(&mut self, compression: bool) -> &mut Self {
         self.compression = Some(compression);
         self
