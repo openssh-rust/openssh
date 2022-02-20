@@ -1,6 +1,5 @@
 [![Crates.io](https://img.shields.io/crates/v/openssh.svg)](https://crates.io/crates/openssh)
 [![Documentation](https://docs.rs/openssh/badge.svg)](https://docs.rs/openssh/)
-[![Build Status](https://dev.azure.com/jonhoo/jonhoo/_apis/build/status/openssh?branchName=master)](https://dev.azure.com/jonhoo/jonhoo/_build/latest?definitionId=23&branchName=master)
 [![Codecov](https://codecov.io/github/jonhoo/openssh-rs/coverage.svg?branch=master)](https://codecov.io/gh/jonhoo/openssh-rs)
 
 Scriptable SSH through OpenSSH.

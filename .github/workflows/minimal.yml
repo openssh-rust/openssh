@@ -1,0 +1,51 @@
+on:
+  push:
+    branches: [master]
+  pull_request:
+name: With dependencies at minimal versions
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+      - uses: actions/checkout@v2
+      - run: |
+          chmod 600 .test-key
+          ssh -i .test-key -v -p 2222 -l test-user 127.0.0.1 -o StrictHostKeyChecking=accept-new whoami
+        name: Test ssh connectivity
+      - run: |
+          eval $(ssh-agent)
+          echo "SSH_AUTH_SOCK=$SSH_AUTH_SOCK" >> $GITHUB_ENV
+          echo "SSH_AGENT_PID=$SSH_AGENT_PID" >> $GITHUB_ENV
+          cat .test-key | ssh-add -
+        name: Set up ssh-agent
+      - name: cargo update -Zminimal-versions
+        uses: actions-rs/cargo@v1
+        with:
+          command: update
+          toolchain: nightly
+          args: -Zminimal-versions
+      - name: cargo test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --all-features
+        env:
+          # makes all the ignored tests not ignored
+          RUSTFLAGS: --cfg=ci
+    services:
+      openssh:
+        image: linuxserver/openssh-server:amd64-latest
+        ports:
+          - 2222:2222
+        env:
+          USER_NAME: test-user
+          PUBLIC_KEY: |-
+            ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGzHvK2pKtSlZXP9tPYOOBb/xn0IiC9iLMS355AYUPC7
