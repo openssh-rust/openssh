@@ -75,8 +75,12 @@ impl<'s> Sftp<'s> {
         stdout: ChildStdout,
         options: SftpOptions,
     ) -> Result<Sftp<'s>, Error> {
-        let (mut write_end, mut read_end, extensions) =
-            connect_with_auxiliary(stdout, stdin, Auxiliary::new()).await?;
+        let (mut write_end, mut read_end, extensions) = connect_with_auxiliary(
+            stdout,
+            stdin,
+            Auxiliary::new(options.get_max_pending_requests()),
+        )
+        .await?;
 
         let id = write_end.create_response_id();
 
@@ -138,11 +142,7 @@ impl<'s> Sftp<'s> {
 
         auxiliary
             .conn_info
-            .set(auxiliary::ConnInfo {
-                limits,
-                extensions,
-                max_pending_requests: options.get_max_pending_requests(),
-            })
+            .set(auxiliary::ConnInfo { limits, extensions })
             .expect("auxiliary.conn_info shall be empty");
         auxiliary.thread_local_cache.get_or(|| Cache::new(Some(id)));
 

@@ -17,7 +17,6 @@ pub(super) struct Limits {
 pub(super) struct ConnInfo {
     pub(super) limits: Limits,
     pub(super) extensions: Extensions,
-    pub(super) max_pending_requests: u16,
 }
 
 #[derive(Debug)]
@@ -38,6 +37,8 @@ pub(super) struct Auxiliary {
     /// requires a request id that is 32 bits.
     pub(super) pending_requests: AtomicU32,
 
+    pub(super) max_pending_requests: u16,
+
     pub(super) shutdown_requested: AtomicBool,
 
     /// `Notify::notify_one` is called if
@@ -46,7 +47,7 @@ pub(super) struct Auxiliary {
 }
 
 impl Auxiliary {
-    pub(super) fn new() -> Self {
+    pub(super) fn new(max_pending_requests: u16) -> Self {
         Self {
             conn_info: OnceCell::new(),
             thread_local_cache: ThreadLocal::new(),
@@ -54,6 +55,8 @@ impl Auxiliary {
             flush_end_notify: Notify::new(),
 
             pending_requests: AtomicU32::new(0),
+            max_pending_requests,
+
             shutdown_requested: AtomicBool::new(false),
             flush_immediately: Notify::new(),
         }
@@ -92,7 +95,7 @@ impl Auxiliary {
     }
 
     pub(super) fn max_pending_requests(&self) -> u32 {
-        self.conn_info().max_pending_requests as u32
+        self.max_pending_requests as u32
     }
 
     pub(super) fn requests_shutdown(&self) {
