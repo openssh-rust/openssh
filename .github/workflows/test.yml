@@ -51,3 +51,4 @@ jobs:
           USER_NAME: test-user
           PUBLIC_KEY: |-
             ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGzHvK2pKtSlZXP9tPYOOBb/xn0IiC9iLMS355AYUPC7
+          DOCKER_MODS: linuxserver/mods:openssh-server-ssh-tunnel
