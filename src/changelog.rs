@@ -13,6 +13,7 @@ use crate::*;
 ///  - New mod [`sftp`], contains the new, true Sftp implementation.
 ///  - Feature `scp`.
 ///  - New mod [`scp`], contains the old SFTP implementation.
+///  - Added [`Session::scp`].
 ///
 /// ## Changed
 ///  - [`Session::sftp`]:
