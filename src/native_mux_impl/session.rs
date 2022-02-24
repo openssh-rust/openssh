@@ -33,6 +33,10 @@ impl Session {
         Ok(())
     }
 
+    pub(crate) fn ctl(&self) -> &Path {
+        &self.ctl
+    }
+
     pub(crate) fn raw_command<S: AsRef<OsStr>>(&self, program: S) -> Command {
         Command::new(self.ctl.clone(), program.as_ref().as_bytes().into())
     }
