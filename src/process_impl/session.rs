@@ -65,6 +65,10 @@ impl Session {
         }
     }
 
+    pub(crate) fn ctl_path(&self) -> Box<Path> {
+        self.ctl_path.clone()
+    }
+
     pub(crate) fn raw_command<S: AsRef<OsStr>>(&self, program: S) -> Command {
         // XXX: Should we do a self.check() here first?
 

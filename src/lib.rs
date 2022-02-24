@@ -151,6 +151,7 @@ compile_error!("This crate can only be used on unix");
 
 use std::borrow::Cow;
 use std::ffi::OsStr;
+use std::path::Path;
 
 mod stdio;
 pub use stdio::{ChildStderr, ChildStdin, ChildStdout, Stdio};
@@ -289,6 +290,11 @@ impl Session {
     /// Check the status of the underlying SSH connection.
     pub async fn check(&self) -> Result<(), Error> {
         delegate!(&self.0, imp, { imp.check().await })
+    }
+
+    /// Get the SSH connection's control socket path.
+    pub fn ctl_path(&self) -> Box<Path> {
+        delegate!(&self.0, imp, { imp.ctl_path() })
     }
 
     /// Constructs a new [`Command`] for launching the program at path `program` on the remote
