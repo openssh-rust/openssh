@@ -12,20 +12,20 @@ use tempfile::TempDir;
 
 #[derive(Debug)]
 pub(crate) struct Session {
-    ctl: Option<TempDir>,
-    ctl_path: Box<Path>,
+    tempdir: Option<TempDir>,
+    ctl: Box<Path>,
     addr: Box<str>,
     master_log: Box<Path>,
 }
 
 impl Session {
-    pub(crate) fn new(ctl: TempDir, addr: &str) -> Self {
-        let log = ctl.path().join("log").into_boxed_path();
-        let ctl_path = ctl.path().join("master").into_boxed_path();
+    pub(crate) fn new(tempdir: TempDir, addr: &str) -> Self {
+        let log = tempdir.path().join("log").into_boxed_path();
+        let ctl = tempdir.path().join("master").into_boxed_path();
 
         Self {
-            ctl: Some(ctl),
-            ctl_path,
+            tempdir: Some(tempdir),
+            ctl,
             addr: addr.into(),
             master_log: log,
         }
@@ -35,7 +35,7 @@ impl Session {
         let mut cmd = std::process::Command::new("ssh");
         cmd.stdin(Stdio::null())
             .arg("-S")
-            .arg(&*self.ctl_path)
+            .arg(&*self.ctl)
             .arg("-o")
             .arg("BatchMode=yes")
             .args(args)
@@ -63,6 +63,10 @@ impl Session {
         } else {
             Ok(())
         }
+    }
+
+    pub(crate) fn ctl(&self) -> &Path {
+        &self.ctl
     }
 
     pub(crate) fn raw_command<S: AsRef<OsStr>>(&self, program: S) -> Command {
@@ -117,8 +121,8 @@ impl Session {
     pub(crate) async fn close(mut self) -> Result<(), Error> {
         let mut exit_cmd = self.new_cmd(&["-O", "exit"]);
 
-        // Take self.ctl so that drop would do nothing
-        let ctl = self.ctl.take().unwrap();
+        // Take self.tempdir so that drop would do nothing
+        let tempdir = self.tempdir.take().unwrap();
 
         let exit = exit_cmd.output().await.map_err(Error::Ssh)?;
 
@@ -148,7 +152,7 @@ impl Session {
             )));
         }
 
-        ctl.close().map_err(Error::Cleanup)?;
+        tempdir.close().map_err(Error::Cleanup)?;
 
         Ok(())
     }
@@ -184,8 +188,8 @@ impl Session {
 impl Drop for Session {
     fn drop(&mut self) {
         // Keep tempdir alive until the connection is established
-        let _ctl = match self.ctl.take() {
-            Some(ctl) => ctl,
+        let _tempdir = match self.tempdir.take() {
+            Some(tempdir) => tempdir,
             // return since close must have already been called.
             None => return,
         };
