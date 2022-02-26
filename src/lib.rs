@@ -293,7 +293,7 @@ impl Session {
     }
 
     /// Get the SSH connection's control socket path.
-    pub fn ctl(&self) -> &Path {
+    pub fn control_socket(&self) -> &Path {
         delegate!(&self.0, imp, { imp.ctl() })
     }
 
