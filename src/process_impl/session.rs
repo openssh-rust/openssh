@@ -188,7 +188,7 @@ impl Session {
 impl Drop for Session {
     fn drop(&mut self) {
         // Keep tempdir alive until the connection is established
-        let _ctl = match self.tempdir.take() {
+        let _tempdir = match self.tempdir.take() {
             Some(tempdir) => tempdir,
             // return since close must have already been called.
             None => return,
