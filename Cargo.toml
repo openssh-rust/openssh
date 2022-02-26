@@ -8,7 +8,7 @@ license = "MIT OR Apache-2.0"
 
 readme = "README.md"
 description = "SSH through OpenSSH"
-repository = "https://github.com/jonhoo/openssh-rs.git"
+repository = "https://github.com/openssh-rust/openssh.git"
 
 keywords = ["ssh","remote","openssh","orchestration"]
 categories = ["network-programming", "api-bindings"]
