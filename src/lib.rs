@@ -142,6 +142,10 @@
     rust_2018_idioms,
     unreachable_pub
 )]
+#![cfg_attr(
+    not(any(feature = "process-mux", feature = "native-mux")),
+    allow(unused_variables, unreachable_code, unused_imports, dead_code)
+)]
 // only enables the nightly `doc_cfg` feature when
 // the `docsrs` configuration attribute is defined
 #![cfg_attr(docsrs, feature(doc_cfg))]
