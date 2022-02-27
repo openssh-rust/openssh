@@ -28,3 +28,20 @@ at your option.
 Unless you explicitly state otherwise, any contribution intentionally submitted
 for inclusion in the work by you, as defined in the Apache-2.0 license, shall be
 dual licensed as above, without any additional terms or conditions.
+
+### Run integration tests
+
+```
+/path/to/repo/run_ci_tests.sh
+```
+
+It will create a container which runs sshd, setup ssh-agent, and environment variables
+that are required to run the integration tests.
+
+It will also test different combination of feature flags to ensure they all compile without error.
+
+### Build documentation
+
+```
+/path/to/repo/build_doc.sh
+```
