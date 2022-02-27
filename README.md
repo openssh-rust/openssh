@@ -32,7 +32,7 @@ dual licensed as above, without any additional terms or conditions.
 ### Run integration tests
 
 ```
-/path/to/repo/run_ci_tests.sh
+./run_ci_tests.sh
 ```
 
 It will create a container which runs sshd, setup ssh-agent, and environment variables
@@ -43,5 +43,5 @@ It will also test different combination of feature flags to ensure they all comp
 ### Build documentation
 
 ```
-/path/to/repo/build_doc.sh
+./build_doc.sh
 ```
