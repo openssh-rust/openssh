@@ -39,7 +39,7 @@ async fn sftp_file_basics() {
         {
             let mut fs = sftp.fs("");
 
-            // Create new file with Excl and write to it.
+            // Create new file (fail if already exists) and write to it.
             debug_assert_eq!(
                 sftp.options()
                     .write(true)
@@ -264,7 +264,7 @@ async fn sftp_tokio_compact_file_basics() {
                 .map(TokioCompactFile::new)
                 .unwrap();
 
-            // Create new file with Excl and write to it.
+            // Create new file (fail if already exists) and write to it.
             debug_assert_eq!(file.write(&content).await.unwrap(), content.len());
 
             file.flush().await.unwrap();
