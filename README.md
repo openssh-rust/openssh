@@ -31,7 +31,10 @@ dual licensed as above, without any additional terms or conditions.
 
 ### Run integration tests
 
-Requires `docker`, `cargo-hack` (installed via `cargo-install`).
+Requires `docker` and [`cargo-hack`].
+
+Check [getting Docker guide](https://docs.docker.com/get-docker/) on how to install docker,
+and use `cargo install cargo-hack` to install [`cargo-hack`].
 
 ```
 ./run_ci_tests.sh
@@ -42,9 +45,13 @@ that are required to run the integration tests.
 
 It will also test different combination of feature flags to ensure they all compile without error.
 
+[`cargo-hack`]: https://github.com/taiki-e/cargo-hack
+
 ### Build documentation
 
-Requires `cargo-nightly`.
+Requires nightly cargo.
+
+To install nightly cargo, run `rustup toolchain install nightly`.
 
 ```
 ./build_doc.sh
