@@ -31,6 +31,8 @@ dual licensed as above, without any additional terms or conditions.
 
 ### Run integration tests
 
+Requires `docker`, `cargo-hack` (installed via `cargo-install`).
+
 ```
 ./run_ci_tests.sh
 ```
@@ -41,6 +43,8 @@ that are required to run the integration tests.
 It will also test different combination of feature flags to ensure they all compile without error.
 
 ### Build documentation
+
+Requires `cargo-nightly`.
 
 ```
 ./build_doc.sh
