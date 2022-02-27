@@ -177,17 +177,7 @@ pub mod scp;
 ///
 /// # Cancel Safety
 ///
-/// All `async` functions in this module are cancel safe.
-///
-/// Internally, this is archived by first writing requests into a write buffer
-/// containing `bytes::Bytes` and then flush all buffers at once periodically
-/// to archive cancel safety and improve efficiencies.
-///
-/// However, cancelling the future does not actually has any effect,
-/// since the requests are sent regardless of the cancellation.
-///
-/// Thus, if you cancel a future that changes the remote filesystem in any way,
-/// then the change would still happen regardless.
+/// Refers to [`openssh_sftp_client::highlevel`] on the cancel safety doc.
 #[cfg(feature = "sftp")]
 #[cfg_attr(docsrs, doc(cfg(feature = "sftp")))]
 pub mod sftp;
