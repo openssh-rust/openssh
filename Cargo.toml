@@ -54,9 +54,6 @@ openssh-sftp-client = { version = "0.7.3", optional = true }
 lazy_static = "1.4.0"
 regex = "1"
 tokio = { version = "1", features = [ "full" ] }
-pretty_assertions = "1.1.0"
-tokio-io-utility = "0.6.1"
-bytes = "1.1.0"
 
 [[example]]
 name = "native-mux_tsp"
