@@ -28,7 +28,7 @@ async fn sftp_file_basics() {
         let content = &content[..min(sftp.max_write_len() as usize, content.len())];
 
         {
-            let mut fs = sftp.fs("");
+            let mut fs = sftp.fs();
 
             // Create new file (fail if already exists) and write to it.
             debug_assert_eq!(
