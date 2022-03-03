@@ -48,6 +48,7 @@ once_cell = "1.8.0"
 dirs = "4.0.0"
 
 openssh-mux-client = { version = "0.14.4", optional = true }
+
 openssh-sftp-client = { version = "0.8.1", optional = true }
 
 [dev-dependencies]
