@@ -18,7 +18,7 @@ use openssh::*;
 // TODO: how do we test the connection actually _failing_ so that the master reports an error?
 
 fn addr() -> String {
-    std::env::var("TEST_HOST").unwrap_or("ssh://test-user@127.0.0.1:2222".to_string())
+    std::env::var("TEST_HOST").unwrap_or_else(|_| "ssh://test-user@127.0.0.1:2222".to_string())
 }
 
 fn loopback() -> IpAddr {
@@ -122,7 +122,7 @@ struct ProtoUserHostPort<'a> {
     port: Option<&'a str>,
 }
 
-fn parse_user_host_port<'a>(s: &'a str) -> Option<ProtoUserHostPort> {
+fn parse_user_host_port(s: &str) -> Option<ProtoUserHostPort> {
     lazy_static! {
         static ref SSH_REGEX: Regex = Regex::new(
             r"(?x)^((?P<proto>[[:alpha:]]+)://)?((?P<user>.*?)@)?(?P<host>.*?)(:(?P<port>\d+))?$"
@@ -130,20 +130,18 @@ fn parse_user_host_port<'a>(s: &'a str) -> Option<ProtoUserHostPort> {
         .unwrap();
     }
 
-    SSH_REGEX.captures(s).and_then(|cap| {
-        Some(ProtoUserHostPort {
-            proto: cap.name("proto").and_then(|m| Some(m.as_str())),
-            user: cap.name("user").and_then(|m| Some(m.as_str())),
-            host: cap.name("host").and_then(|m| Some(m.as_str())),
-            port: cap.name("port").and_then(|m| Some(m.as_str())),
-        })
+    SSH_REGEX.captures(s).map(|cap| ProtoUserHostPort {
+        proto: cap.name("proto").map(|m| m.as_str()),
+        user: cap.name("user").map(|m| m.as_str()),
+        host: cap.name("host").map(|m| m.as_str()),
+        port: cap.name("port").map(|m| m.as_str()),
     })
 }
 
 #[test]
 fn test_parse_proto_user_host_port() {
     let addr = "ssh://test-user@127.0.0.1:2222";
-    let parsed_addr = parse_user_host_port(&addr).unwrap();
+    let parsed_addr = parse_user_host_port(addr).unwrap();
     assert_eq!("ssh", parsed_addr.proto.unwrap());
     assert_eq!("test-user", parsed_addr.user.unwrap());
     assert_eq!("127.0.0.1", parsed_addr.host.unwrap());
@@ -153,7 +151,7 @@ fn test_parse_proto_user_host_port() {
 #[test]
 fn test_parse_user_host_port() {
     let addr = "test-user@127.0.0.1:2222";
-    let parsed_addr = parse_user_host_port(&addr).unwrap();
+    let parsed_addr = parse_user_host_port(addr).unwrap();
     assert!(parsed_addr.proto.is_none());
     assert_eq!("test-user", parsed_addr.user.unwrap());
     assert_eq!("127.0.0.1", parsed_addr.host.unwrap());
@@ -163,7 +161,7 @@ fn test_parse_user_host_port() {
 #[test]
 fn test_parse_user_host() {
     let addr = "test-user@127.0.0.1";
-    let parsed_addr = parse_user_host_port(&addr).unwrap();
+    let parsed_addr = parse_user_host_port(addr).unwrap();
     assert!(parsed_addr.proto.is_none());
     assert_eq!("test-user", parsed_addr.user.unwrap());
     assert_eq!("127.0.0.1", parsed_addr.host.unwrap());
@@ -173,7 +171,7 @@ fn test_parse_user_host() {
 #[test]
 fn test_parse_host_port() {
     let addr = "127.0.0.1:2222";
-    let parsed_addr = parse_user_host_port(&addr).unwrap();
+    let parsed_addr = parse_user_host_port(addr).unwrap();
     assert!(parsed_addr.proto.is_none());
     assert!(parsed_addr.user.is_none());
     assert_eq!("127.0.0.1", parsed_addr.host.unwrap());
@@ -183,7 +181,7 @@ fn test_parse_host_port() {
 #[test]
 fn test_parse_host() {
     let addr = "127.0.0.1";
-    let parsed_addr = parse_user_host_port(&addr).unwrap();
+    let parsed_addr = parse_user_host_port(addr).unwrap();
     assert!(parsed_addr.proto.is_none());
     assert!(parsed_addr.user.is_none());
     assert_eq!("127.0.0.1", parsed_addr.host.unwrap());
@@ -880,7 +878,7 @@ async fn remote_socket_forward() {
 
         const DATA: &[u8] = "0\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n".as_bytes();
 
-        let mut buffer = [0 as u8; DATA.len()];
+        let mut buffer = [0_u8; DATA.len()];
         output.read_exact(&mut buffer).await.unwrap();
 
         assert_eq!(DATA, &buffer);
@@ -935,7 +933,7 @@ async fn local_socket_forward() {
         eprintln!("Reading");
 
         const DATA: &[u8] = "0\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n".as_bytes();
-        let mut buffer = [0 as u8; DATA.len()];
+        let mut buffer = [0_u8; DATA.len()];
         output.read_exact(&mut buffer).await.unwrap();
 
         assert_eq!(DATA, buffer);
