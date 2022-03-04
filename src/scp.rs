@@ -13,13 +13,15 @@ use tokio::io::AsyncWriteExt;
 
 /// A file-oriented channel to a remote host.
 ///
-/// You likely want [`Sftp::write_to`] and [`Sftp::read_from`].
+/// You likely want [`Scp::write_to`] and [`Scp::read_from`].
+#[cfg_attr(docsrs, doc(cfg(feature = "scp")))]
 #[derive(Debug, Clone)]
-pub struct Sftp<'s> {
+pub struct Scp<'s> {
     session: &'s Session,
 }
 
 /// A file access mode.
+#[cfg_attr(docsrs, doc(cfg(feature = "scp")))]
 #[derive(Debug, Clone, Copy)]
 pub enum Mode {
     /// Read-only access.
@@ -41,8 +43,8 @@ impl Mode {
 
 /// A handle to a remote file.
 ///
-/// If you opened this file for reading (with [`Sftp::read_from`]), you can read from it with
-/// [`std::io::Read`]. If you opened it for writing (with [`Sftp::write_to`]), you can write to it
+/// If you opened this file for reading (with [`Scp::read_from`]), you can read from it with
+/// [`std::io::Read`]. If you opened it for writing (with [`Scp::write_to`]), you can write to it
 /// with [`std::io::Write`].
 ///
 /// Note that because we are operating against a remote host, errors may take a while to propagate.
@@ -51,10 +53,11 @@ impl Mode {
 /// until you call [`close`](RemoteFile::close).  In particular, the connection between you and the
 /// remote host may buffer bytes, so your write may report that some number of bytes have been
 /// successfully written, even though the remote disk is full. Or the file you are reading from may
-/// have been removed between when [`read_from`](Sftp::read_from) checks that it exists and when it
+/// have been removed between when [`read_from`](Scp::read_from) checks that it exists and when it
 /// actually tries to read the first byte. For that reason, you should **make sure to call
 /// [`close`](RemoteFile::close)** to observe any errors that may have occurred when operating on
 /// the remote file.
+#[cfg_attr(docsrs, doc(cfg(feature = "scp")))]
 #[derive(Debug)]
 pub struct RemoteFile<'s> {
     cat: super::RemoteChild<'s>,
@@ -63,7 +66,7 @@ pub struct RemoteFile<'s> {
 
 // TODO: something like std::fs::OpenOptions
 
-impl<'s> Sftp<'s> {
+impl<'s> Scp<'s> {
     pub(crate) fn new(session: &'s Session) -> Self {
         Self { session }
     }
@@ -81,7 +84,7 @@ impl<'s> Sftp<'s> {
     /// can also produce false positives, such as if you are checking whether you can write to a
     /// file on a read-only file system that you still have write permissions on.
     ///
-    /// Operations like [`read_from`](Sftp::read_from) and [`write_to`](Sftp::write_to) internally
+    /// Operations like [`read_from`](Scp::read_from) and [`write_to`](Scp::write_to) internally
     /// perform similar checking to this method, so you do not need to call `can` before calling
     /// those methods. The checking performed by `write_to` can also test its permissions by
     /// actually attemping to create the remote file (since it is about to create one anyway), so
@@ -271,7 +274,7 @@ impl<'s> Sftp<'s> {
     /// If the remote file exists, it will be truncated. If it does not, it will be created.
     ///
     /// Note that some errors may not propagate until you call [`close`](RemoteFile::close). This
-    /// method internally performs similar checks to [`can`](Sftp::can) though, so you should not
+    /// method internally performs similar checks to [`can`](Scp::can) though, so you should not
     /// need to call `can` before calling this method.
     ///
     /// # Examples
@@ -285,13 +288,13 @@ impl<'s> Sftp<'s> {
     /// # #[cfg(feature = "native-mux")]
     /// # #[tokio::main]
     /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// // connect to a remote host and get an sftp connection
+    /// // connect to a remote host and get an scp connection
     /// let session = Session::connect_mux("me@ssh.example.com", KnownHosts::Strict).await?;
     ///
-    /// let mut sftp = session.sftp();
+    /// let mut scp = session.scp();
     ///
     /// // open a file for writing
-    /// let mut w = sftp.write_to("test_file").await?;
+    /// let mut w = scp.write_to("test_file").await?;
     ///
     /// // write something to the file
     /// w.write_all(b"hello world").await?;
@@ -332,7 +335,7 @@ impl<'s> Sftp<'s> {
     /// If the remote file exists, it will be appended to. If it does not, it will be created.
     ///
     /// Note that some errors may not propagate until you call [`close`](RemoteFile::close). This
-    /// method internally performs similar checks to [`can`](Sftp::can) though, so you should not
+    /// method internally performs similar checks to [`can`](Scp::can) though, so you should not
     /// need to call `can` before calling this method.
     ///
     /// # Examples
@@ -346,13 +349,13 @@ impl<'s> Sftp<'s> {
     /// # #[cfg(feature = "native-mux")]
     /// # #[tokio::main]
     /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// // connect to a remote host and get an sftp connection
+    /// // connect to a remote host and get an scp connection
     /// let session = Session::connect_mux("me@ssh.example.com", KnownHosts::Strict).await?;
     ///
-    /// let mut sftp = session.sftp();
+    /// let mut scp = session.scp();
     ///
     /// // open a file for writing
-    /// let mut w = sftp.write_to("test_file").await?;
+    /// let mut w = scp.write_to("test_file").await?;
     ///
     /// // write something to the file
     /// w.write_all(b"hello world").await?;
@@ -392,7 +395,7 @@ impl<'s> Sftp<'s> {
     /// Open the remote file at `path` for reading.
     ///
     /// Note that some errors may not propagate until you call [`close`](RemoteFile::close). This
-    /// method internally performs similar checks to [`can`](Sftp::can) though, so you should not
+    /// method internally performs similar checks to [`can`](Scp::can) though, so you should not
     /// need to call `can` before calling this method.
     ///
     /// # Examples
@@ -407,13 +410,13 @@ impl<'s> Sftp<'s> {
     /// # #[tokio::main]
     /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
     ///
-    /// // connect to a remote host and get an sftp connection
+    /// // connect to a remote host and get an scp connection
     /// let session = Session::connect_mux("host", KnownHosts::Strict).await?;
     ///
-    /// let mut sftp = session.sftp();
+    /// let mut scp = session.scp();
     ///
     /// // open a file for reading
-    /// let mut r = sftp.read_from("/etc/hostname").await?;
+    /// let mut r = scp.read_from("/etc/hostname").await?;
     ///
     /// // write something to the file
     /// let mut contents = String::new();
