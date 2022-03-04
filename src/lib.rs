@@ -172,8 +172,10 @@ pub use child::RemoteChild;
 mod error;
 pub use error::Error;
 
-mod sftp;
-pub use sftp::{Mode, RemoteFile, Sftp};
+/// Scp implementation using commands such as cat, dd and etc.
+#[cfg(feature = "scp")]
+#[cfg_attr(docsrs, doc(cfg(feature = "scp")))]
+pub mod scp;
 
 #[cfg(feature = "process-mux")]
 pub(crate) mod process_impl;
@@ -413,11 +415,14 @@ impl Session {
         })
     }
 
-    /// Prepare to perform file operations on the remote host.
+    /// Prepare to perform file operations on the remote host, by using
+    /// shell command like dd, cat, tee.
     ///
-    /// See [`Sftp`] for details on how to interact with the remote files.
-    pub fn sftp(&self) -> Sftp<'_> {
-        Sftp::new(self)
+    /// See [`scp::Scp`] for details on how to interact with the remote files.
+    #[cfg(feature = "scp")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "scp")))]
+    pub fn scp(&self) -> scp::Scp<'_> {
+        scp::Scp::new(self)
     }
 
     /// Terminate the remote connection.
