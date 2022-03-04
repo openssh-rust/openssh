@@ -9,6 +9,13 @@ use crate::*;
 /// ## Added
 ///  - Added changelog
 ///  - Added [`SessionBuilder::compression`]
+///  - Feature `scp`.
+///  - New mod [`scp`], contains the old SFTP implementation.
+///  - Added [`Session::scp`].
+///
+/// ## Removed
+///  - `Sftp`, `Mode` and `RemoteFile`.
+///  - `Session::sftp`
 #[doc(hidden)]
 pub mod unreleased {}
 
