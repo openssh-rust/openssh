@@ -4,8 +4,6 @@ use super::Error;
 use super::native_mux_impl;
 
 use io_lifetimes::OwnedFd;
-use std::convert::TryFrom;
-use std::convert::TryInto;
 use std::fs::File;
 use std::io;
 use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
