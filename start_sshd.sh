@@ -1,8 +1,10 @@
-#!/bin/bash -ex
+#!/bin/bash
+
+set -euxo pipefail
+
+cd "$(dirname "$(realpath "$0")")"
 
 [ -f "$XDG_RUNTIME_DIR/openssh-rs/sshd_started" ] && exit
-
-cd $(dirname `realpath $0`)
 
 # Start the container
 export PUBLIC_KEY='ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGzHvK2pKtSlZXP9tPYOOBb/xn0IiC9iLMS355AYUPC7'
