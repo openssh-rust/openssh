@@ -8,7 +8,7 @@ use super::native_mux_impl;
 
 use std::borrow::Cow;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::Stdio;
 use std::str;
 
@@ -41,14 +41,14 @@ fn get_default_control_dir<'a>() -> Result<&'a Path, Error> {
 /// Build a [`Session`] with options.
 #[derive(Debug, Clone)]
 pub struct SessionBuilder {
-    user: Option<String>,
-    port: Option<String>,
-    keyfile: Option<PathBuf>,
+    user: Option<Box<str>>,
+    port: Option<Box<str>>,
+    keyfile: Option<Box<Path>>,
     connect_timeout: Option<u64>,
     server_alive_interval: Option<u64>,
     known_hosts_check: KnownHosts,
-    control_dir: Option<PathBuf>,
-    config_file: Option<PathBuf>,
+    control_dir: Option<Box<Path>>,
+    config_file: Option<Box<Path>>,
     compression: Option<bool>,
 }
 
@@ -73,7 +73,7 @@ impl SessionBuilder {
     ///
     /// Defaults to `None`.
     pub fn user(&mut self, user: String) -> &mut Self {
-        self.user = Some(user);
+        self.user = Some(user.into_boxed_str());
         self
     }
 
@@ -81,7 +81,7 @@ impl SessionBuilder {
     ///
     /// Defaults to `None`.
     pub fn port(&mut self, port: u16) -> &mut Self {
-        self.port = Some(format!("{}", port));
+        self.port = Some(port.to_string().into_boxed_str());
         self
     }
 
@@ -89,7 +89,7 @@ impl SessionBuilder {
     ///
     /// Defaults to `None`.
     pub fn keyfile(&mut self, p: impl AsRef<Path>) -> &mut Self {
-        self.keyfile = Some(p.as_ref().to_path_buf());
+        self.keyfile = Some(p.as_ref().to_path_buf().into_boxed_path());
         self
     }
 
@@ -125,7 +125,7 @@ impl SessionBuilder {
     ///
     /// If not set, `./` will be used (the current directory).
     pub fn control_directory(&mut self, p: impl AsRef<Path>) -> &mut Self {
-        self.control_dir = Some(p.as_ref().to_path_buf());
+        self.control_dir = Some(p.as_ref().to_path_buf().into_boxed_path());
         self
     }
 
@@ -135,7 +135,7 @@ impl SessionBuilder {
     ///
     /// Defaults to `None`.
     pub fn config_file(&mut self, p: impl AsRef<Path>) -> &mut Self {
-        self.config_file = Some(p.as_ref().to_path_buf());
+        self.config_file = Some(p.as_ref().to_path_buf().into_boxed_path());
         self
     }
 
@@ -276,22 +276,22 @@ impl SessionBuilder {
                 .arg(format!("ServerAliveInterval={}", interval));
         }
 
-        if let Some(ref port) = self.port {
-            init.arg("-p").arg(port);
+        if let Some(port) = &self.port {
+            init.arg("-p").arg(&**port);
         }
 
-        if let Some(ref user) = self.user {
-            init.arg("-l").arg(user);
+        if let Some(user) = &self.user {
+            init.arg("-l").arg(&**user);
         }
 
         if let Some(ref k) = self.keyfile {
             // if the user gives a keyfile, _only_ use that keyfile
             init.arg("-o").arg("IdentitiesOnly=yes");
-            init.arg("-i").arg(k);
+            init.arg("-i").arg(&**k);
         }
 
         if let Some(ref config_file) = self.config_file {
-            init.arg("-F").arg(config_file);
+            init.arg("-F").arg(&**config_file);
         }
 
         if let Some(compression) = self.compression {
