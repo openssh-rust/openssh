@@ -1,6 +1,7 @@
-Unless you explicitly state otherwise, any contribution intentionally submitted
-for inclusion in the work by you, as defined in the Apache-2.0 license, shall be
-dual licensed as above, without any additional terms or conditions.
+As stated in `README.md`, unless you explicitly state otherwise, any contribution
+intentionally submitted for inclusion in the work by you, as defined
+in the Apache-2.0 license, shall be dual licensed as above, without
+any additional terms or conditions.
 
 ### Run integration tests
 
@@ -15,17 +16,6 @@ and use `cargo install cargo-hack` to install [`cargo-hack`].
 
 It will create a container which runs sshd, set up an ssh-agent, and set environment variables
 that are required to run the integration tests.
-
 It will also test different combination of feature flags to ensure they all compile without error.
 
 [`cargo-hack`]: https://github.com/taiki-e/cargo-hack
-
-### Build documentation
-
-Requires nightly cargo.
-
-To install nightly cargo, run `rustup toolchain install nightly`.
-
-```
-./build_doc.sh
-```
