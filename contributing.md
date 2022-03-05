@@ -13,7 +13,7 @@ and use `cargo install cargo-hack` to install [`cargo-hack`].
 ./run_ci_tests.sh
 ```
 
-It will create a container which runs sshd, setup ssh-agent, and environment variables
+It will create a container which runs sshd, set up an ssh-agent, and set environment variables
 that are required to run the integration tests.
 
 It will also test different combination of feature flags to ensure they all compile without error.
