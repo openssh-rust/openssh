@@ -1,4 +1,3 @@
-use super::stdio::{ChildInputWrapper, ChildOutputWrapper};
 use super::RemoteChild;
 use super::Stdio;
 use super::{Error, Session};
@@ -236,18 +235,9 @@ impl<'s> Command<'s> {
                 let (imp, stdin, stdout, stderr) = imp.spawn().await?;
                 (
                     imp.into(),
-                    stdin
-                        .map(TryFrom::try_from)
-                        .transpose()?
-                        .map(|wrapper: ChildInputWrapper| wrapper.0),
-                    stdout
-                        .map(TryFrom::try_from)
-                        .transpose()?
-                        .map(|wrapper: ChildOutputWrapper| wrapper.0),
-                    stderr
-                        .map(TryFrom::try_from)
-                        .transpose()?
-                        .map(|wrapper: ChildOutputWrapper| wrapper.0),
+                    stdin.map(TryFrom::try_from).transpose()?,
+                    stdout.map(TryFrom::try_from).transpose()?,
+                    stderr.map(TryFrom::try_from).transpose()?,
                 )
             }),
         ))
