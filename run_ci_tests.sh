@@ -23,7 +23,7 @@ cargo clippy --all-features
 export HOSTNAME=127.0.0.1
 
 echo Set up ssh agent
-eval $(ssh-agent)
+eval "$(ssh-agent)"
 cat .test-key | ssh-add -
 
 function cleanup {
