@@ -17,8 +17,8 @@ export RUSTFLAGS='--cfg=ci'
 # rebuild the crate.
 export CARGO_TARGET_DIR=ci-target
 
-cargo hack --feature-powerset check $CARGO_OPTS
-cargo clippy --all-features $CARGO_OPTS
+cargo hack --feature-powerset check
+cargo clippy --all-features
 
 export HOSTNAME=127.0.0.1
 
@@ -39,7 +39,6 @@ docker exec -it openssh bash -c 'rm -rf /tmp/*'
 
 echo Running integration test
 cargo test \
-    $CARGO_OPTS \
     --all-features \
     --no-fail-fast \
     -- --test-threads=3 # Use test-threads=3 so that the output is readable
