@@ -34,7 +34,7 @@ trap cleanup EXIT
 echo Run tests
 rm -rf control-test config-file-test .ssh-connection*
 
-echo Remove all files in /tmp in the container
+echo "Remove all files in /tmp in the container"
 docker exec -it openssh bash -c 'rm -rf /tmp/*'
 
 echo Running integration test
