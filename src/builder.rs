@@ -44,7 +44,7 @@ pub struct SessionBuilder {
     user: Option<String>,
     port: Option<String>,
     keyfile: Option<PathBuf>,
-    connect_timeout: Option<String>,
+    connect_timeout: Option<u64>,
     server_alive_interval: Option<u64>,
     known_hosts_check: KnownHosts,
     control_dir: Option<PathBuf>,
@@ -106,7 +106,7 @@ impl SessionBuilder {
     /// This value is specified in seconds. Any sub-second duration remainder will be ignored.
     /// Defaults to `None`.
     pub fn connect_timeout(&mut self, d: std::time::Duration) -> &mut Self {
-        self.connect_timeout = Some(d.as_secs().to_string());
+        self.connect_timeout = Some(d.as_secs());
         self
     }
 
