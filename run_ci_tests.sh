@@ -15,7 +15,7 @@ export RUSTFLAGS='--cfg=ci'
 # Thus it makes run_ci_tests.sh incrediably slow, and it also
 # affects IDEs checking, since now the IDEs also need to
 # rebuild the crate.
-CARGO_OPTS='--target-dir ci-target'
+export CARGO_TARGET_DIR=ci-target
 
 cargo hack --feature-powerset check $CARGO_OPTS
 cargo clippy --all-features $CARGO_OPTS
