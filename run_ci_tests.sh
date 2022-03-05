@@ -1,8 +1,8 @@
-#!/bin/bash -ex
+#!/bin/bash
 
-cd $(dirname `realpath $0`)
+set -euxo pipefail
 
-./start_sshd.sh
+cd "$(dirname "$(realpath "$0")")"
 
 export RUSTFLAGS='--cfg=ci'
 
