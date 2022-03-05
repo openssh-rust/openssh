@@ -4,6 +4,8 @@ set -euxo pipefail
 
 cd "$(dirname "$(realpath "$0")")"
 
+./start_sshd.sh
+
 export RUSTFLAGS='--cfg=ci'
 
 # Use a different target-dir since RUSTFLAGS='--cfg=ci' seems to
