@@ -24,7 +24,7 @@ export HOSTNAME=127.0.0.1
 
 echo Set up ssh agent
 eval "$(ssh-agent)"
-cat .test-key | ssh-add -
+ssh-add - <.test-key
 
 function cleanup {
     ssh-agent -k
