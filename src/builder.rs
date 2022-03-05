@@ -7,6 +7,7 @@ use super::process_impl;
 use super::native_mux_impl;
 
 use std::borrow::Cow;
+use std::ffi::OsString;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
@@ -50,6 +51,7 @@ pub struct SessionBuilder {
     control_dir: Option<PathBuf>,
     config_file: Option<PathBuf>,
     compression: Option<bool>,
+    user_known_hosts_file: Option<Box<Path>>,
 }
 
 impl Default for SessionBuilder {
@@ -64,6 +66,7 @@ impl Default for SessionBuilder {
             control_dir: None,
             config_file: None,
             compression: None,
+            user_known_hosts_file: None,
         }
     }
 }
@@ -151,6 +154,18 @@ impl SessionBuilder {
     /// by default.
     pub fn compression(&mut self, compression: bool) -> &mut Self {
         self.compression = Some(compression);
+        self
+    }
+
+    /// Specify the path to the `known_hosts` file.
+    ///
+    /// The path provided may use tilde notation (`~`) to refer to the user's
+    /// home directory.
+    ///
+    /// The default is `~/.ssh/known_hosts` and `~/.ssh/known_hosts2`.
+    pub fn user_known_hosts_file(&mut self, user_known_hosts_file: impl AsRef<Path>) -> &mut Self {
+        self.user_known_hosts_file =
+            Some(user_known_hosts_file.as_ref().to_owned().into_boxed_path());
         self
     }
 
@@ -298,6 +313,12 @@ impl SessionBuilder {
             let arg = if compression { "yes" } else { "no" };
 
             init.arg("-o").arg(format!("Compression={}", arg));
+        }
+
+        if let Some(user_known_hosts_file) = &self.user_known_hosts_file {
+            let mut option: OsString = "UserKnownHostsFile=".into();
+            option.push(&**user_known_hosts_file);
+            init.arg("-o").arg(option);
         }
 
         init.arg(destination);
