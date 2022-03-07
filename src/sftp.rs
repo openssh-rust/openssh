@@ -28,7 +28,7 @@ pub type File<'s> = highlevel::File<'s, ChildStdin>;
 /// [`tokio::io::AsyncSeek`] and [`tokio::io::AsyncWrite`], which is compatible
 /// with
 /// [`tokio::fs::File`](https://docs.rs/tokio/latest/tokio/fs/struct.File.html).
-pub type TokioCompactFile<'s> = highlevel::TokioCompactFile<'s, ChildStdin>;
+pub type TokioCompatFile<'s> = highlevel::TokioCompatFile<'s, ChildStdin>;
 
 /// A struct used to perform operations on remote filesystem.
 pub type Fs<'s> = highlevel::Fs<'s, ChildStdin>;
