@@ -297,14 +297,10 @@ impl Session {
     }
 
     /// Get the SSH connection's control socket path.
-    ///
-    /// Currently, it will always return `Some(path)`.
-    ///
-    /// In the future, when windows support is added, it will return `None`
-    /// on Windows since openssh on Windows does not support Session
-    /// multiplex.
-    pub fn control_socket(&self) -> Option<&Path> {
-        Some(delegate!(&self.0, imp, { imp.ctl() }))
+    #[cfg(not(windows))]
+    #[cfg_attr(docsrs, doc(cfg(not(windows))))]
+    pub fn control_socket(&self) -> &Path {
+        delegate!(&self.0, imp, { imp.ctl() })
     }
 
     /// Constructs a new [`Command`] for launching the program at path `program` on the remote
