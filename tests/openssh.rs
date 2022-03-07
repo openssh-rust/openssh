@@ -1,9 +1,11 @@
 use lazy_static::lazy_static;
 use regex::Regex;
 use std::borrow::Cow;
+use std::env;
 use std::io;
 use std::io::Write;
 use std::net::{IpAddr, SocketAddr};
+use std::path::PathBuf;
 use std::time::Duration;
 use tempfile::tempdir;
 
@@ -25,8 +27,18 @@ fn loopback() -> IpAddr {
     "127.0.0.1".parse().unwrap()
 }
 
-async fn session_builder_connect(builder: SessionBuilder, addr: &str) -> Vec<Session> {
+fn get_known_hosts_path() -> PathBuf {
+    let mut path = env::var_os("XDG_RUNTIME_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| "/tmp".into());
+    path.push("openssh-rs/known_hosts");
+    path
+}
+
+async fn session_builder_connect(mut builder: SessionBuilder, addr: &str) -> Vec<Session> {
     let mut sessions = Vec::with_capacity(2);
+
+    builder.user_known_hosts_file(get_known_hosts_path());
 
     #[cfg(feature = "process-mux")]
     {
@@ -44,42 +56,42 @@ async fn session_builder_connect(builder: SessionBuilder, addr: &str) -> Vec<Ses
 async fn connects() -> Vec<Session> {
     let mut sessions = Vec::with_capacity(2);
 
+    let mut builder = SessionBuilder::default();
+
+    builder
+        .user_known_hosts_file(get_known_hosts_path())
+        .known_hosts_check(KnownHosts::Accept);
+
     #[cfg(feature = "process-mux")]
     {
-        sessions.push(Session::connect(&addr(), KnownHosts::Accept).await.unwrap());
+        sessions.push(builder.connect(&addr()).await.unwrap());
     }
 
     #[cfg(feature = "native-mux")]
     {
-        sessions.push(
-            Session::connect_mux(&addr(), KnownHosts::Accept)
-                .await
-                .unwrap(),
-        );
+        sessions.push(builder.connect_mux(&addr()).await.unwrap());
     }
 
     sessions
 }
 
 async fn connects_err(host: &str) -> Vec<Error> {
+    let mut builder = SessionBuilder::default();
+
+    builder
+        .user_known_hosts_file(get_known_hosts_path())
+        .known_hosts_check(KnownHosts::Accept);
+
     let mut errors = Vec::with_capacity(2);
 
     #[cfg(feature = "process-mux")]
     {
-        errors.push(
-            Session::connect(host, KnownHosts::Accept)
-                .await
-                .unwrap_err(),
-        );
+        errors.push(builder.connect(host).await.unwrap_err());
     }
 
     #[cfg(feature = "native-mux")]
     {
-        errors.push(
-            Session::connect_mux(host, KnownHosts::Accept)
-                .await
-                .unwrap_err(),
-        );
+        errors.push(builder.connect_mux(host).await.unwrap_err());
     }
 
     errors
@@ -231,18 +243,20 @@ async fn config_file() {
 #[tokio::test]
 #[cfg_attr(not(ci), ignore)]
 async fn terminate_on_drop() {
+    let mut builder = SessionBuilder::default();
+
+    builder
+        .user_known_hosts_file(get_known_hosts_path())
+        .known_hosts_check(KnownHosts::Add);
+
     #[cfg(feature = "process-mux")]
     {
-        drop(Session::connect(&addr(), KnownHosts::Add).await.unwrap());
+        drop(builder.connect(&addr()).await.unwrap());
     }
 
     #[cfg(feature = "native-mux")]
     {
-        drop(
-            Session::connect_mux(&addr(), KnownHosts::Add)
-                .await
-                .unwrap(),
-        );
+        drop(builder.connect_mux(&addr()).await.unwrap());
     }
     // NOTE: how do we test that it actually killed the master here?
 }
@@ -415,7 +429,8 @@ async fn connect_timeout() {
     use std::time::{Duration, Instant};
 
     let mut sb = SessionBuilder::default();
-    sb.connect_timeout(Duration::from_secs(1));
+    sb.connect_timeout(Duration::from_secs(1))
+        .user_known_hosts_file(get_known_hosts_path());
 
     let host = "192.0.0.8";
 

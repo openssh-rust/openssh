@@ -13,6 +13,8 @@ repository = "https://github.com/openssh-rust/openssh.git"
 keywords = ["ssh","remote","openssh","orchestration"]
 categories = ["network-programming", "api-bindings"]
 
+exclude = ["ci-target", "*.sh"]
+
 [badges]
 azure-devops = { project = "jonhoo/jonhoo", pipeline = "openssh", build = "23" }
 codecov = { repository = "jonhoo/openssh-rs", branch = "master", service = "github" }

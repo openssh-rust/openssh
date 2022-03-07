@@ -1,50 +1,37 @@
-#!/bin/bash -ex
+#!/bin/bash
 
-cd $(dirname `realpath $0`)
+set -euxo pipefail
 
-# Start the container
-export PUBLIC_KEY='ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGzHvK2pKtSlZXP9tPYOOBb/xn0IiC9iLMS355AYUPC7'
-export DOCKER_MODS='linuxserver/mods:openssh-server-ssh-tunnel'
+cd "$(dirname "$(realpath "$0")")"
 
-name=openssh
-
-docker run \
-    --name $name \
-    --rm \
-    -d \
-    -p 127.0.0.1:2222:2222 \
-    -e 'USER_NAME=test-user' \
-    -e DOCKER_MODS \
-    -e PUBLIC_KEY \
-    linuxserver/openssh-server:amd64-latest
-
-function cleanup {
-    docker stop $name
-
-    # Revert modification to ~/.ssh/known_hosts
-    ssh-keygen -R "[127.0.0.1]:2222"
-
-    ssh-agent -k
-}
-trap cleanup EXIT
+./start_sshd.sh
 
 export RUSTFLAGS='--cfg=ci'
 
-cargo hack check --feature-powerset
+# Use a different target-dir since RUSTFLAGS='--cfg=ci' seems to
+# affect dependencies as well.
+#
+# Since IDEs usually do not set RUSTFLAGS='--cfg=ci', setting it
+# here would cause all the dependencies and openssh to be rebuilt.
+#
+# Thus it makes run_ci_tests.sh incrediably slow, and it also
+# affects IDEs checking, since now the IDEs also need to
+# rebuild the crate.
+export CARGO_TARGET_DIR=ci-target
 
+cargo hack --feature-powerset check
 cargo clippy --all-features
 
 export HOSTNAME=127.0.0.1
-chmod 600 .test-key
-
-echo Waiting for sshd to be up
-while ! ssh -i .test-key -v -p 2222 -l test-user $HOSTNAME -o StrictHostKeyChecking=no whoami; do
-    sleep 3
-done
 
 echo Set up ssh agent
-eval $(ssh-agent)
-cat .test-key | ssh-add -
+eval "$(ssh-agent)"
+ssh-add - <.test-key
+
+function cleanup {
+    ssh-agent -k
+}
+trap cleanup EXIT
 
 echo Run tests
 rm -rf control-test config-file-test .ssh-connection*
