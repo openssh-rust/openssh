@@ -5,7 +5,7 @@ use std::env;
 use std::io;
 use std::io::Write;
 use std::net::{IpAddr, SocketAddr};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::time::Duration;
 use tempfile::tempdir;
 
@@ -27,18 +27,12 @@ fn loopback() -> IpAddr {
     "127.0.0.1".parse().unwrap()
 }
 
-fn get_known_hosts_path() -> &'static Path {
-    lazy_static! {
-        static ref KNOWN_HOSTS_PATH: PathBuf = {
-            let mut path = env::var_os("XDG_RUNTIME_DIR")
-                .map(PathBuf::from)
-                .unwrap_or_else(|| "/tmp".into());
-            path.push("openssh-rs/known_hosts");
-            path
-        };
-    }
-
-    &KNOWN_HOSTS_PATH
+fn get_known_hosts_path() -> PathBuf {
+    let mut path = env::var_os("XDG_RUNTIME_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| "/tmp".into());
+    path.push("openssh-rs/known_hosts");
+    path
 }
 
 async fn session_builder_connect(mut builder: SessionBuilder, addr: &str) -> Vec<Session> {
