@@ -172,11 +172,6 @@ pub use child::RemoteChild;
 mod error;
 pub use error::Error;
 
-/// Scp implementation using commands such as cat, dd and etc.
-#[cfg(feature = "scp")]
-#[cfg_attr(docsrs, doc(cfg(feature = "scp")))]
-pub mod scp;
-
 #[cfg(feature = "process-mux")]
 pub(crate) mod process_impl;
 
@@ -413,16 +408,6 @@ impl Session {
             imp.request_port_forward(forward_type, listen_socket, connect_socket)
                 .await
         })
-    }
-
-    /// Prepare to perform file operations on the remote host, by using
-    /// shell command like dd, cat, tee.
-    ///
-    /// See [`scp::Scp`] for details on how to interact with the remote files.
-    #[cfg(feature = "scp")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "scp")))]
-    pub fn scp(&self) -> scp::Scp<'_> {
-        scp::Scp::new(self)
     }
 
     /// Terminate the remote connection.

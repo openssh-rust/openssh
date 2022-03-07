@@ -14,14 +14,12 @@ use crate::*;
 ///  - Make [`ChildStdin`] an opaque type.
 ///  - Make [`ChildStdout`] an opaque type.
 ///  - Make [`ChildStderr`] an opaque type.
-///  - Feature `scp`.
-///  - New mod [`scp`], contains the old SFTP implementation.
 ///
-/// ## Changed
-///  - Rename `Sftp` to [`scp::Scp`].
-///  - Rename `Mode` to [`scp::Mode`].
-///  - Rename `RemoteFile` to [`scp::RemoteFile`].
-///  - Rename `Session::sftp` to [`Session::scp`].
+/// ## Removed
+///  - Type `Sftp`.
+///  - Type `Mode`.
+///  - Type `RemoteFile`.
+///  - Associated function `Session::sftp`.
 #[doc(hidden)]
 pub mod unreleased {}
 

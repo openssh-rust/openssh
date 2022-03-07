@@ -32,7 +32,6 @@ rustdoc-args = ["--cfg", "docsrs"]
 default = ["process-mux"]
 process-mux = []
 native-mux = ["openssh-mux-client"]
-scp = []
 
 [dependencies]
 tempfile = "3.1.0"
