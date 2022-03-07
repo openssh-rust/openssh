@@ -135,11 +135,6 @@ impl<'s> Sftp<'s> {
         self.inner.max_buffered_write()
     }
 
-    /// Return number of pending requests in the write buffer.
-    pub fn get_pending_requests(&self) -> u32 {
-        self.inner.get_pending_requests()
-    }
-
     /// Return a cancellation token that will be cancelled if the `flush_task`
     /// or `read_task` failed is called.
     ///
