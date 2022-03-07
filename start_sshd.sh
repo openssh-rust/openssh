@@ -4,6 +4,8 @@ set -euxo pipefail
 
 cd "$(dirname "$(realpath "$0")")"
 
+[ -z ${XDG_RUNTIME_DIR+x} ] && export XDG_RUNTIME_DIR=/tmp
+
 [ -f "$XDG_RUNTIME_DIR/openssh-rs/sshd_started" ] && exit
 
 # Start the container

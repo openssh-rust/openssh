@@ -30,7 +30,9 @@ fn loopback() -> IpAddr {
 fn get_known_hosts_path() -> &'static Path {
     lazy_static! {
         static ref KNOWN_HOSTS_PATH: PathBuf = {
-            let mut path = env::var_os("XDG_RUNTIME_DIR").map(PathBuf::from).unwrap();
+            let mut path = env::var_os("XDG_RUNTIME_DIR")
+                .map(PathBuf::from)
+                .unwrap_or_else(|| "/tmp".into());
             path.push("openssh-rs/known_hosts");
             path
         };
