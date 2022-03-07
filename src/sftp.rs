@@ -134,13 +134,4 @@ impl<'s> Sftp<'s> {
     pub fn max_buffered_write(&self) -> u32 {
         self.inner.max_buffered_write()
     }
-
-    /// Return a cancellation token that will be cancelled if the `flush_task`
-    /// or `read_task` failed is called.
-    ///
-    /// Cancelling this returned token has no effect on any function in this
-    /// module.
-    pub fn get_cancellation_token(&self) -> CancellationToken {
-        self.inner.get_cancellation_token()
-    }
 }
