@@ -176,7 +176,10 @@ pub use error::Error;
 ///
 /// # Cancel Safety
 ///
-/// Refers to [`openssh_sftp_client::highlevel`] on the cancel safety doc.
+/// If you need to know about the cancel safety of the futures produced by
+/// this module, please see the documentation in
+/// [`openssh_sftp_client::highlevel`].
+
 #[cfg(feature = "sftp")]
 #[cfg_attr(docsrs, doc(cfg(feature = "sftp")))]
 pub mod sftp;
