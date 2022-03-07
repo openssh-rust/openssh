@@ -25,7 +25,7 @@ jobs:
       - uses: actions/checkout@v2
       - run: |
           chmod 600 .test-key
-          ssh -i .test-key -v -p 2222 -l test-user openssh -o StrictHostKeyChecking=accept-new whoami
+          ssh -i .test-key -v -p 2222 -l test-user openssh -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/tmp/openssh-rs/known_hosts whoami
         name: Test ssh connectivity
       - run: |
           eval $(ssh-agent)
