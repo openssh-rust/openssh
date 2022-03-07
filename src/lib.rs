@@ -294,6 +294,8 @@ impl Session {
     }
 
     /// Get the SSH connection's control socket path.
+    #[cfg(not(windows))]
+    #[cfg_attr(docsrs, doc(cfg(not(windows))))]
     pub fn control_socket(&self) -> &Path {
         delegate!(&self.0, imp, { imp.ctl() })
     }
