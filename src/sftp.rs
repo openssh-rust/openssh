@@ -103,7 +103,7 @@ impl<'s> Sftp<'s> {
         self.inner.fs()
     }
 
-    /// Trigger flushing in the `flush_task`.
+    /// Triggers the flushing of the internal buffer in `flush_task`.
     ///
     /// If there are pending requests, then flushing would happen immediately.
     ///
@@ -113,8 +113,8 @@ impl<'s> Sftp<'s> {
         self.inner.trigger_flushing()
     }
 
-    /// Get maximum amount of bytes that one single write requests
-    /// can write.
+    /// The maximum amount of bytes that can be written in one request.
+    /// Writing more than that, then your write will be split into multiple requests
     ///
     /// If [`Sftp::max_buffered_write`] is less than [`max_atomic_write_len`],
     /// then the direct write is enabled and [`Sftp::max_write_len`] must be
@@ -123,8 +123,8 @@ impl<'s> Sftp<'s> {
         self.inner.max_write_len()
     }
 
-    /// Get maximum amount of bytes that one single read requests
-    /// can read.
+    /// The maximum amount of bytes that can be read in one request.
+    /// Reading more than that, then your read will be split into multiple requests
     pub fn max_read_len(&self) -> u32 {
         self.inner.max_read_len()
     }
