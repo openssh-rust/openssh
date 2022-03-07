@@ -48,7 +48,7 @@ dirs = "4.0.0"
 
 openssh-mux-client = { version = "0.14.4", optional = true }
 
-openssh-sftp-client = { version = "0.8.1", optional = true }
+openssh-sftp-client = { version = "0.8.3", optional = true }
 
 [dev-dependencies]
 lazy_static = "1.4.0"
