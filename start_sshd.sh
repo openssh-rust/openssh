@@ -23,15 +23,12 @@ docker run \
 export HOSTNAME=127.0.0.1
 chmod 600 .test-key
 
-# Remove 127.0.0.1:2222 from known_hosts
-ssh-keygen -R "[127.0.0.1]:2222"
-rm -f ~/.ssh/known_hosts.old
+mkdir -p "$XDG_RUNTIME_DIR/openssh-rs/"
 
 echo Waiting for sshd to be up
-while ! ssh -i .test-key -v -p 2222 -l test-user $HOSTNAME -o StrictHostKeyChecking=no whoami; do
+while ! ssh -i .test-key -v -p 2222 -l test-user $HOSTNAME -o StrictHostKeyChecking=no -o UserKnownHostsFile="$XDG_RUNTIME_DIR/openssh-rs/known_hosts" whoami; do
     sleep 3
 done
 
-# Create sshd_started in /tmp/ so that it is auto removed on restart.
-mkdir -p "$XDG_RUNTIME_DIR/openssh-rs/"
+# Create sshd_started in runtime directory so that it is auto removed on restart.
 touch "$XDG_RUNTIME_DIR/openssh-rs/sshd_started"
