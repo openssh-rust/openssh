@@ -8,7 +8,7 @@ use crate::*;
 ///
 /// ## Added
 ///  - Added changelog
-///  - Added [`SessionBuilder::compression`]
+///  - Associated function [`SessionBuilder::compression`]
 ///  - Associated function [`SessionBuilder::user_known_hosts_file`]
 ///  - Associated function [`Session::control_socket`] for non-Windows platform.
 ///
