@@ -9,6 +9,11 @@ use crate::*;
 /// ## Added
 ///  - Added changelog
 ///  - Added [`SessionBuilder::compression`]
+///
+/// ## Changed
+///  - Make [`ChildStdin`] an opaque type.
+///  - Make [`ChildStdout`] an opaque type.
+///  - Make [`ChildStderr`] an opaque type.
 #[doc(hidden)]
 pub mod unreleased {}
 
