@@ -194,49 +194,31 @@ impl Error {
     }
 }
 
-#[test]
-fn parse_error() {
-    let err = "ssh: Warning: Permanently added \'login.csail.mit.edu,128.52.131.0\' (ECDSA) to the list of known hosts.\r\nopenssh-tester@login.csail.mit.edu: Permission denied (publickey,gssapi-keyex,gssapi-with-mic,password,keyboard-interactive).";
-    let err = Error::interpret_ssh_error(err);
-    let target = io::Error::new(io::ErrorKind::PermissionDenied, "openssh-tester@login.csail.mit.edu: Permission denied (publickey,gssapi-keyex,gssapi-with-mic,password,keyboard-interactive).");
-    if let Error::Connect(e) = err {
-        assert_eq!(e.kind(), target.kind());
-        assert_eq!(format!("{}", e), format!("{}", target));
-    } else {
-        unreachable!("{:?}", err);
+#[cfg(test)]
+mod tests {
+    use super::{io, Error};
+
+    #[test]
+    fn parse_error() {
+        let err = "ssh: Warning: Permanently added \'login.csail.mit.edu,128.52.131.0\' (ECDSA) to the list of known hosts.\r\nopenssh-tester@login.csail.mit.edu: Permission denied (publickey,gssapi-keyex,gssapi-with-mic,password,keyboard-interactive).";
+        let err = Error::interpret_ssh_error(err);
+        let target = io::Error::new(io::ErrorKind::PermissionDenied, "openssh-tester@login.csail.mit.edu: Permission denied (publickey,gssapi-keyex,gssapi-with-mic,password,keyboard-interactive).");
+        if let Error::Connect(e) = err {
+            assert_eq!(e.kind(), target.kind());
+            assert_eq!(format!("{}", e), format!("{}", target));
+        } else {
+            unreachable!("{:?}", err);
+        }
     }
-}
 
-#[test]
-fn error_sanity() {
-    use std::error::Error as _;
+    #[test]
+    fn error_sanity() {
+        use std::error::Error as _;
 
-    let ioe = || io::Error::new(io::ErrorKind::Other, "test");
-    let expect = ioe();
+        let ioe = || io::Error::new(io::ErrorKind::Other, "test");
+        let expect = ioe();
 
-    let e = Error::Master(ioe());
-    assert!(!format!("{}", e).is_empty());
-    let e = e
-        .source()
-        .expect("source failed")
-        .downcast_ref::<io::Error>()
-        .expect("source not io");
-    assert_eq!(e.kind(), expect.kind());
-    assert_eq!(format!("{}", e), format!("{}", expect));
-
-    let e = Error::Connect(ioe());
-    assert!(!format!("{}", e).is_empty());
-    let e = e
-        .source()
-        .expect("source failed")
-        .downcast_ref::<io::Error>()
-        .expect("source not io");
-    assert_eq!(e.kind(), expect.kind());
-    assert_eq!(format!("{}", e), format!("{}", expect));
-
-    #[cfg(feature = "process-mux")]
-    {
-        let e = Error::Ssh(ioe());
+        let e = Error::Master(ioe());
         assert!(!format!("{}", e).is_empty());
         let e = e
             .source()
@@ -245,19 +227,42 @@ fn error_sanity() {
             .expect("source not io");
         assert_eq!(e.kind(), expect.kind());
         assert_eq!(format!("{}", e), format!("{}", expect));
+
+        let e = Error::Connect(ioe());
+        assert!(!format!("{}", e).is_empty());
+        let e = e
+            .source()
+            .expect("source failed")
+            .downcast_ref::<io::Error>()
+            .expect("source not io");
+        assert_eq!(e.kind(), expect.kind());
+        assert_eq!(format!("{}", e), format!("{}", expect));
+
+        #[cfg(feature = "process-mux")]
+        {
+            let e = Error::Ssh(ioe());
+            assert!(!format!("{}", e).is_empty());
+            let e = e
+                .source()
+                .expect("source failed")
+                .downcast_ref::<io::Error>()
+                .expect("source not io");
+            assert_eq!(e.kind(), expect.kind());
+            assert_eq!(format!("{}", e), format!("{}", expect));
+        }
+
+        let e = Error::Remote(ioe());
+        assert!(!format!("{}", e).is_empty());
+        let e = e
+            .source()
+            .expect("source failed")
+            .downcast_ref::<io::Error>()
+            .expect("source not io");
+        assert_eq!(e.kind(), expect.kind());
+        assert_eq!(format!("{}", e), format!("{}", expect));
+
+        let e = Error::Disconnected;
+        assert!(!format!("{}", e).is_empty());
+        assert!(e.source().is_none());
     }
-
-    let e = Error::Remote(ioe());
-    assert!(!format!("{}", e).is_empty());
-    let e = e
-        .source()
-        .expect("source failed")
-        .downcast_ref::<io::Error>()
-        .expect("source not io");
-    assert_eq!(e.kind(), expect.kind());
-    assert_eq!(format!("{}", e), format!("{}", expect));
-
-    let e = Error::Disconnected;
-    assert!(!format!("{}", e).is_empty());
-    assert!(e.source().is_none());
 }
