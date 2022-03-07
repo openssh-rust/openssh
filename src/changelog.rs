@@ -14,6 +14,12 @@ use crate::*;
 ///  - Make [`ChildStdin`] an opaque type.
 ///  - Make [`ChildStdout`] an opaque type.
 ///  - Make [`ChildStderr`] an opaque type.
+///
+/// ## Removed
+///  - Type `Sftp`.
+///  - Type `Mode`.
+///  - Type `RemoteFile`.
+///  - Associated function `Session::sftp`.
 #[doc(hidden)]
 pub mod unreleased {}
 

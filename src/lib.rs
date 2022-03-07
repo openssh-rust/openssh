@@ -172,9 +172,6 @@ pub use child::RemoteChild;
 mod error;
 pub use error::Error;
 
-mod sftp;
-pub use sftp::{Mode, RemoteFile, Sftp};
-
 #[cfg(feature = "process-mux")]
 pub(crate) mod process_impl;
 
@@ -411,13 +408,6 @@ impl Session {
             imp.request_port_forward(forward_type, listen_socket, connect_socket)
                 .await
         })
-    }
-
-    /// Prepare to perform file operations on the remote host.
-    ///
-    /// See [`Sftp`] for details on how to interact with the remote files.
-    pub fn sftp(&self) -> Sftp<'_> {
-        Sftp::new(self)
     }
 
     /// Terminate the remote connection.
