@@ -2,7 +2,13 @@
 use crate::*;
 
 /// TODO: RENAME THIS INTO THE NEXT VERSION BEFORE RELEASE
-///
+#[doc(hidden)]
+pub mod unreleased {}
+
+/// ## Fixed
+///  - Fixed changelog entry for rc2 not being visible
+pub mod v0_9_0_rc3 {}
+
 /// ## Fixed
 ///  - Fixed crate level doc
 ///
@@ -22,8 +28,7 @@ use crate::*;
 ///  - Type `Mode`.
 ///  - Type `RemoteFile`.
 ///  - Associated function `Session::sftp`.
-#[doc(hidden)]
-pub mod unreleased {}
+pub mod v0_9_0_rc2 {}
 
 /// ## Added
 ///  - Feature flag `native-mux`, an alternative backend that communicates
