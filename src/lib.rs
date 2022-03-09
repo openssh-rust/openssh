@@ -114,7 +114,7 @@
 //! # Examples
 //!
 //! ```rust,no_run
-//! # #[cfg(feature = "native-mux")]
+//! # #[cfg(all(feature = "native-mux", unix))]
 //! # #[tokio::main]
 //! # async fn main() -> Result<(), openssh::Error> {
 //! use openssh::{Session, KnownHosts};
@@ -172,7 +172,7 @@ pub use error::Error;
 #[cfg(feature = "process-mux")]
 pub(crate) mod process_impl;
 
-#[cfg(feature = "native-mux")]
+#[cfg(all(feature = "native-mux", unix))]
 pub(crate) mod native_mux_impl;
 
 #[cfg(doc)]
@@ -192,7 +192,7 @@ pub(crate) enum SessionImp {
     #[cfg(feature = "process-mux")]
     ProcessImpl(process_impl::Session),
 
-    #[cfg(feature = "native-mux")]
+    #[cfg(all(feature = "native-mux", unix))]
     NativeMuxImpl(native_mux_impl::Session),
 }
 
@@ -203,13 +203,13 @@ macro_rules! delegate {
             #[cfg(feature = "process-mux")]
             SessionImp::ProcessImpl($var) => $then,
 
-            #[cfg(feature = "native-mux")]
+            #[cfg(all(feature = "native-mux", unix))]
             SessionImp::NativeMuxImpl($var) => $then,
         }
     }};
 }
 
-#[cfg(not(any(feature = "process-mux", feature = "native-mux")))]
+#[cfg(not(any(feature = "process-mux", all(feature = "native-mux", unix))))]
 macro_rules! delegate {
     ($impl:expr, $var:ident, $then:block) => {{
         unreachable!("Neither feature process-mux nor native-mux is enabled")
@@ -232,7 +232,7 @@ impl From<process_impl::Session> for Session {
     }
 }
 
-#[cfg(feature = "native-mux")]
+#[cfg(all(feature = "native-mux", unix))]
 impl From<native_mux_impl::Session> for Session {
     fn from(imp: native_mux_impl::Session) -> Self {
         Self(SessionImp::NativeMuxImpl(imp))
@@ -274,8 +274,8 @@ impl Session {
     /// instead.
     ///
     /// For more options, see [`SessionBuilder`].
-    #[cfg(feature = "native-mux")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "native-mux")))]
+    #[cfg(all(feature = "native-mux", unix))]
+    #[cfg_attr(docsrs, doc(cfg(all(feature = "native-mux", unix))))]
     pub async fn connect_mux<S: AsRef<str>>(
         destination: S,
         check: KnownHosts,

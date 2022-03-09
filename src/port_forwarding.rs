@@ -1,4 +1,4 @@
-#[cfg(feature = "native-mux")]
+#[cfg(all(feature = "native-mux", unix))]
 use super::native_mux_impl;
 
 #[cfg(feature = "process-mux")]
@@ -20,7 +20,7 @@ pub enum ForwardType {
     Remote,
 }
 
-#[cfg(feature = "native-mux")]
+#[cfg(all(feature = "native-mux", unix))]
 impl From<ForwardType> for native_mux_impl::ForwardType {
     fn from(fwd_type: ForwardType) -> Self {
         use native_mux_impl::ForwardType::*;
@@ -68,7 +68,7 @@ impl Socket<'_> {
     }
 }
 
-#[cfg(feature = "native-mux")]
+#[cfg(all(feature = "native-mux", unix))]
 impl<'a> From<Socket<'a>> for native_mux_impl::Socket<'a> {
     fn from(socket: Socket<'a>) -> Self {
         use native_mux_impl::Socket::*;

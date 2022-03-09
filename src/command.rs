@@ -12,7 +12,7 @@ pub(crate) enum CommandImp {
     #[cfg(feature = "process-mux")]
     ProcessImpl(super::process_impl::Command),
 
-    #[cfg(feature = "native-mux")]
+    #[cfg(all(feature = "native-mux", unix))]
     NativeMuxImpl(super::native_mux_impl::Command),
 }
 #[cfg(feature = "process-mux")]
@@ -22,7 +22,7 @@ impl From<super::process_impl::Command> for CommandImp {
     }
 }
 
-#[cfg(feature = "native-mux")]
+#[cfg(all(feature = "native-mux", unix))]
 impl<'s> From<super::native_mux_impl::Command> for CommandImp {
     fn from(imp: super::native_mux_impl::Command) -> Self {
         CommandImp::NativeMuxImpl(imp)
@@ -36,13 +36,13 @@ macro_rules! delegate {
             #[cfg(feature = "process-mux")]
             CommandImp::ProcessImpl($var) => $then,
 
-            #[cfg(feature = "native-mux")]
+            #[cfg(all(feature = "native-mux", unix))]
             CommandImp::NativeMuxImpl($var) => $then,
         }
     }};
 }
 
-#[cfg(not(any(feature = "process-mux", feature = "native-mux")))]
+#[cfg(not(any(feature = "process-mux", all(feature = "native-mux", unix))))]
 macro_rules! delegate {
     ($impl:expr, $var:ident, $then:block) => {{
         unreachable!("Neither feature process-mux nor native-mux is enabled")

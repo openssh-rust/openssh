@@ -1,6 +1,6 @@
 use super::Error;
 
-#[cfg(feature = "native-mux")]
+#[cfg(all(feature = "native-mux", unix))]
 use super::native_mux_impl;
 
 use io_lifetimes::OwnedFd;
@@ -160,7 +160,7 @@ macro_rules! impl_from_impl_child_io {
     };
 
     (native_mux, $type:ident) => {
-        #[cfg(feature = "native-mux")]
+        #[cfg(all(feature = "native-mux", unix))]
         impl TryFromChildIo<native_mux_impl::$type> for $type {
             type Error = Error;
 

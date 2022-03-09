@@ -3,7 +3,7 @@ use super::{Error, Session};
 #[cfg(feature = "process-mux")]
 use super::process_impl;
 
-#[cfg(feature = "native-mux")]
+#[cfg(all(feature = "native-mux", unix))]
 use super::native_mux_impl;
 
 use std::borrow::Cow;
@@ -204,8 +204,8 @@ impl SessionBuilder {
     /// If connecting requires interactive authentication based on `STDIN` (such as reading a
     /// password), the connection will fail. Consider setting up keypair-based authentication
     /// instead.
-    #[cfg(feature = "native-mux")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "native-mux")))]
+    #[cfg(all(feature = "native-mux", unix))]
+    #[cfg_attr(docsrs, doc(cfg(all(feature = "native-mux", unix))))]
     pub async fn connect_mux<S: AsRef<str>>(&self, destination: S) -> Result<Session, Error> {
         let destination = destination.as_ref();
         let (builder, destination) = self.resolve(destination);

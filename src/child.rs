@@ -11,7 +11,7 @@ pub(crate) enum RemoteChildImp {
     #[cfg(feature = "process-mux")]
     ProcessImpl(super::process_impl::RemoteChild),
 
-    #[cfg(feature = "native-mux")]
+    #[cfg(all(feature = "native-mux", unix))]
     NativeMuxImpl(super::native_mux_impl::RemoteChild),
 }
 #[cfg(feature = "process-mux")]
@@ -21,7 +21,7 @@ impl From<super::process_impl::RemoteChild> for RemoteChildImp {
     }
 }
 
-#[cfg(feature = "native-mux")]
+#[cfg(all(feature = "native-mux", unix))]
 impl From<super::native_mux_impl::RemoteChild> for RemoteChildImp {
     fn from(imp: super::native_mux_impl::RemoteChild) -> Self {
         RemoteChildImp::NativeMuxImpl(imp)
@@ -34,7 +34,7 @@ macro_rules! delegate {
             #[cfg(feature = "process-mux")]
             RemoteChildImp::ProcessImpl($var) => $then,
 
-            #[cfg(feature = "native-mux")]
+            #[cfg(all(feature = "native-mux", unix))]
             RemoteChildImp::NativeMuxImpl($var) => $then,
         }
     }};

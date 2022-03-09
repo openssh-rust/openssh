@@ -17,13 +17,13 @@ pub enum Error {
     Ssh(io::Error),
 
     /// Failed to connect to the ssh multiplex server.
-    #[cfg(feature = "native-mux")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "native-mux")))]
+    #[cfg(all(feature = "native-mux", unix))]
+    #[cfg_attr(docsrs, doc(cfg(all(feature = "native-mux", unix))))]
     SshMux(openssh_mux_client::Error),
 
     /// Invalid command that contains null byte.
-    #[cfg(feature = "native-mux")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "native-mux")))]
+    #[cfg(all(feature = "native-mux", unix))]
+    #[cfg_attr(docsrs, doc(cfg(all(feature = "native-mux", unix))))]
     InvalidCommand,
 
     /// The remote process failed.
@@ -60,7 +60,7 @@ pub enum Error {
     ChildIo(io::Error),
 }
 
-#[cfg(feature = "native-mux")]
+#[cfg(all(feature = "native-mux", unix))]
 impl From<openssh_mux_client::Error> for Error {
     fn from(err: openssh_mux_client::Error) -> Self {
         use io::ErrorKind;
@@ -101,10 +101,10 @@ impl fmt::Display for Error {
 
             Error::RemoteProcessTerminated => write!(f, "the remote process has terminated"),
 
-            #[cfg(feature = "native-mux")]
+            #[cfg(all(feature = "native-mux", unix))]
             Error::SshMux(_) => write!(f, "failed to connect to the ssh multiplex server"),
 
-            #[cfg(feature = "native-mux")]
+            #[cfg(all(feature = "native-mux", unix))]
             Error::InvalidCommand => write!(f, "invalid command: Command contains null byte."),
         }
     }
@@ -121,13 +121,13 @@ impl std::error::Error for Error {
 
             Error::RemoteProcessTerminated | Error::Disconnected => None,
 
-            #[cfg(feature = "native-mux")]
+            #[cfg(all(feature = "native-mux", unix))]
             Error::InvalidCommand => None,
 
             #[cfg(feature = "process-mux")]
             Error::Ssh(ref e) => Some(e),
 
-            #[cfg(feature = "native-mux")]
+            #[cfg(all(feature = "native-mux", unix))]
             Error::SshMux(ref e) => Some(e),
         }
     }
