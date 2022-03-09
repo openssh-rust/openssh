@@ -152,9 +152,9 @@ macro_rules! impl_from_impl_child_io {
 
                 // safety: arg.as_raw_fd() is guaranteed to return a valid fd.
                 let fd = unsafe { dup(fd) }?.into_raw_fd();
-                Ok(Self(
-                    <$inner>::from_raw_fd_checked(fd).map_err(Error::ChildIo)?,
-                ))
+                <$inner>::from_raw_fd_checked(fd)
+                    .map(Self)
+                    .map_err(Error::ChildIo)
             }
         }
     };
