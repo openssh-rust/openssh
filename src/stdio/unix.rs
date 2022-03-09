@@ -1,7 +1,7 @@
-use super::Error;
+use crate::Error;
 
 #[cfg(all(feature = "native-mux", unix))]
-use super::native_mux_impl;
+use crate::native_mux_impl;
 
 use io_lifetimes::OwnedFd;
 use std::fs::File;
@@ -12,7 +12,7 @@ use std::process;
 use std::task::{Context, Poll};
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 
-pub(crate) unsafe fn dup(raw_fd: RawFd) -> Result<OwnedFd, Error> {
+unsafe fn dup(raw_fd: RawFd) -> Result<OwnedFd, Error> {
     let res = libc::dup(raw_fd);
     if res == -1 {
         Err(Error::ChildIo(io::Error::last_os_error()))

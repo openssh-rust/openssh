@@ -154,6 +154,7 @@ use std::borrow::Cow;
 use std::ffi::OsStr;
 use std::path::Path;
 
+#[cfg_attr(unix, path = "stdio/unix.rs")]
 mod stdio;
 pub use stdio::{ChildStderr, ChildStdin, ChildStdout, Stdio};
 
