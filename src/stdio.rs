@@ -113,7 +113,7 @@ macro_rules! impl_try_from_tokio_process_child_for_stdio {
             type Error = Error;
 
             fn try_from(arg: tokio::process::$type) -> Result<Self, Self::Error> {
-                let wrapper: $type = arg.try_into()?;
+                let wrapper: $type = TryFromChildIo::try_from(arg)?;
                 Ok(wrapper.0.into())
             }
         }
@@ -136,9 +136,15 @@ pub struct ChildStdout(tokio_pipe::PipeRead);
 #[derive(Debug)]
 pub struct ChildStderr(tokio_pipe::PipeRead);
 
+pub(crate) trait TryFromChildIo<T>: Sized {
+    type Error;
+
+    fn try_from(arg: T) -> Result<Self, Self::Error>;
+}
+
 macro_rules! impl_from_impl_child_io {
     (process, $type:ident, $inner:ty) => {
-        impl TryFrom<tokio::process::$type> for $type {
+        impl TryFromChildIo<tokio::process::$type> for $type {
             type Error = Error;
 
             fn try_from(arg: tokio::process::$type) -> Result<Self, Self::Error> {
@@ -146,16 +152,16 @@ macro_rules! impl_from_impl_child_io {
 
                 // safety: arg.as_raw_fd() is guaranteed to return a valid fd.
                 let fd = unsafe { dup(fd) }?.into_raw_fd();
-                Ok(Self(
-                    <$inner>::from_raw_fd_checked(fd).map_err(Error::ChildIo)?,
-                ))
+                <$inner>::from_raw_fd_checked(fd)
+                    .map(Self)
+                    .map_err(Error::ChildIo)
             }
         }
     };
 
     (native_mux, $type:ident) => {
         #[cfg(feature = "native-mux")]
-        impl TryFrom<native_mux_impl::$type> for $type {
+        impl TryFromChildIo<native_mux_impl::$type> for $type {
             type Error = Error;
 
             fn try_from(arg: native_mux_impl::$type) -> Result<Self, Self::Error> {

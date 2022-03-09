@@ -1,9 +1,9 @@
+use super::stdio::TryFromChildIo;
 use super::RemoteChild;
 use super::Stdio;
 use super::{Error, Session};
 
 use std::borrow::Cow;
-use std::convert::TryFrom;
 use std::ffi::OsStr;
 use std::process;
 
@@ -235,9 +235,9 @@ impl<'s> Command<'s> {
                 let (imp, stdin, stdout, stderr) = imp.spawn().await?;
                 (
                     imp.into(),
-                    stdin.map(TryFrom::try_from).transpose()?,
-                    stdout.map(TryFrom::try_from).transpose()?,
-                    stderr.map(TryFrom::try_from).transpose()?,
+                    stdin.map(TryFromChildIo::try_from).transpose()?,
+                    stdout.map(TryFromChildIo::try_from).transpose()?,
+                    stderr.map(TryFromChildIo::try_from).transpose()?,
                 )
             }),
         ))
