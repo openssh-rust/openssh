@@ -45,7 +45,7 @@ async fn session_builder_connect(mut builder: SessionBuilder, addr: &str) -> Vec
         sessions.push(builder.connect(addr).await.unwrap());
     }
 
-    #[cfg(feature = "native-mux")]
+    #[cfg(all(feature = "native-mux", unix))]
     {
         sessions.push(builder.connect_mux(addr).await.unwrap());
     }
@@ -67,7 +67,7 @@ async fn connects() -> Vec<Session> {
         sessions.push(builder.connect(&addr()).await.unwrap());
     }
 
-    #[cfg(feature = "native-mux")]
+    #[cfg(all(feature = "native-mux", unix))]
     {
         sessions.push(builder.connect_mux(&addr()).await.unwrap());
     }
@@ -89,7 +89,7 @@ async fn connects_err(host: &str) -> Vec<Error> {
         errors.push(builder.connect(host).await.unwrap_err());
     }
 
-    #[cfg(feature = "native-mux")]
+    #[cfg(all(feature = "native-mux", unix))]
     {
         errors.push(builder.connect_mux(host).await.unwrap_err());
     }
@@ -254,7 +254,7 @@ async fn terminate_on_drop() {
         drop(builder.connect(&addr()).await.unwrap());
     }
 
-    #[cfg(feature = "native-mux")]
+    #[cfg(all(feature = "native-mux", unix))]
     {
         drop(builder.connect_mux(&addr()).await.unwrap());
     }
@@ -450,7 +450,7 @@ async fn connect_timeout() {
     }
 
     // Test native-mux_impl
-    #[cfg(feature = "native-mux")]
+    #[cfg(all(feature = "native-mux", unix))]
     {
         let t = Instant::now();
         let res = sb.connect_mux(host).await;
