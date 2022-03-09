@@ -150,9 +150,6 @@
 // the `docsrs` configuration attribute is defined
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
-#[cfg(not(unix))]
-compile_error!("This crate can only be used on unix");
-
 use std::borrow::Cow;
 use std::ffi::OsStr;
 use std::path::Path;
