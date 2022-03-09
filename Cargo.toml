@@ -61,6 +61,9 @@ tokio-pipe = "0.2.8"
 
 openssh-mux-client = { version = "0.14.4", optional = true }
 
+[target.'cfg(windows)'.dependencies]
+openssh-mux-client = { package = "blank", version = "0.1.0", optional = true }
+
 [dev-dependencies]
 lazy_static = "1.4.0"
 regex = "1"
