@@ -3,6 +3,9 @@ use crate::*;
 
 /// TODO: RENAME THIS INTO THE NEXT VERSION BEFORE RELEASE
 #[doc(hidden)]
+/// ## Changed
+///  - Make [`Session::check`] available only on unix.
+///  - Make [`Socket::UnixSocket`] available only on unix.
 pub mod unreleased {}
 
 /// ## Fixed
