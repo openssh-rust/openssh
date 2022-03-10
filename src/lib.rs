@@ -155,6 +155,7 @@ use std::ffi::OsStr;
 use std::path::Path;
 
 #[cfg_attr(unix, path = "stdio/unix.rs")]
+#[cfg_attr(windows, path = "stdio/windows.rs")]
 mod stdio;
 pub use stdio::{ChildStderr, ChildStdin, ChildStdout, Stdio};
 
