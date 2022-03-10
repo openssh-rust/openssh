@@ -6,6 +6,7 @@ use crate::*;
 /// ## Changed
 ///  - Make [`Session::check`] available only on unix.
 ///  - Make [`Socket::UnixSocket`] available only on unix.
+///  - Make [`SessionBuilder::control_socket`] available only on unix.
 pub mod unreleased {}
 
 /// ## Fixed
