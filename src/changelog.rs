@@ -2,6 +2,20 @@
 use crate::*;
 
 /// TODO: RENAME THIS INTO THE NEXT VERSION BEFORE RELEASE
+///
+/// ## Fixed
+///  - Remove accidentally exposed `TryFrom<tokio::process::ChildStdin`
+///    implementation for [`ChildStdin`].
+///  - Remove accidentally exposed `TryFrom<tokio_pipe::PipeWrite>`
+///    implementation for [`ChildStdin`].
+///  - Remove accidentally exposed `TryFrom<tokio::process::ChildStdout>`
+///    implementation for [`ChildStdout`].
+///  - Remove accidentally exposed `TryFrom<tokio_pipe::PipeRead>`
+///    implementation for [`ChildStdout`].
+///  - Remove accidentally exposed `TryFrom<tokio::process::ChildStderr>`
+///    implementation for [`ChildStderr`].
+///  - Remove accidentally exposed `TryFrom<tokio_pipe::PipeRead>`
+///    implementation for [`ChildStderr`].
 #[doc(hidden)]
 pub mod unreleased {}
 
