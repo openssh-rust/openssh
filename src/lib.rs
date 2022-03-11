@@ -411,6 +411,11 @@ impl Session {
     ///
     /// Currently, there is no way of stopping a port forwarding due to the fact that
     /// openssh multiplex server/master does not support this.
+    ///
+    /// # Forwarding on Windows
+    ///
+    /// On Windows, you can forward local Tcp to remote Tcp or Unix Socket, but
+    /// you cannot forward local Unix Socket to any remote socket.
     pub async fn request_port_forward(
         &self,
         forward_type: ForwardType,
