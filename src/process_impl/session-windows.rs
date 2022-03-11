@@ -88,7 +88,7 @@ impl Session {
         }
     }
 
-    pub(crate) async fn close(mut self) -> Result<(), Error> {
+    pub(crate) async fn close(self) -> Result<(), Error> {
         Ok(())
     }
 }
