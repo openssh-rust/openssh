@@ -8,6 +8,8 @@ use std::borrow::Cow;
 use std::fmt;
 use std::io;
 use std::net::{SocketAddr, ToSocketAddrs};
+
+#[cfg(unix)]
 use std::path::Path;
 
 /// Type of forwarding
