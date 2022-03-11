@@ -160,6 +160,8 @@
 
 use std::borrow::Cow;
 use std::ffi::OsStr;
+
+#[cfg(unix)]
 use std::path::Path;
 
 #[cfg_attr(unix, path = "stdio/unix.rs")]
