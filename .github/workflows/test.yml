@@ -17,11 +17,13 @@ on:
 name: cargo test
 jobs:
   test:
-    runs-on: ubuntu-latest
-    name: ${{ matrix.toolchain }}
+    runs-on: ${{ matrix.os }}
+    name: ${{ matrix.os }}-${{ matrix.toolchain }}
     strategy:
+      fail-fast: false
       matrix:
         toolchain: [stable, beta, nightly]
+        os: [ubuntu-latest, windows-latest]
     steps:
       - uses: actions-rs/toolchain@v1
         with:
