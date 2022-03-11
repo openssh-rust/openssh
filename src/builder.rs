@@ -275,7 +275,7 @@ impl SessionBuilder {
         (Cow::Owned(with_overrides), destination)
     }
 
-    fn apply_options(&self, cmd: &mut process::Command) {
+    pub(crate) fn apply_options(&self, cmd: &mut process::Command) {
         cmd.arg("-o").arg(self.known_hosts_check.as_option());
 
         if let Some(ref timeout) = self.connect_timeout {
