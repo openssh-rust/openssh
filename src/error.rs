@@ -134,6 +134,7 @@ impl std::error::Error for Error {
 }
 
 impl Error {
+    #[cfg(unix)]
     pub(crate) fn interpret_ssh_error(stderr: &str) -> Self {
         // we want to turn the string-only ssh error into something a little more "handleable".
         // we do this by trying to interpret the output from `ssh`. this is error-prone, but
