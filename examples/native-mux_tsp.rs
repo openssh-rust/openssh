@@ -1,4 +1,9 @@
+#[cfg(unix)]
 use openssh::*;
+
+#[tokio::main]
+#[cfg(windows)]
+async fn main() {}
 
 #[tokio::main]
 #[cfg(unix)]
