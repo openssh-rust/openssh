@@ -10,12 +10,12 @@ use std::time::Duration;
 use tempfile::tempdir;
 
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::{
-    net::{UnixListener, UnixStream},
-    time::sleep,
-};
+use tokio::time::sleep;
 
 use openssh::*;
+
+#[cfg(unix)]
+use tokio::net::{UnixListener, UnixStream};
 
 // TODO: how do we test the connection actually _failing_ so that the master reports an error?
 
@@ -97,17 +97,28 @@ async fn connects_err(host: &str) -> Vec<Error> {
     errors
 }
 
+#[cfg(unix)]
+async fn check_session(session: &Session) -> Result<(), Error> {
+    session.check().await
+}
+
+#[cfg(windows)]
+async fn check_session(session: &Session) -> Result<(), Error> {
+    session.shell("exit").status().await.map(|_| ())
+}
+
 #[tokio::test]
 #[cfg_attr(not(ci), ignore)]
 async fn it_connects() {
     for session in connects().await {
-        session.check().await.unwrap();
+        check_session(&session).await.unwrap();
         session.close().await.unwrap();
     }
 }
 
 #[tokio::test]
 #[cfg_attr(not(ci), ignore)]
+#[cfg(unix)]
 async fn control_dir() {
     let dirname = std::path::Path::new("control-test");
     assert!(!dirname.exists());
@@ -233,7 +244,7 @@ async fn config_file() {
 
     // this host name is resolved by the custom ssh_config.
     for session in session_builder_connect(session_builder, "config-file-test").await {
-        session.check().await.unwrap();
+        check_session(&session).await.unwrap();
         session.close().await.unwrap();
     }
 
@@ -578,7 +589,7 @@ async fn process_exit_on_signal() {
         assert!(matches!(failed, Error::RemoteProcessTerminated));
 
         // the connection should still work though
-        let _ = session.check().await.unwrap();
+        check_session(&session).await.unwrap();
     }
 }
 
@@ -645,7 +656,7 @@ async fn broken_connection() {
         assert!(matches!(failed, Error::RemoteProcessTerminated));
 
         // check should obviously fail
-        let failed = session.check().await.unwrap_err();
+        let failed = check_session(&session).await.unwrap_err();
         assert!(matches!(failed, Error::Disconnected), "{:?}", failed);
 
         // Since the ssh multiplex server has exited due to remote sshd process
@@ -715,6 +726,7 @@ async fn auth_failed() {
 
 #[tokio::test]
 #[cfg_attr(not(ci), ignore)]
+#[cfg(unix)]
 async fn remote_socket_forward() {
     let sessions = connects().await;
     for (session, port) in sessions.iter().zip(&[1234, 1233]) {
@@ -771,6 +783,7 @@ async fn remote_socket_forward() {
 
 #[tokio::test]
 #[cfg_attr(not(ci), ignore)]
+#[cfg(unix)]
 async fn local_socket_forward() {
     let sessions = connects().await;
     for (session, port) in sessions.iter().zip([1433, 1432]) {
