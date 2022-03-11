@@ -84,7 +84,10 @@ macro_rules! impl_try_from_child_io_for_stdio {
             type Error = Error;
 
             fn try_from(arg: tokio::process::$type) -> Result<Self, Self::Error> {
-                arg.try_into().map(Self::StdStdio).map_err(Error::ChildIo)
+                arg.try_into()
+                    .map(StdioImpl::StdStdio)
+                    .map(Stdio)
+                    .map_err(Error::ChildIo)
             }
         }
 
