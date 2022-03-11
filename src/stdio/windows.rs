@@ -1,6 +1,5 @@
 use crate::Error;
 
-use std::convert::Infallable;
 use std::fs::File;
 use std::io;
 use std::os::windows::io::{AsRawHandle, FromRawHandle, IntoRawHandle, RawHandle};
@@ -124,7 +123,7 @@ pub(crate) trait TryFromChildIo<T>: Sized {
 macro_rules! impl_from_impl_child_io {
     ($type:ident) => {
         impl TryFromChildIo<tokio::process::$type> for $type {
-            type Error = Infallable;
+            type Error = Error;
 
             fn try_from(arg: tokio::process::$type) -> Result<Self, Self::Error> {
                 Ok(Self(arg))
