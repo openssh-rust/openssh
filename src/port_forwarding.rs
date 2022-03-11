@@ -36,6 +36,8 @@ impl From<ForwardType> for native_mux_impl::ForwardType {
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub enum Socket<'a> {
     /// Unix socket.
+    #[cfg(unix)]
+    #[cfg_attr(docsrs, doc(cfg(unix)))]
     UnixSocket {
         /// Filesystem path
         path: Cow<'a, Path>,
@@ -59,6 +61,7 @@ impl Socket<'_> {
     #[cfg(feature = "process-mux")]
     pub(crate) fn as_os_str(&self) -> Cow<'_, OsStr> {
         match self {
+            #[cfg(unix)]
             Socket::UnixSocket { path } => Cow::Borrowed(path.as_os_str()),
             Socket::TcpSocket(socket) => Cow::Owned(format!("{}", socket).into()),
         }
@@ -71,6 +74,7 @@ impl<'a> From<Socket<'a>> for native_mux_impl::Socket<'a> {
         use native_mux_impl::Socket::*;
 
         match socket {
+            #[cfg(unix)]
             Socket::UnixSocket { path } => UnixSocket { path },
             Socket::TcpSocket(socket) => TcpSocket {
                 port: socket.port() as u32,
@@ -83,6 +87,7 @@ impl<'a> From<Socket<'a>> for native_mux_impl::Socket<'a> {
 impl<'a> fmt::Display for Socket<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            #[cfg(unix)]
             Socket::UnixSocket { path } => {
                 write!(f, "{}", path.to_string_lossy())
             }

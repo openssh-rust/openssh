@@ -289,6 +289,8 @@ impl Session {
     }
 
     /// Check the status of the underlying SSH connection.
+    #[cfg(not(windows))]
+    #[cfg_attr(docsrs, doc(cfg(not(windows))))]
     pub async fn check(&self) -> Result<(), Error> {
         delegate!(&self.0, imp, { imp.check().await })
     }

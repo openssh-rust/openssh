@@ -127,6 +127,8 @@ impl SessionBuilder {
     /// be created.
     ///
     /// If not set, `./` will be used (the current directory).
+    #[cfg(not(windows))]
+    #[cfg_attr(docsrs, doc(cfg(not(windows))))]
     pub fn control_directory(&mut self, p: impl AsRef<Path>) -> &mut Self {
         self.control_dir = Some(p.as_ref().to_path_buf());
         self
