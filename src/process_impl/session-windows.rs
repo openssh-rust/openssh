@@ -67,7 +67,7 @@ impl Session {
         if port_forwarding.status.success() {
             Ok(())
         } else {
-            let stderr = String::from_utf8_lossy(port_forwarding.stderr);
+            let stderr = String::from_utf8_lossy(&port_forwarding.stderr);
 
             let mut stderr = stderr.trim();
 
