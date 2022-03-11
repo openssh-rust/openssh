@@ -208,10 +208,7 @@ impl SessionBuilder {
 
         #[cfg(windows)]
         {
-            Ok(process_impl::Session::new(
-                builder.into_owned(),
-                destination,
-            ))
+            Ok(process_impl::Session::new(builder.into_owned(), destination).into())
         }
     }
 
