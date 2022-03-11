@@ -2,9 +2,7 @@ use super::{Command, Error, ForwardType, Socket};
 use crate::builder::SessionBuilder;
 
 use std::ffi::OsStr;
-use std::fs;
 use std::io;
-use std::path::Path;
 use std::process::Stdio;
 
 use tokio::process;
