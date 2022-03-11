@@ -78,11 +78,12 @@ impl Session {
                 stderr = stderr.split_once('\n').map(|x| x.1.trim()).unwrap_or("");
             }
 
-            let kind = if stderr.contains("Connection to") && stderr.contains("closed by remote host") {
-                io::ErrorKind::ConnectionAborted
-            } else {
-                io::ErrorKind::Other
-            };
+            let kind =
+                if stderr.contains("Connection to") && stderr.contains("closed by remote host") {
+                    io::ErrorKind::ConnectionAborted
+                } else {
+                    io::ErrorKind::Other
+                };
 
             Err(Error::Ssh(io::Error::new(kind, stderr)))
         }
