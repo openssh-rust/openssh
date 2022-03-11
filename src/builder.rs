@@ -265,7 +265,7 @@ impl SessionBuilder {
         (Cow::Owned(with_overrides), destination)
     }
 
-    fn apply_options(&self, cmd: &mut std::process::Command) {
+    fn apply_options(&self, cmd: &mut process::Command) {
         cmd.arg("-o").arg(self.known_hosts_check.as_option());
 
         if let Some(ref timeout) = self.connect_timeout {
@@ -323,7 +323,7 @@ impl SessionBuilder {
 
         let log = dir.path().join("log");
 
-        let mut init = std::process::Command::new("ssh");
+        let mut init = process::Command::new("ssh");
 
         init.stdin(Stdio::null())
             .stdout(Stdio::null())
@@ -343,8 +343,6 @@ impl SessionBuilder {
         self.apply_options(&mut init);
 
         init.arg(destination);
-
-        let mut init: process::Command = init.into();
 
         // we spawn and immediately wait, because the process is supposed to fork.
         let status = init.status().await.map_err(Error::Connect)?;

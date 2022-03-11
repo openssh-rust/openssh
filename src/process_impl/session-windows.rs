@@ -23,8 +23,8 @@ impl Session {
         }
     }
 
-    fn new_std_cmd(&self, args: &[impl AsRef<OsStr>]) -> std::process::Command {
-        let mut cmd = std::process::Command::new("ssh");
+    fn new_cmd(&self, args: &[impl AsRef<OsStr>]) -> process::Command {
+        let mut cmd = process::Command::new("ssh");
         self.builder.apply_options(&mut cmd);
         cmd.stdin(Stdio::null())
             .arg("-o")
@@ -32,10 +32,6 @@ impl Session {
             .args(args)
             .arg(&*self.addr);
         cmd
-    }
-
-    fn new_cmd(&self, args: &[impl AsRef<OsStr>]) -> process::Command {
-        self.new_std_cmd(args).into()
     }
 
     pub(crate) async fn check(&self) -> Result<(), Error> {
