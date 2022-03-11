@@ -75,7 +75,7 @@ impl Session {
         Ok(())
     }
 
-    fn parse_stderr(&self, stderr: Vec<u8>) -> Error {
+    fn parse_stderr(stderr: Vec<u8>) -> Error {
         let stderr = String::from_utf8_lossy(stderr);
 
         let mut stderr = stderr.trim();
