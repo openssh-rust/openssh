@@ -1,21 +1,31 @@
 use lazy_static::lazy_static;
 use regex::Regex;
-use std::borrow::Cow;
 use std::env;
 use std::io;
 use std::io::Write;
-use std::net::{IpAddr, SocketAddr};
 use std::path::PathBuf;
-use std::time::Duration;
-use tempfile::tempdir;
 
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::time::sleep;
 
 use openssh::*;
 
 #[cfg(unix)]
-use tokio::net::{UnixListener, UnixStream};
+use std::borrow::Cow;
+
+#[cfg(unix)]
+use std::net::{IpAddr, SocketAddr};
+
+#[cfg(unix)]
+use std::time::Duration;
+
+#[cfg(unix)]
+use tempfile::tempdir;
+
+#[cfg(unix)]
+use tokio::{
+    net::{UnixListener, UnixStream},
+    time::sleep,
+};
 
 // TODO: how do we test the connection actually _failing_ so that the master reports an error?
 
@@ -23,6 +33,7 @@ fn addr() -> String {
     std::env::var("TEST_HOST").unwrap_or_else(|_| "ssh://test-user@127.0.0.1:2222".to_string())
 }
 
+#[cfg(unix)]
 fn loopback() -> IpAddr {
     "127.0.0.1".parse().unwrap()
 }
