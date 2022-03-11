@@ -200,6 +200,7 @@ mod tests {
     use super::{io, Error};
 
     #[test]
+    #[cfg(unix)]
     fn parse_error() {
         let err = "ssh: Warning: Permanently added \'login.csail.mit.edu,128.52.131.0\' (ECDSA) to the list of known hosts.\r\nopenssh-tester@login.csail.mit.edu: Permission denied (publickey,gssapi-keyex,gssapi-with-mic,password,keyboard-interactive).";
         let err = Error::interpret_ssh_error(err);
