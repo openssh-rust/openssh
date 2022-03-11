@@ -139,7 +139,7 @@ impl_from_impl_child_io!(ChildStderr);
 macro_rules! impl_child_stdio {
     (AsRawHandle, $type:ty) => {
         impl AsRawHandle for $type {
-            fn as_raw_handle(&self) -> RawFd {
+            fn as_raw_handle(&self) -> RawHandle {
                 self.0.as_raw_handle()
             }
         }
