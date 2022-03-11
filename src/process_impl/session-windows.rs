@@ -32,10 +32,6 @@ impl Session {
         cmd
     }
 
-    pub(crate) async fn check(&self) -> Result<(), Error> {
-        Ok(())
-    }
-
     pub(crate) fn raw_command<S: AsRef<OsStr>>(&self, program: S) -> Command {
         let mut cmd = self.new_cmd(&["-T"]);
         cmd.arg("--").arg(program);
