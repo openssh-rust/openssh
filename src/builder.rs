@@ -8,12 +8,16 @@ use super::native_mux_impl;
 
 use std::borrow::Cow;
 use std::ffi::OsString;
-use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::Stdio;
 use std::str;
 
 use tokio::process;
+
+#[cfg(unix)]
+use std::fs;
+
+#[cfg(unix)]
+use std::process::Stdio;
 
 #[cfg(unix)]
 use tempfile::{Builder, TempDir};
