@@ -67,32 +67,28 @@ impl Session {
         if port_forwarding.status.success() {
             Ok(())
         } else {
-            Self::parse_stderr(port_forwarding.stderr)
+            let stderr = String::from_utf8_lossy(port_forwarding.stderr);
+
+            let mut stderr = stderr.trim();
+
+            stderr = stderr.strip_prefix("ssh: ").unwrap_or(stderr);
+
+            if stderr.starts_with("Warning: Permanently added ") {
+                // added to hosts file -- let's ignore that message
+                stderr = stderr.split_once('\n').map(|x| x.1.trim()).unwrap_or("");
+            }
+
+            let kind = if stderr.contains("Connection to") && stderr.contains("closed by remote host") {
+                io::ErrorKind::ConnectionAborted
+            } else {
+                io::ErrorKind::Other
+            };
+
+            Err(Error::Ssh(io::Error::new(kind, stderr)))
         }
     }
 
     pub(crate) async fn close(mut self) -> Result<(), Error> {
         Ok(())
-    }
-
-    fn parse_stderr(stderr: Vec<u8>) -> Error {
-        let stderr = String::from_utf8_lossy(stderr);
-
-        let mut stderr = stderr.trim();
-
-        stderr = stderr.strip_prefix("ssh: ").unwrap_or(stderr);
-
-        if stderr.starts_with("Warning: Permanently added ") {
-            // added to hosts file -- let's ignore that message
-            stderr = stderr.split_once('\n').map(|x| x.1.trim()).unwrap_or("");
-        }
-
-        let kind = if stderr.contains("Connection to") && stderr.contains("closed by remote host") {
-            io::ErrorKind::ConnectionAborted
-        } else {
-            io::ErrorKind::Other
-        };
-
-        Error::Ssh(io::Error::new(kind, stderr))
     }
 }
