@@ -13,14 +13,17 @@ use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::str;
 
-use dirs::state_dir;
-use once_cell::sync::OnceCell;
-use tempfile::{Builder, TempDir};
 use tokio::process;
+
+#[cfg(unix)]
+use tempfile::{Builder, TempDir};
 
 /// The returned `&'static Path` can be coreced to any lifetime.
 #[cfg(unix)]
 fn get_default_control_dir<'a>() -> Result<&'a Path, Error> {
+    use dirs::state_dir;
+    use once_cell::sync::OnceCell;
+
     static DEFAULT_CONTROL_DIR: OnceCell<Option<Box<Path>>> = OnceCell::new();
 
     DEFAULT_CONTROL_DIR
