@@ -11,12 +11,15 @@
 //! attempts to make the remote process seem as much as possible like a local command. However,
 //! there are some differences.
 //!
-//! First of all, all remote commands are executed in the context of a single ssh
+//! First of all, on Unix, all remote commands are executed in the context of a single ssh
 //! [session](Session). Authentication happens once when the session is
 //! [established](Session::connect), and subsequent command invocations re-use the same connection.
 //!
 //! Note that the maximum number of multiplexed remote commands is 10 by default. This value can be
 //! increased by changing the `MaxSessions` setting in [`sshd_config`].
+//!
+//! On Windows, openssh does not support the control master feature, so we fallback to creating one
+//! ssh connection for every [`RemoteChild`] and call to [`Session::check`].
 //!
 //! Much like with [`std::process::Command`], you have multiple options when it comes to launching
 //! a remote command. You can [spawn](Command::spawn) the remote command, which just gives you a
@@ -33,7 +36,7 @@
 //! the remote command directly. Usually, these are the same, though not always, as highlighted in
 //! the documetantation the individual methods. See also the section below on Remote Shells.
 //!
-//! # Connection modes
+//! # Connection modes on Unix
 //!
 //! This library provides two way to connect to the [`ControlMaster`]:
 //!
@@ -68,6 +71,11 @@
 //! the different remote commands. Because of this, each remote command is tied to the lifetime of
 //! the [`Session`] that spawned them. When the session is [closed](Session::close), the connection
 //! is severed, and there can be no outstanding remote clients.
+//!
+//! # Connection modes on Windows
+//!
+//! On Windows, we only provide one way to connect, that is spwaning a process to create a
+//! new connection for every [`RemoteChild`] and call to [`Session::check`].
 //!
 //! # Authentication
 //!
