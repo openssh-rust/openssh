@@ -1,6 +1,7 @@
 use openssh::*;
 
 #[tokio::main]
+#[cfg(unix)]
 async fn main() {
     let session = Session::connect_mux("ssh://jon@ssh.thesquareplanet.com:222", KnownHosts::Strict)
         .await
