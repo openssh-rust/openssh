@@ -19,6 +19,7 @@ use tempfile::{Builder, TempDir};
 use tokio::process;
 
 /// The returned `&'static Path` can be coreced to any lifetime.
+#[cfg(unix)]
 fn get_default_control_dir<'a>() -> Result<&'a Path, Error> {
     static DEFAULT_CONTROL_DIR: OnceCell<Option<Box<Path>>> = OnceCell::new();
 
@@ -42,13 +43,15 @@ fn get_default_control_dir<'a>() -> Result<&'a Path, Error> {
 /// Build a [`Session`] with options.
 #[derive(Debug, Clone)]
 pub struct SessionBuilder {
+    #[cfg(unix)]
+    control_dir: Option<PathBuf>,
+
     user: Option<String>,
     port: Option<String>,
     keyfile: Option<PathBuf>,
     connect_timeout: Option<String>,
     server_alive_interval: Option<u64>,
     known_hosts_check: KnownHosts,
-    control_dir: Option<PathBuf>,
     config_file: Option<PathBuf>,
     compression: Option<bool>,
     user_known_hosts_file: Option<Box<Path>>,
@@ -57,13 +60,15 @@ pub struct SessionBuilder {
 impl Default for SessionBuilder {
     fn default() -> Self {
         Self {
+            #[cfg(unix)]
+            control_dir: None,
+
             user: None,
             port: None,
             keyfile: None,
             connect_timeout: None,
             server_alive_interval: None,
             known_hosts_check: KnownHosts::Add,
-            control_dir: None,
             config_file: None,
             compression: None,
             user_known_hosts_file: None,
@@ -187,8 +192,17 @@ impl SessionBuilder {
     pub async fn connect<S: AsRef<str>>(&self, destination: S) -> Result<Session, Error> {
         let destination = destination.as_ref();
         let (builder, destination) = self.resolve(destination);
-        let tempdir = builder.launch_master(destination).await?;
-        Ok(process_impl::Session::new(tempdir, destination).into())
+
+        #[cfg(unix)]
+        {
+            let tempdir = builder.launch_master(destination).await?;
+            Ok(process_impl::Session::new(tempdir, destination).into())
+        }
+
+        #[cfg(windows)]
+        {
+            Ok(process_impl::Session::new(builder.to_owned(), destination))
+        }
     }
 
     /// Connect to the host at the given `host` over SSH using native mux, which will
@@ -251,6 +265,50 @@ impl SessionBuilder {
         (Cow::Owned(with_overrides), destination)
     }
 
+    fn apply_options(&self, cmd: &mut std::process::Command) {
+        cmd.arg("-o").arg(self.known_hosts_check.as_option());
+
+        if let Some(ref timeout) = self.connect_timeout {
+            cmd.arg("-o").arg(format!("ConnectTimeout={}", timeout));
+        }
+
+        if let Some(ref interval) = self.server_alive_interval {
+            cmd.arg("-o")
+                .arg(format!("ServerAliveInterval={}", interval));
+        }
+
+        if let Some(ref port) = self.port {
+            cmd.arg("-p").arg(port);
+        }
+
+        if let Some(ref user) = self.user {
+            cmd.arg("-l").arg(user);
+        }
+
+        if let Some(ref k) = self.keyfile {
+            // if the user gives a keyfile, _only_ use that keyfile
+            cmd.arg("-o").arg("IdentitiesOnly=yes");
+            cmd.arg("-i").arg(k);
+        }
+
+        if let Some(ref config_file) = self.config_file {
+            cmd.arg("-F").arg(config_file);
+        }
+
+        if let Some(compression) = self.compression {
+            let arg = if compression { "yes" } else { "no" };
+
+            cmd.arg("-o").arg(format!("Compression={}", arg));
+        }
+
+        if let Some(user_known_hosts_file) = &self.user_known_hosts_file {
+            let mut option: OsString = "UserKnownHostsFile=".into();
+            option.push(&**user_known_hosts_file);
+            cmd.arg("-o").arg(option);
+        }
+    }
+
+    #[cfg(not(windows))]
     async fn launch_master(&self, destination: &str) -> Result<TempDir, Error> {
         let socketdir = if let Some(socketdir) = self.control_dir.as_ref() {
             socketdir
@@ -265,7 +323,7 @@ impl SessionBuilder {
 
         let log = dir.path().join("log");
 
-        let mut init = process::Command::new("ssh");
+        let mut init = std::process::Command::new("ssh");
 
         init.stdin(Stdio::null())
             .stdout(Stdio::null())
@@ -280,50 +338,13 @@ impl SessionBuilder {
             .arg("-o")
             .arg("ControlPersist=yes")
             .arg("-o")
-            .arg("BatchMode=yes")
-            .arg("-o")
-            .arg(self.known_hosts_check.as_option());
+            .arg("BatchMode=yes");
 
-        if let Some(ref timeout) = self.connect_timeout {
-            init.arg("-o").arg(format!("ConnectTimeout={}", timeout));
-        }
-
-        if let Some(ref interval) = self.server_alive_interval {
-            init.arg("-o")
-                .arg(format!("ServerAliveInterval={}", interval));
-        }
-
-        if let Some(ref port) = self.port {
-            init.arg("-p").arg(port);
-        }
-
-        if let Some(ref user) = self.user {
-            init.arg("-l").arg(user);
-        }
-
-        if let Some(ref k) = self.keyfile {
-            // if the user gives a keyfile, _only_ use that keyfile
-            init.arg("-o").arg("IdentitiesOnly=yes");
-            init.arg("-i").arg(k);
-        }
-
-        if let Some(ref config_file) = self.config_file {
-            init.arg("-F").arg(config_file);
-        }
-
-        if let Some(compression) = self.compression {
-            let arg = if compression { "yes" } else { "no" };
-
-            init.arg("-o").arg(format!("Compression={}", arg));
-        }
-
-        if let Some(user_known_hosts_file) = &self.user_known_hosts_file {
-            let mut option: OsString = "UserKnownHostsFile=".into();
-            option.push(&**user_known_hosts_file);
-            init.arg("-o").arg(option);
-        }
+        self.apply_options(&mut init);
 
         init.arg(destination);
+
+        let mut init: process::Command = init.into();
 
         // we spawn and immediately wait, because the process is supposed to fork.
         let status = init.status().await.map_err(Error::Connect)?;
