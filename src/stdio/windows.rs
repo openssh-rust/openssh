@@ -18,7 +18,7 @@ pub(crate) enum StdioImpl {
     Inherit,
 
     /// Read/Write to custom handle
-    StdStdio(std::process::Stdio),
+    StdStdio(process::Stdio),
 }
 
 /// Describes what to do with a standard I/O stream for a remote child process
@@ -44,7 +44,7 @@ impl Stdio {
 }
 impl FromRawHandle for Stdio {
     unsafe fn from_raw_handle(handle: RawHandle) -> Self {
-        Self(StdioImpl::StdStdio(Stdio::from_raw_handle(handle)))
+        Self(StdioImpl::StdStdio(process::Stdio::from_raw_handle(handle)))
     }
 }
 impl From<Stdio> for process::Stdio {
