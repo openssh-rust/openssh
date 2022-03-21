@@ -44,7 +44,7 @@ tokio-pipe = "0.2.8"
 libc = "0.2.112"
 io-lifetimes = "0.5"
 
-once_cell = "1.8.0"
+once_cell = "1.10.0"
 dirs = "4.0.0"
 
 openssh-mux-client = { version = "0.14.4", optional = true }
