@@ -92,8 +92,6 @@ pub struct Command<'s> {
 
 impl<'s> Command<'s> {
     pub(crate) fn new(session: &'s super::Session, imp: CommandImp) -> Self {
-        // All implementations of Command initializes stdin, stdout and stderr
-        // to Stdio::inherit()
         Self {
             session,
             imp,
