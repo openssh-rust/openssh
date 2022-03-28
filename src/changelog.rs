@@ -2,7 +2,9 @@
 use crate::*;
 
 /// TODO: RENAME THIS INTO THE NEXT VERSION BEFORE RELEASE
-///
+#[doc(hidden)]
+pub mod unreleased {}
+
 /// ## Fixed
 ///  - Remove accidentally exposed `TryFrom<tokio::process::ChildStdin`
 ///    implementation for [`ChildStdin`].
@@ -21,8 +23,7 @@ use crate::*;
 ///  - Make [`Session::check`] available only on unix.
 ///  - Make [`Socket::UnixSocket`] available only on unix.
 ///  - Make [`SessionBuilder::control_directory`] available only on unix.
-#[doc(hidden)]
-pub mod unreleased {}
+pub mod v0_9_0_rc4 {}
 
 /// ## Fixed
 ///  - Fixed changelog entry for rc2 not being visible
