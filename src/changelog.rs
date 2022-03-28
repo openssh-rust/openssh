@@ -16,11 +16,12 @@ use crate::*;
 ///    implementation for [`ChildStderr`].
 ///  - Remove accidentally exposed `TryFrom<tokio_pipe::PipeRead>`
 ///    implementation for [`ChildStderr`].
-#[doc(hidden)]
+///
 /// ## Changed
 ///  - Make [`Session::check`] available only on unix.
 ///  - Make [`Socket::UnixSocket`] available only on unix.
 ///  - Make [`SessionBuilder::control_directory`] available only on unix.
+#[doc(hidden)]
 pub mod unreleased {}
 
 /// ## Fixed
