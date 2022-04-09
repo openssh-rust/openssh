@@ -5,6 +5,9 @@ use crate::*;
 #[doc(hidden)]
 pub mod unreleased {}
 
+/// No changes since 0.9.0-rc4.
+pub mod v0_9_0 {}
+
 /// ## Fixed
 ///  - Remove accidentally exposed `TryFrom<tokio::process::ChildStdin`
 ///    implementation for [`ChildStdin`].
