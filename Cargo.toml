@@ -38,6 +38,8 @@ native-mux = ["openssh-mux-client"]
 [dependencies]
 tempfile = "3.1.0"
 shell-escape = "0.1.5"
+thiserror = "1.0.30"
+
 tokio = { version = "1", features = [ "process", "io-util", "macros" ] }
 tokio-pipe = "0.2.8"
 
