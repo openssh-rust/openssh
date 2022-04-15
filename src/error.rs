@@ -1,33 +1,38 @@
-use std::fmt;
 use std::io;
 
 /// Errors that occur when interacting with a remote process.
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
 pub enum Error {
     /// The master connection failed.
-    Master(io::Error),
+    #[error("the master connection failed")]
+    Master(#[source] io::Error),
 
     /// Failed to establish initial connection to the remote host.
-    Connect(io::Error),
+    #[error("failed to connect to the remote host")]
+    Connect(#[source] io::Error),
 
     /// Failed to run the `ssh` command locally.
     #[cfg(feature = "process-mux")]
     #[cfg_attr(docsrs, doc(cfg(feature = "process-mux")))]
-    Ssh(io::Error),
+    #[error("the local ssh command could not be executed")]
+    Ssh(#[source] io::Error),
 
     /// Failed to connect to the ssh multiplex server.
     #[cfg(feature = "native-mux")]
     #[cfg_attr(docsrs, doc(cfg(feature = "native-mux")))]
-    SshMux(openssh_mux_client::Error),
+    #[error("failed to connect to the ssh multiplex server")]
+    SshMux(#[source] openssh_mux_client::Error),
 
     /// Invalid command that contains null byte.
     #[cfg(feature = "native-mux")]
     #[cfg_attr(docsrs, doc(cfg(feature = "native-mux")))]
+    #[error("invalid command: Command contains null byte.")]
     InvalidCommand,
 
     /// The remote process failed.
-    Remote(io::Error),
+    #[error("the remote command could not be executed")]
+    Remote(#[source] io::Error),
 
     /// The connection to the remote host was severed.
     ///
@@ -36,6 +41,7 @@ pub enum Error {
     ///
     /// You should call [`Session::check`](crate::Session::check) to verify if you get
     /// this error back.
+    #[error("the connection was terminated")]
     Disconnected,
 
     /// Remote process is terminated.
@@ -51,13 +57,16 @@ pub enum Error {
     /// instead of `Disconnect`ed.
     ///
     /// It is thus recommended to create your own workaround for your particular use cases.
+    #[error("the remote process has terminated")]
     RemoteProcessTerminated,
 
     /// Failed to remove temporary dir where ssh socket and output is stored.
-    Cleanup(io::Error),
+    #[error("failed to remove temporary ssh session directory")]
+    Cleanup(#[source] io::Error),
 
     /// IO Error when creating/reading/writing from ChildStdin, ChildStdout, ChildStderr.
-    ChildIo(io::Error),
+    #[error("failure while accessing standard i/o of remote process")]
+    ChildIo(#[source] io::Error),
 }
 
 #[cfg(feature = "native-mux")]
@@ -79,56 +88,6 @@ impl From<openssh_mux_client::Error> for Error {
                 _ => Error::SshMux(err),
             },
             _ => Error::SshMux(err),
-        }
-    }
-}
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match *self {
-            Error::Master(_) => write!(f, "the master connection failed"),
-            Error::Connect(_) => write!(f, "failed to connect to the remote host"),
-
-            #[cfg(feature = "process-mux")]
-            Error::Ssh(_) => write!(f, "the local ssh command could not be executed"),
-
-            Error::Remote(_) => write!(f, "the remote command could not be executed"),
-            Error::Disconnected => write!(f, "the connection was terminated"),
-            Error::Cleanup(_) => write!(f, "failed to remove temporary ssh session directory"),
-            Error::ChildIo(_) => {
-                write!(f, "failure while accessing standard I/O of remote process")
-            }
-
-            Error::RemoteProcessTerminated => write!(f, "the remote process has terminated"),
-
-            #[cfg(feature = "native-mux")]
-            Error::SshMux(_) => write!(f, "failed to connect to the ssh multiplex server"),
-
-            #[cfg(feature = "native-mux")]
-            Error::InvalidCommand => write!(f, "invalid command: Command contains null byte."),
-        }
-    }
-}
-
-impl std::error::Error for Error {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match *self {
-            Error::Master(ref e)
-            | Error::Connect(ref e)
-            | Error::Remote(ref e)
-            | Error::Cleanup(ref e)
-            | Error::ChildIo(ref e) => Some(e),
-
-            Error::RemoteProcessTerminated | Error::Disconnected => None,
-
-            #[cfg(feature = "native-mux")]
-            Error::InvalidCommand => None,
-
-            #[cfg(feature = "process-mux")]
-            Error::Ssh(ref e) => Some(e),
-
-            #[cfg(feature = "native-mux")]
-            Error::SshMux(ref e) => Some(e),
         }
     }
 }
