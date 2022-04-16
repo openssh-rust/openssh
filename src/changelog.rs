@@ -6,6 +6,7 @@ use crate::*;
 /// ## Added
 ///  - Implement [`openssh_sftp_client::Writer`] for `ChildStdin`
 ///    if feature `openssh-sftp-client` is enabled.
+///  - [`Session::subsystem`]
 #[doc(hidden)]
 pub mod unreleased {}
 
