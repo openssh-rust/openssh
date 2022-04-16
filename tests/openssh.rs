@@ -822,3 +822,31 @@ async fn local_socket_forward() {
         assert!(output.status.success());
     }
 }
+
+#[cfg(feature = "openssh-sftp-client")]
+#[tokio::test]
+#[cfg_attr(not(ci), ignore)]
+async fn test_sftp_subsystem() {
+    use openssh_sftp_client::highlevel::Sftp;
+
+    for session in connects().await {
+        let mut child = session
+            .subsystem("sftp")
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .spawn()
+            .await
+            .unwrap();
+
+        Sftp::new(
+            child.stdin().take().unwrap(),
+            child.stdout().take().unwrap(),
+            Default::default(),
+        )
+        .await
+        .unwrap()
+        .close()
+        .await
+        .unwrap();
+    }
+}
