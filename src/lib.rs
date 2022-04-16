@@ -111,6 +111,10 @@
 //! [`raw_args`](Command::raw_args), and [`raw_command`](Session::raw_command) to bypass the
 //! escaping that `openssh` normally does for you.
 //!
+//! # Sftp subsystem
+//!
+//! For sftp and other ssh subsystem, check [`Session::subsystem`] for more information.
+//!
 //! # Examples
 //!
 //! ```rust,no_run
