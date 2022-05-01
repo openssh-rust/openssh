@@ -39,6 +39,19 @@ jobs:
           echo "SSH_AGENT_PID=$SSH_AGENT_PID" >> $GITHUB_ENV
           cat .test-key | ssh-add -
         name: Set up ssh-agent
+      - name: Create Cargo.lock
+        uses: actions-rs/cargo@v1
+        with:
+          command: update
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-${{ matrix.toolchain }}-${{ hashFiles('**/Cargo.lock') }}-test-v0
       - name: cargo test
         uses: actions-rs/cargo@v1
         with:
