@@ -673,7 +673,7 @@ async fn cannot_resolve() {
 async fn no_route() {
     let mut builder = SessionBuilder::default();
 
-    builder.connect_timeout(Duration::from_nanos(0));
+    builder.connect_timeout(Duration::from_secs(1));
 
     for err in session_builder_connects_err("192.0.2.1", builder).await {
         match err {
