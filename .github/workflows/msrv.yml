@@ -25,6 +25,19 @@ jobs:
           toolchain: 1.56.1
           override: true
       - uses: actions/checkout@v2
+      - name: Create Cargo.lock
+        uses: actions-rs/cargo@v1
+        with:
+          command: update
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}-msrv-v0
       - name: cargo +1.56.1 check
         uses: actions-rs/cargo@v1
         with:
