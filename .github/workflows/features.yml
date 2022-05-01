@@ -24,6 +24,19 @@ jobs:
           profile: minimal
           toolchain: stable
       - uses: actions/checkout@v2
+      - name: Create Cargo.lock
+        uses: actions-rs/cargo@v1
+        with:
+          command: update
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}-cargo-hack-v0
       - uses: taiki-e/install-action@cargo-hack
       - name: cargo hack
         uses: actions-rs/cargo@v1
