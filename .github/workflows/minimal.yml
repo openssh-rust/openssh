@@ -45,6 +45,15 @@ jobs:
           command: update
           toolchain: nightly
           args: -Zminimal-versions
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}-with-dep-at-min-ver-v0
       - name: cargo test
         uses: actions-rs/cargo@v1
         with:
