@@ -1,0 +1,37 @@
+name: depdendency auto upgrade format
+
+env:
+  CARGO_TERM_COLOR: always
+
+on:
+  schedule:
+    # * is a special character in YAML so you have to quote this string
+    - cron:  '30 5,18 * * *'
+  workflow_dispatch:
+
+jobs:
+  auto-update:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout the head commit of the branch
+      uses: actions/checkout@v3
+      with:
+        persist-credentials: false
+    - name: Install cargo-bininstall
+      run: |
+        mkdir -p  ~/.cargo/bin/
+        cd ~/.cargo/bin/ && curl -L $url | tar zxf - && chmod +x cargo-binstall
+      env:
+        url: https://github.com/ryankurte/cargo-binstall/releases/latest/download/cargo-binstall-x86_64-unknown-linux-gnu.tgz
+    - name: Install cargo-edit
+      run: |
+        cargo binstall --no-confirm cargo-edit
+        which cargo-upgrade
+    - name: Generate Cargo.lock
+      run: cargo update
+    - name: Run auto dependency update 
+      uses: NobodyXu/dependencies-autoupdate@v1.6
+      with: 
+        token: ${{ secrets.GITHUB_TOKEN }}
+        update-command: "cargo upgrade --skip-compatible"
