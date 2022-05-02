@@ -47,7 +47,6 @@ jobs:
         with:
           profile: minimal
           toolchain: nightly
-          components: rustfmt, clippy
       - uses: actions/checkout@v2
       - name: cargo doc
         uses: actions-rs/cargo@v1
