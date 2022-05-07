@@ -128,20 +128,6 @@ impl_try_from_tokio_process_child_for_stdio!(ChildStderr);
 #[derive(Debug)]
 pub struct ChildStdin(tokio_pipe::PipeWrite);
 
-#[cfg(feature = "openssh-sftp-client")]
-impl openssh_sftp_client::Writer for ChildStdin {
-    const MAX_ATOMIC_WRITE_LEN: usize =
-        <tokio_pipe::PipeWrite as openssh_sftp_client::Writer>::MAX_ATOMIC_WRITE_LEN;
-
-    fn poll_write_vectored_atomic(
-        &self,
-        cx: &mut Context<'_>,
-        bufs: &[io::IoSlice<'_>],
-    ) -> Poll<io::Result<()>> {
-        self.0.poll_write_vectored_atomic(cx, bufs)
-    }
-}
-
 /// Stdout for the remote child.
 #[derive(Debug)]
 pub struct ChildStdout(tokio_pipe::PipeRead);

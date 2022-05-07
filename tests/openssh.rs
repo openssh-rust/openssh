@@ -823,7 +823,6 @@ async fn local_socket_forward() {
     }
 }
 
-#[cfg(feature = "openssh-sftp-client")]
 #[tokio::test]
 #[cfg_attr(not(ci), ignore)]
 async fn test_sftp_subsystem() {
