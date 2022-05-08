@@ -828,7 +828,7 @@ async fn local_socket_forward() {
 async fn test_sftp_subsystem() {
     use openssh_sftp_client::highlevel::Sftp;
 
-    let content = b"Helop, world!\n";
+    let content = b"This is a test case for the openssh-rust/openssh crate.\n";
 
     for session in connects().await {
         let mut child = session
