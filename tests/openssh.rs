@@ -828,6 +828,8 @@ async fn local_socket_forward() {
 async fn test_sftp_subsystem() {
     use openssh_sftp_client::highlevel::Sftp;
 
+    let content = b"Helop, world!\n";
+
     for session in connects().await {
         let mut child = session
             .subsystem("sftp")
@@ -837,15 +839,23 @@ async fn test_sftp_subsystem() {
             .await
             .unwrap();
 
-        Sftp::new(
+        let sftp = Sftp::new(
             child.stdin().take().unwrap(),
             child.stdout().take().unwrap(),
             Default::default(),
         )
         .await
-        .unwrap()
-        .close()
-        .await
         .unwrap();
+
+        let file_path = "/tmp/file";
+
+        {
+            let mut fs = sftp.fs();
+
+            fs.write(file_path, content).await.unwrap();
+            assert_eq!(&*sftp.fs().read(file_path).await.unwrap(), content);
+        }
+
+        sftp.close().await.unwrap();
     }
 }
