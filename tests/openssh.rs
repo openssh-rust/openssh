@@ -76,8 +76,10 @@ async fn connects() -> Vec<Session> {
 }
 
 async fn connects_err(host: &str) -> Vec<Error> {
-    let mut builder = SessionBuilder::default();
+    session_builder_connects_err(host, SessionBuilder::default()).await
+}
 
+async fn session_builder_connects_err(host: &str, mut builder: SessionBuilder) -> Vec<Error> {
     builder
         .user_known_hosts_file(get_known_hosts_path())
         .known_hosts_check(KnownHosts::Accept);
@@ -669,11 +671,15 @@ async fn cannot_resolve() {
 
 #[tokio::test]
 async fn no_route() {
-    for err in connects_err("255.255.255.255").await {
+    let mut builder = SessionBuilder::default();
+
+    builder.connect_timeout(Duration::from_secs(1));
+
+    for err in session_builder_connects_err("192.0.2.1", builder).await {
         match err {
             Error::Connect(e) => {
                 eprintln!("{:?}", e);
-                assert_eq!(e.kind(), io::ErrorKind::Other);
+                assert_eq!(e.kind(), io::ErrorKind::TimedOut);
             }
             e => unreachable!("{:?}", e),
         }

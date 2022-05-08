@@ -14,7 +14,7 @@ on:
       - 'run_ci_tests.sh'
       - 'start_sshd.sh'
       - 'stop_sshd.sh'
-name: cargo check
+name: os check
 jobs:
   os-check:
     runs-on: ${{ matrix.os }}
@@ -29,8 +29,12 @@ jobs:
           profile: minimal
           toolchain: stable
       - uses: actions/checkout@v2
-      - name: cargo check
+      - name: Create Cargo.lock
         uses: actions-rs/cargo@v1
         with:
-          command: check
+          command: update
+      - name: cargo test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
           args: --all-features --all-targets
