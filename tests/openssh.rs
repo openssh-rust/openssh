@@ -847,7 +847,7 @@ async fn test_sftp_subsystem() {
         .await
         .unwrap();
 
-        let file_path = "/tmp/file";
+        let file_path = "/tmp/openssh-rust-test-sftp-subsystem";
 
         {
             let mut fs = sftp.fs();
