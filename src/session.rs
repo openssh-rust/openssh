@@ -182,7 +182,7 @@ impl Session {
     ///
     /// ## Sftp subsystem
     ///
-    /// To use sftp subsystem, it is recommended to use crate [`openssh-sftp-client`],
+    /// To use the sftp subsystem, you'll want to use [`openssh-sftp-client`],
     /// then use the following code to construct a sftp instance:
     ///
     /// [`openssh-sftp-client`]: https://crates.io/crates/openssh-sftp-client
