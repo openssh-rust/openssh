@@ -29,10 +29,6 @@ jobs:
           profile: minimal
           toolchain: stable
       - uses: actions/checkout@v2
-      - name: Create Cargo.lock
-        uses: actions-rs/cargo@v1
-        with:
-          command: update
       - name: cargo test
         uses: actions-rs/cargo@v1
         with:
