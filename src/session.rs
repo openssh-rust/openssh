@@ -166,6 +166,63 @@ impl Session {
         )
     }
 
+    /// Constructs a new [`Command`] for launching subsystem `program` on the remote
+    /// host.
+    ///
+    /// Unlike [`command`](Session::command), this method does not shell-escape `program`, so it may be evaluated in
+    /// unforeseen ways by the remote shell.
+    ///
+    /// The returned `Command` is a builder, with the following default configuration:
+    ///
+    /// * No arguments to the program
+    /// * Empty stdin and dsicard stdout/stderr for `spawn` or `status`, but create output pipes for
+    ///   `output`
+    ///
+    /// Builder methods are provided to change these defaults and otherwise configure the process.
+    ///
+    /// ## Sftp subsystem
+    ///
+    /// To use the sftp subsystem, you'll want to use [`openssh-sftp-client`],
+    /// then use the following code to construct a sftp instance:
+    ///
+    /// [`openssh-sftp-client`]: https://crates.io/crates/openssh-sftp-client
+    ///
+    /// ```rust,no_run
+    /// # use std::error::Error;
+    /// # #[cfg(feature = "native-mux")]
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), Box<dyn Error>> {
+    ///
+    /// use openssh::{Session, KnownHosts, Stdio};
+    /// use openssh_sftp_client::highlevel::Sftp;
+    ///
+    /// let session = Session::connect_mux("me@ssh.example.com", KnownHosts::Strict).await?;
+    ///
+    /// let mut child = session
+    ///     .subsystem("sftp")
+    ///     .stdin(Stdio::piped())
+    ///     .stdout(Stdio::piped())
+    ///     .spawn()
+    ///     .await?;
+    ///
+    /// Sftp::new(
+    ///     child.stdin().take().unwrap(),
+    ///     child.stdout().take().unwrap(),
+    ///     Default::default(),
+    /// )
+    /// .await?
+    /// .close()
+    /// .await?;
+    ///
+    /// # Ok(()) }
+    /// ```
+    pub fn subsystem<S: AsRef<OsStr>>(&self, program: S) -> Command<'_> {
+        Command::new(
+            self,
+            delegate!(&self.0, imp, { imp.subsystem(program).into() }),
+        )
+    }
+
     /// Constructs a new [`Command`] that runs the provided shell command on the remote host.
     ///
     /// The provided command is passed as a single, escaped argument to `sh -c`, and from that

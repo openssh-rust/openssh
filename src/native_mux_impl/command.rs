@@ -13,6 +13,7 @@ use openssh_mux_client::{Connection, NonZeroByteSlice, Session};
 pub(crate) struct Command {
     cmd: Vec<u8>,
     ctl: Box<Path>,
+    subsystem: bool,
 
     stdin_v: Stdio,
     stdout_v: Stdio,
@@ -20,10 +21,11 @@ pub(crate) struct Command {
 }
 
 impl Command {
-    pub(crate) fn new(ctl: Box<Path>, cmd: Vec<u8>) -> Self {
+    pub(crate) fn new(ctl: Box<Path>, cmd: Vec<u8>, subsystem: bool) -> Self {
         Self {
             cmd,
             ctl,
+            subsystem,
 
             stdin_v: Stdio::inherit(),
             stdout_v: Stdio::inherit(),
@@ -71,7 +73,10 @@ impl Command {
 
         let cmd = NonZeroByteSlice::new(&self.cmd).ok_or(Error::InvalidCommand)?;
 
-        let session = Session::builder().cmd(Cow::Borrowed(cmd)).build();
+        let session = Session::builder()
+            .cmd(Cow::Borrowed(cmd))
+            .subsystem(self.subsystem)
+            .build();
 
         let established_session = Connection::connect(&self.ctl)
             .await?

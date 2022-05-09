@@ -38,7 +38,11 @@ impl Session {
     }
 
     pub(crate) fn raw_command<S: AsRef<OsStr>>(&self, program: S) -> Command {
-        Command::new(self.ctl.clone(), program.as_ref().as_bytes().into())
+        Command::new(self.ctl.clone(), program.as_ref().as_bytes().into(), false)
+    }
+
+    pub(crate) fn subsystem<S: AsRef<OsStr>>(&self, program: S) -> Command {
+        Command::new(self.ctl.clone(), program.as_ref().as_bytes().into(), true)
     }
 
     pub(crate) async fn request_port_forward(

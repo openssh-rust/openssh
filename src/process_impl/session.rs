@@ -81,6 +81,18 @@ impl Session {
         Command::new(cmd)
     }
 
+    pub(crate) fn subsystem<S: AsRef<OsStr>>(&self, program: S) -> Command {
+        // XXX: Should we do a self.check() here first?
+
+        // NOTE: we pass -p 9 nine here (the "discard" port) to ensure that ssh does not
+        // succeed in establishing a _new_ connection if the master connection has failed.
+
+        let mut cmd = self.new_cmd(&["-T", "-p", "9", "-s"]);
+        cmd.arg("--").arg(program);
+
+        Command::new(cmd)
+    }
+
     pub(crate) async fn request_port_forward(
         &self,
         forward_type: impl Into<ForwardType>,

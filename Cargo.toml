@@ -55,6 +55,7 @@ openssh-mux-client = { version = "0.15.0", optional = true }
 lazy_static = "1.4.0"
 regex = "1"
 tokio = { version = "1", features = [ "full" ] }
+openssh-sftp-client = "0.10.0"
 
 [[example]]
 name = "native-mux_tsp"
