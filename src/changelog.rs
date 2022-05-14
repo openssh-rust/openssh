@@ -2,11 +2,12 @@
 use crate::*;
 
 /// TODO: RENAME THIS INTO THE NEXT VERSION BEFORE RELEASE
-///
-/// ## Added
-///  - [`Session::subsystem`]
 #[doc(hidden)]
 pub mod unreleased {}
+
+/// ## Added
+///  - [`Session::subsystem`]
+pub mod v0_9_1 {}
 
 /// No changes since 0.9.0-rc4.
 pub mod v0_9_0 {}
