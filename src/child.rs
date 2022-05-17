@@ -128,6 +128,10 @@ impl<'s> RemoteChild<'s> {
         delegate!(self.imp, imp, { imp.wait().await })
     }
 
+    pub fn try_wait(&mut self) -> Result<Option<ExitStatus>, Error> {
+        delegate!(&mut self.imp, imp, { imp.try_wait() })
+    }
+
     /// Simultaneously waits for the remote child to exit and collect all remaining output on the
     /// stdout/stderr handles, returning an `Output` instance.
     ///

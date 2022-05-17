@@ -24,6 +24,21 @@ impl RemoteChild {
         Ok(())
     }
 
+    pub(crate) fn try_wait(&mut self) -> Result<Option<ExitStatus>, Error> {
+        match self.channel.try_wait() {
+            Err(e) => Err(Error::Remote(e)),
+            Ok(Some(w)) => match w.code() {
+                Some(255) => Err(Error::RemoteProcessTerminated),
+                Some(127) => Err(Error::Remote(io::Error::new(
+                    io::ErrorKind::NotFound,
+                    "remote command not found",
+                ))),
+                _ => Ok(Some(w)),
+            },
+            Ok(None) => Ok(None),
+        }
+    }
+
     pub(crate) async fn wait(mut self) -> Result<ExitStatus, Error> {
         match self.channel.wait().await {
             Err(e) => Err(Error::Remote(e)),
