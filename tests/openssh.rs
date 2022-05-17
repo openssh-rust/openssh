@@ -492,6 +492,28 @@ async fn spawn_and_wait() {
 }
 
 #[tokio::test]
+// #[cfg_attr(not(ci), ignore)]
+async fn spawn_and_try_wait() {
+    use std::time::{Duration};
+
+    for session in connects().await {
+        let mut sleeping1 = session.command("sleep").arg("0.2").spawn().await.unwrap();
+
+        sleep(Duration::from_millis(50)).await;
+
+        assert!(sleeping1.try_wait().unwrap().is_none());
+
+        sleep(Duration::from_millis(500)).await;
+
+        let status = sleeping1.try_wait().unwrap().expect("sleep should have finished, try_wait should return status.");
+
+        assert!(status.success());
+
+        session.close().await.unwrap();
+    }
+}
+
+#[tokio::test]
 #[cfg_attr(not(ci), ignore)]
 async fn escaping() {
     for session in connects().await {
