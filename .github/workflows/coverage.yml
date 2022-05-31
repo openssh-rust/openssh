@@ -48,7 +48,7 @@ jobs:
           RUSTFLAGS: --cfg=ci
           # we cannot use 127.0.0.1 (the default here)
           # since we are running from a different container
-          TEST_HOST: ssh://test-user@openssh:2222
+          TEST_HOST: ssh://test-user@localhost:2222
       - name: Upload to codecov.io
         uses: codecov/codecov-action@v2
         with:
