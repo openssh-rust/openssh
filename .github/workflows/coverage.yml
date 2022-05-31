@@ -18,11 +18,16 @@ name: coverage
 jobs:
   test:
     runs-on: ubuntu-latest
-    container:
-      image: xd009642/tarpaulin
-      options: --security-opt seccomp=unconfined
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+          components: llvm-tools-preview
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
       - run: |
           chmod 600 .test-key
           mkdir /tmp/openssh-rs
@@ -35,8 +40,7 @@ jobs:
           cat .test-key | ssh-add -
         name: Set up ssh-agent
       - name: Generate code coverage
-        run: |
-          cargo tarpaulin --verbose --timeout 300 --out Xml --forward --all-features
+        run: cargo llvm-cov --all-features --lcov --output-path lcov.info
         env:
           # makes all the ignored tests not ignored
           RUSTFLAGS: --cfg=ci
