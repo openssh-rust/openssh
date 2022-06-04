@@ -1,3 +1,5 @@
 /target
 /ci-target
 Cargo.lock
+
+.DS_Store
