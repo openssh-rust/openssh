@@ -31,6 +31,18 @@ impl Session {
         }
     }
 
+    pub(crate) fn resume(ctl: Box<Path>, master_log: Option<Box<Path>>) -> Self {
+        Self {
+            tempdir: None,
+            ctl,
+            // ssh don't care about the addr as long as we have the ctl.
+            //
+            // I tested this behavior on OpenSSH_8.9p1 Ubuntu-3, OpenSSL 3.0.2 15 Mar 2022
+            addr: "none".into(),
+            master_log,
+        }
+    }
+
     fn new_std_cmd(&self, args: &[impl AsRef<OsStr>]) -> std::process::Command {
         let mut cmd = std::process::Command::new("ssh");
         cmd.stdin(Stdio::null())
