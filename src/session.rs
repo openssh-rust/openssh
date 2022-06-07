@@ -321,4 +321,10 @@ impl Session {
     pub fn leak(self) -> (Box<Path>, Option<Box<Path>>) {
         delegate!(self.0, imp, { imp.leak() })
     }
+
+    /// Force terminate the remote connection, even if it is created
+    /// by [`Session::resume`] or [`Session::resume_mux`].
+    pub async fn force_terminate(self) -> Result<(), Error> {
+        delegate!(self.0, imp, { imp.force_terminate().await })
+    }
 }
