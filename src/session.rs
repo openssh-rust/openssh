@@ -65,14 +65,16 @@ impl From<native_mux_impl::Session> for Session {
 // TODO: UserKnownHostsFile for custom known host fingerprint.
 
 impl Session {
-    /// Resume the connection
+    /// Resume the connection using path to control socket and
+    /// path to ssh multiplex output log.
     #[cfg(feature = "process-mux")]
     #[cfg_attr(docsrs, doc(cfg(feature = "process-mux")))]
     pub fn resume(ctl: Box<Path>, master_log: Option<Box<Path>>) -> Self {
         process_impl::Session::resume(ctl, master_log).into()
     }
 
-    /// Resume the connection
+    /// Resume the connection using path to control socket and
+    /// path to ssh multiplex output log.
     #[cfg(feature = "native-mux")]
     #[cfg_attr(docsrs, doc(cfg(feature = "native-mux")))]
     pub fn resume_mux(ctl: Box<Path>, master_log: Option<Box<Path>>) -> Self {
