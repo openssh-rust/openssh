@@ -99,7 +99,7 @@ impl Session {
     }
 
     /// Forced termination, ignores value of `tempdir`
-    pub(crate) async fn terminate(self) -> Result<(), Error> {
+    pub(crate) async fn force_terminate(self) -> Result<(), Error> {
         if self.tempdir.is_some() {
             self.close().await
         } else {
