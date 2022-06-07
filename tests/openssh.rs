@@ -831,6 +831,58 @@ async fn local_socket_forward() {
 
 #[tokio::test]
 #[cfg_attr(not(ci), ignore)]
+#[cfg(feature = "process-mux")]
+async fn test_leak_and_resume_process_mux() {
+    for session1 in connects().await {
+        session1.check().await.unwrap();
+
+        // First leak
+        let (ctl1, master_log1) = session1.leak();
+
+        // First resume
+        let session2 = Session::resume(ctl1, master_log1);
+        session2.check().await.unwrap();
+
+        // Second leak to ensure leak handles tempdir
+        // set to None correctly.
+        let (ctl2, master_log2) = session2.leak();
+
+        // Second resume to ensure close handles tempdir set to None correctly
+        let session3 = Session::resume(ctl2, master_log2);
+        session3.check().await.unwrap();
+
+        session3.close().await.unwrap();
+    }
+}
+
+#[tokio::test]
+#[cfg_attr(not(ci), ignore)]
+#[cfg(feature = "native-mux")]
+async fn test_leak_and_resume_native_mux() {
+    for session1 in connects().await {
+        session1.check().await.unwrap();
+
+        // First leak
+        let (ctl1, master_log1) = session1.leak();
+
+        // First resume_mux
+        let session2 = Session::resume_mux(ctl1, master_log1);
+        session2.check().await.unwrap();
+
+        // Second leak to ensure leak handles tempdir
+        // set to None correctly.
+        let (ctl2, master_log2) = session2.leak();
+
+        // Second resume_mux to ensure close handles tempdir set to None correctly
+        let session3 = Session::resume_mux(ctl2, master_log2);
+        session3.check().await.unwrap();
+
+        session3.close().await.unwrap();
+    }
+}
+
+#[tokio::test]
+#[cfg_attr(not(ci), ignore)]
 async fn test_sftp_subsystem() {
     use openssh_sftp_client::highlevel::Sftp;
 
