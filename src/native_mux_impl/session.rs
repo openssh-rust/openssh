@@ -65,14 +65,14 @@ impl Session {
 
     pub(crate) async fn close(mut self) -> Result<(), Error> {
         // This also set self.tempdir to None so that Drop::drop would do nothing.
-        let tempdir = self.tempdir.take().unwrap();
+        if let Some(tempdir) = self.tempdir.take() {
+            Connection::connect(&self.ctl)
+                .await?
+                .request_stop_listening()
+                .await?;
 
-        Connection::connect(&self.ctl)
-            .await?
-            .request_stop_listening()
-            .await?;
-
-        tempdir.close().map_err(Error::Cleanup)?;
+            tempdir.close().map_err(Error::Cleanup)?;
+        }
 
         Ok(())
     }
