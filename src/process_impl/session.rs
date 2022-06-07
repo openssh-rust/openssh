@@ -15,7 +15,7 @@ pub(crate) struct Session {
     tempdir: Option<TempDir>,
     ctl: Box<Path>,
     addr: Box<str>,
-    master_log: Box<Path>,
+    master_log: Option<Box<Path>>,
 }
 
 impl Session {
@@ -27,7 +27,7 @@ impl Session {
             tempdir: Some(tempdir),
             ctl,
             addr: addr.into(),
-            master_log: log,
+            master_log: Some(log),
         }
     }
 
@@ -175,7 +175,7 @@ impl Session {
     }
 
     fn discover_master_error(&self) -> Option<Error> {
-        let err = match fs::read_to_string(&self.master_log) {
+        let err = match fs::read_to_string(self.master_log.as_ref()?) {
             Ok(err) => err,
             Err(e) => return Some(Error::Master(e)),
         };
