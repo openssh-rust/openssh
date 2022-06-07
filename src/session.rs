@@ -68,19 +68,22 @@ impl Session {
     /// Resume the connection using path to control socket and
     /// path to ssh multiplex output log.
     ///
+    /// If you do not use `-E` option (or redirection) to write
+    /// the log of the ssh multiplex master to the disk, you can
+    /// simply pass `None` to `master_log`.
+    ///
     /// [`Session`] created this way will not be terminated on drop,
     /// but can be forced terminated by [`Session::force_terminate`].
+    ///
+    /// This connects to the ssh multiplex master using process mux impl.
     #[cfg(feature = "process-mux")]
     #[cfg_attr(docsrs, doc(cfg(feature = "process-mux")))]
     pub fn resume(ctl: Box<Path>, master_log: Option<Box<Path>>) -> Self {
         process_impl::Session::resume(ctl, master_log).into()
     }
 
-    /// Resume the connection using path to control socket and
-    /// path to ssh multiplex output log.
-    ///
-    /// [`Session`] created this way will not be terminated on drop,
-    /// but can be forced terminated by [`Session::force_terminate`].
+    /// Same as [`Session::resume`] except that it connects to
+    /// the ssh multiplex master using process mux impl.
     #[cfg(feature = "native-mux")]
     #[cfg_attr(docsrs, doc(cfg(feature = "native-mux")))]
     pub fn resume_mux(ctl: Box<Path>, master_log: Option<Box<Path>>) -> Self {
