@@ -78,7 +78,7 @@ impl Session {
     }
 
     pub(crate) fn leak(mut self) -> Box<Path> {
-        self.tempdir.take().unwrap().into_path();
+        self.tempdir.take().map(TempDir::into_path);
         self.ctl.clone()
     }
 }
