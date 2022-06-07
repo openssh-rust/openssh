@@ -41,3 +41,5 @@ cargo test \
     --all-features \
     --no-fail-fast \
     -- --test-threads=3 # Use test-threads=3 so that the output is readable
+
+rm -r .ssh-connection*
