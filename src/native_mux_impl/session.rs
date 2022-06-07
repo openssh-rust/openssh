@@ -76,6 +76,11 @@ impl Session {
 
         Ok(())
     }
+
+    pub(crate) fn leak(mut self) -> Box<Path> {
+        self.tempdir.take().unwrap().into_path();
+        self.ctl.clone()
+    }
 }
 
 impl Drop for Session {

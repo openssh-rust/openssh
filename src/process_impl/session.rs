@@ -169,6 +169,11 @@ impl Session {
         Ok(())
     }
 
+    pub(crate) fn leak(mut self) -> Box<Path> {
+        self.tempdir.take().unwrap().into_path();
+        self.ctl.clone()
+    }
+
     fn discover_master_error(&self) -> Option<Error> {
         let err = match fs::read_to_string(&self.master_log) {
             Ok(err) => err,
