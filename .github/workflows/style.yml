@@ -55,4 +55,4 @@ jobs:
           command: doc
           args: --no-deps --all-features
         env:
-          RUSTDOCFLAGS: --cfg docsrs
+          RUSTDOCFLAGS: --cfg docsrs -Dwarnings
