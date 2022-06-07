@@ -65,6 +65,20 @@ impl From<native_mux_impl::Session> for Session {
 // TODO: UserKnownHostsFile for custom known host fingerprint.
 
 impl Session {
+    /// Resume the connection
+    #[cfg(feature = "process-mux")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "process-mux")))]
+    pub fn resume(ctl: Box<Path>, master_log: Option<Box<Path>>) -> Self {
+        process_impl::Session::resume(ctl, master_log).into()
+    }
+
+    /// Resume the connection
+    #[cfg(feature = "native-mux")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "native-mux")))]
+    pub fn resume_mux(ctl: Box<Path>, master_log: Option<Box<Path>>) -> Self {
+        native_mux_impl::Session::resume(ctl, master_log).into()
+    }
+
     /// Connect to the host at the given `host` over SSH using process impl, which will
     /// spawn a new ssh process for each `Child` created.
     ///
