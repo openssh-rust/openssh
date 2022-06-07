@@ -24,6 +24,10 @@ impl Session {
         }
     }
 
+    pub(crate) fn resume(ctl: Box<Path>, _master_log: Option<Box<Path>>) -> Self {
+        Self { tempdir: None, ctl }
+    }
+
     pub(crate) async fn check(&self) -> Result<(), Error> {
         Connection::connect(&self.ctl)
             .await?
