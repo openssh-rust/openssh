@@ -169,9 +169,10 @@ impl Session {
         Ok(())
     }
 
-    pub(crate) fn leak(mut self) -> Box<Path> {
+    /// Return ctl, master_log
+    pub(crate) fn leak(mut self) -> (Box<Path>, Option<Box<Path>>) {
         self.tempdir.take().unwrap().into_path();
-        self.ctl.clone()
+        (self.ctl.clone(), self.master_log.clone())
     }
 
     fn discover_master_error(&self) -> Option<Error> {
