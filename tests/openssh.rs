@@ -853,6 +853,22 @@ async fn test_leak_and_resume_process_mux() {
 
         session3.close().await.unwrap();
     }
+
+    // test force_terminate
+    for session1 in connects().await {
+        session1.check().await.unwrap();
+
+        let (ctl1, master_log1) = session1.leak();
+
+        let ctl = ctl1.clone();
+
+        let session2 = Session::resume(ctl1, master_log1);
+        session2.check().await.unwrap();
+
+        session2.force_terminate().await.unwrap();
+
+        assert!(!ctl.exists());
+    }
 }
 
 #[tokio::test]
@@ -878,6 +894,22 @@ async fn test_leak_and_resume_native_mux() {
         session3.check().await.unwrap();
 
         session3.close().await.unwrap();
+    }
+
+    // test force_terminate
+    for session1 in connects().await {
+        session1.check().await.unwrap();
+
+        let (ctl1, master_log1) = session1.leak();
+
+        let ctl = ctl1.clone();
+
+        let session2 = Session::resume_mux(ctl1, master_log1);
+        session2.check().await.unwrap();
+
+        session2.force_terminate().await.unwrap();
+
+        assert!(!ctl.exists());
     }
 }
 
