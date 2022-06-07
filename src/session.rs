@@ -309,4 +309,10 @@ impl Session {
     pub async fn close(self) -> Result<(), Error> {
         delegate!(self.0, imp, { imp.close().await })
     }
+
+    /// Leak the underlying ssh multiplex master.
+    /// Return (path to control socket, path to ssh multiplex output log)
+    pub fn leak(self) -> (Box<Path>, Option<Box<Path>>) {
+        delegate!(self.0, imp, { imp.leak() })
+    }
 }
