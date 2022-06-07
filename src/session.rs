@@ -68,7 +68,8 @@ impl Session {
     /// Resume the connection using path to control socket and
     /// path to ssh multiplex output log.
     ///
-    /// [`Session`] created this way will not be terminated on drop.
+    /// [`Session`] created this way will not be terminated on drop,
+    /// but can be forced terminated by [`Session::force_terminate`].
     #[cfg(feature = "process-mux")]
     #[cfg_attr(docsrs, doc(cfg(feature = "process-mux")))]
     pub fn resume(ctl: Box<Path>, master_log: Option<Box<Path>>) -> Self {
@@ -78,7 +79,8 @@ impl Session {
     /// Resume the connection using path to control socket and
     /// path to ssh multiplex output log.
     ///
-    /// [`Session`] created this way will not be terminated on drop.
+    /// [`Session`] created this way will not be terminated on drop,
+    /// but can be forced terminated by [`Session::force_terminate`].
     #[cfg(feature = "native-mux")]
     #[cfg_attr(docsrs, doc(cfg(feature = "native-mux")))]
     pub fn resume_mux(ctl: Box<Path>, master_log: Option<Box<Path>>) -> Self {
