@@ -2,6 +2,11 @@
 use crate::*;
 
 /// TODO: RENAME THIS INTO THE NEXT VERSION BEFORE RELEASE
+///
+/// ## Added
+///  - [`Session::resume`]
+///  - [`Session::resume_mux`]
+///  - [`Session::leak`]
 #[doc(hidden)]
 pub mod unreleased {}
 
