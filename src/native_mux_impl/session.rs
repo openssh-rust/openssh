@@ -67,13 +67,19 @@ impl Session {
         Ok(())
     }
 
+    async fn close_impl(&self) -> Result<(), Error> {
+        Connection::connect(&self.ctl)
+            .await?
+            .request_stop_listening()
+            .await?;
+
+        Ok(())
+    }
+
     pub(crate) async fn close(mut self) -> Result<(), Error> {
         // This also set self.tempdir to None so that Drop::drop would do nothing.
         if let Some(tempdir) = self.tempdir.take() {
-            Connection::connect(&self.ctl)
-                .await?
-                .request_stop_listening()
-                .await?;
+            self.close_impl().await?;
 
             tempdir.close().map_err(Error::Cleanup)?;
         }
@@ -90,6 +96,17 @@ impl Session {
                 path.into_boxed_path()
             }),
         )
+    }
+
+    /// Forced termination, ignores value of `tempdir`
+    pub(crate) async fn terminate(mut self) -> Result<(), Error> {
+        if self.tempdir.is_some() {
+            self.close().await
+        } else {
+            self.close_impl().await?;
+
+            Ok(())
+        }
     }
 }
 
