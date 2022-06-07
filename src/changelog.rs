@@ -7,6 +7,7 @@ use crate::*;
 ///  - [`Session::resume`]
 ///  - [`Session::resume_mux`]
 ///  - [`Session::leak`]
+///  - [`Session::force_terminate`]
 #[doc(hidden)]
 pub mod unreleased {}
 
