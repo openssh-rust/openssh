@@ -142,38 +142,46 @@ impl Session {
         }
     }
 
+    async fn close_impl(&self) -> Result<(), Error> {
+        let exit = self
+            .new_cmd(&["-O", "exit"])
+            .output()
+            .await
+            .map_err(Error::Ssh)?;
+
+        if let Some(master_error) = self.discover_master_error() {
+            return Err(master_error);
+        }
+
+        // let's get this case straight:
+        // we tried to tell the master to exit.
+        // the -o exit command failed.
+        // the master exited, but did not produce an error.
+        // what could cause that?
+        //
+        // If the remote sshd process is accidentally killed, then the local
+        // ssh multiplex server would exit without anything printed to the log,
+        // and the -o exit command failed to connect to the multiplex server.
+        //
+        // Check `broken_connection` test in `tests/openssh.rs` for an example
+        // of this scenario.
+        if !exit.status.success() {
+            let exit_err = String::from_utf8_lossy(&exit.stderr);
+            let err = exit_err.trim();
+
+            return Err(Error::Ssh(io::Error::new(
+                io::ErrorKind::ConnectionAborted,
+                err,
+            )));
+        }
+
+        Ok(())
+    }
+
     pub(crate) async fn close(mut self) -> Result<(), Error> {
         // Take self.tempdir so that drop would do nothing
         if let Some(tempdir) = self.tempdir.take() {
-            let mut exit_cmd = self.new_cmd(&["-O", "exit"]);
-
-            let exit = exit_cmd.output().await.map_err(Error::Ssh)?;
-
-            if let Some(master_error) = self.discover_master_error() {
-                return Err(master_error);
-            }
-
-            // let's get this case straight:
-            // we tried to tell the master to exit.
-            // the -o exit command failed.
-            // the master exited, but did not produce an error.
-            // what could cause that?
-            //
-            // If the remote sshd process is accidentally killed, then the local
-            // ssh multiplex server would exit without anything printed to the log,
-            // and the -o exit command failed to connect to the multiplex server.
-            //
-            // Check `broken_connection` test in `tests/openssh.rs` for an example
-            // of this scenario.
-            if !exit.status.success() {
-                let exit_err = String::from_utf8_lossy(&exit.stderr);
-                let err = exit_err.trim();
-
-                return Err(Error::Ssh(io::Error::new(
-                    io::ErrorKind::ConnectionAborted,
-                    err,
-                )));
-            }
+            self.close_impl().await?;
 
             tempdir.close().map_err(Error::Cleanup)?;
         }
