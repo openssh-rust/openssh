@@ -195,6 +195,17 @@ impl Session {
         (self.ctl.clone(), self.master_log.take())
     }
 
+    /// Forced termination, ignores value of `tempdir`
+    pub(crate) async fn terminate(self) -> Result<(), Error> {
+        if self.tempdir.is_some() {
+            self.close().await
+        } else {
+            self.close_impl().await?;
+
+            Ok(())
+        }
+    }
+
     fn discover_master_error(&self) -> Option<Error> {
         let err = match fs::read_to_string(self.master_log.as_ref()?) {
             Ok(err) => err,
