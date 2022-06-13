@@ -867,6 +867,9 @@ async fn test_detach_and_resume_process_mux() {
 
         session2.force_terminate().await.unwrap();
 
+        // Wait for ssh multiplex master to clean up and exit.
+        sleep(Duration::from_secs(3)).await;
+
         assert!(!ctl.exists());
     }
 }
@@ -908,6 +911,9 @@ async fn test_detach_and_resume_native_mux() {
         session2.check().await.unwrap();
 
         session2.force_terminate().await.unwrap();
+
+        // Wait for ssh multiplex master to clean up and exit.
+        sleep(Duration::from_secs(3)).await;
 
         assert!(!ctl.exists());
     }
