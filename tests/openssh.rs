@@ -832,20 +832,20 @@ async fn local_socket_forward() {
 #[tokio::test]
 #[cfg_attr(not(ci), ignore)]
 #[cfg(feature = "process-mux")]
-async fn test_leak_and_resume_process_mux() {
+async fn test_detach_and_resume_process_mux() {
     for session1 in connects().await {
         session1.check().await.unwrap();
 
-        // First leak
-        let (ctl1, master_log1) = session1.leak();
+        // First detach
+        let (ctl1, master_log1) = session1.detach();
 
         // First resume
         let session2 = Session::resume(ctl1, master_log1);
         session2.check().await.unwrap();
 
-        // Second leak to ensure leak handles tempdir
+        // Second detach to ensure detach handles tempdir
         // set to None correctly.
-        let (ctl2, master_log2) = session2.leak();
+        let (ctl2, master_log2) = session2.detach();
 
         // Second resume to ensure close handles tempdir set to None correctly
         let session3 = Session::resume(ctl2, master_log2);
@@ -858,7 +858,7 @@ async fn test_leak_and_resume_process_mux() {
     for session1 in connects().await {
         session1.check().await.unwrap();
 
-        let (ctl1, master_log1) = session1.leak();
+        let (ctl1, master_log1) = session1.detach();
 
         let ctl = ctl1.clone();
 
@@ -874,20 +874,20 @@ async fn test_leak_and_resume_process_mux() {
 #[tokio::test]
 #[cfg_attr(not(ci), ignore)]
 #[cfg(feature = "native-mux")]
-async fn test_leak_and_resume_native_mux() {
+async fn test_detach_and_resume_native_mux() {
     for session1 in connects().await {
         session1.check().await.unwrap();
 
-        // First leak
-        let (ctl1, master_log1) = session1.leak();
+        // First detach
+        let (ctl1, master_log1) = session1.detach();
 
         // First resume_mux
         let session2 = Session::resume_mux(ctl1, master_log1);
         session2.check().await.unwrap();
 
-        // Second leak to ensure leak handles tempdir
+        // Second detach to ensure detach handles tempdir
         // set to None correctly.
-        let (ctl2, master_log2) = session2.leak();
+        let (ctl2, master_log2) = session2.detach();
 
         // Second resume_mux to ensure close handles tempdir set to None correctly
         let session3 = Session::resume_mux(ctl2, master_log2);
@@ -900,7 +900,7 @@ async fn test_leak_and_resume_native_mux() {
     for session1 in connects().await {
         session1.check().await.unwrap();
 
-        let (ctl1, master_log1) = session1.leak();
+        let (ctl1, master_log1) = session1.detach();
 
         let ctl = ctl1.clone();
 
