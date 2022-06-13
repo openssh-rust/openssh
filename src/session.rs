@@ -83,7 +83,7 @@ impl Session {
     }
 
     /// Same as [`Session::resume`] except that it connects to
-    /// the ssh multiplex master using process mux impl.
+    /// the ssh multiplex master using native mux impl.
     #[cfg(feature = "native-mux")]
     #[cfg_attr(docsrs, doc(cfg(feature = "native-mux")))]
     pub fn resume_mux(ctl: Box<Path>, master_log: Option<Box<Path>>) -> Self {
