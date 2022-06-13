@@ -29,7 +29,8 @@ jobs:
           toolchain: ${{ matrix.toolchain }}
       - uses: actions/checkout@v2
       - run: |
-          sleep 30
+          # Wait for startup of openssh-server
+          sleep 15
           chmod 600 .test-key
           mkdir /tmp/openssh-rs
           ssh -i .test-key -v -p 2222 -l test-user 127.0.0.1 -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/tmp/openssh-rs/known_hosts whoami
