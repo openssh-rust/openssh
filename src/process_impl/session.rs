@@ -184,6 +184,8 @@ impl Session {
             self.close_impl().await?;
 
             tempdir.close().map_err(Error::Cleanup)?;
+        } else {
+            self.close_impl().await?;
         }
 
         Ok(())
@@ -192,17 +194,6 @@ impl Session {
     pub(crate) fn detach(mut self) -> (Box<Path>, Option<Box<Path>>) {
         self.tempdir.take().map(TempDir::into_path);
         (self.ctl.clone(), self.master_log.take())
-    }
-
-    /// Forced termination, ignores value of `tempdir`
-    pub(crate) async fn force_terminate(self) -> Result<(), Error> {
-        if self.tempdir.is_some() {
-            self.close().await
-        } else {
-            self.close_impl().await?;
-
-            Ok(())
-        }
     }
 
     fn discover_master_error(&self) -> Option<Error> {

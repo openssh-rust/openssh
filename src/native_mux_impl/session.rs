@@ -82,6 +82,8 @@ impl Session {
             self.close_impl().await?;
 
             tempdir.close().map_err(Error::Cleanup)?;
+        } else {
+            self.close_impl().await?;
         }
 
         Ok(())
@@ -95,17 +97,6 @@ impl Session {
                 path.into_boxed_path()
             }),
         )
-    }
-
-    /// Forced termination, ignores value of `tempdir`
-    pub(crate) async fn force_terminate(self) -> Result<(), Error> {
-        if self.tempdir.is_some() {
-            self.close().await
-        } else {
-            self.close_impl().await?;
-
-            Ok(())
-        }
     }
 }
 

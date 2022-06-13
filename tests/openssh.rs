@@ -865,7 +865,7 @@ async fn test_detach_and_resume_process_mux() {
         let session2 = Session::resume(ctl1, master_log1);
         session2.check().await.unwrap();
 
-        session2.force_terminate().await.unwrap();
+        session2.close().await.unwrap();
 
         // Wait for ssh multiplex master to clean up and exit.
         sleep(Duration::from_secs(3)).await;
@@ -910,7 +910,7 @@ async fn test_detach_and_resume_native_mux() {
         let session2 = Session::resume_mux(ctl1, master_log1);
         session2.check().await.unwrap();
 
-        session2.force_terminate().await.unwrap();
+        session2.close().await.unwrap();
 
         // Wait for ssh multiplex master to clean up and exit.
         sleep(Duration::from_secs(3)).await;
