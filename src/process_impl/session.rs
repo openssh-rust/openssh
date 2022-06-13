@@ -189,8 +189,7 @@ impl Session {
         Ok(())
     }
 
-    /// Return ctl, master_log
-    pub(crate) fn leak(mut self) -> (Box<Path>, Option<Box<Path>>) {
+    pub(crate) fn detach(mut self) -> (Box<Path>, Option<Box<Path>>) {
         self.tempdir.take().map(TempDir::into_path);
         (self.ctl.clone(), self.master_log.take())
     }

@@ -321,10 +321,12 @@ impl Session {
         delegate!(self.0, imp, { imp.close().await })
     }
 
-    /// Leak the underlying ssh multiplex master.
+    /// Detach the lifetime of underlying ssh multiplex master
+    /// from this `Session`.
+    ///
     /// Return (path to control socket, path to ssh multiplex output log)
-    pub fn leak(self) -> (Box<Path>, Option<Box<Path>>) {
-        delegate!(self.0, imp, { imp.leak() })
+    pub fn detach(self) -> (Box<Path>, Option<Box<Path>>) {
+        delegate!(self.0, imp, { imp.detach() })
     }
 
     /// Force terminate the remote connection, even if it is created
