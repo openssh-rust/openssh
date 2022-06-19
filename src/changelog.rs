@@ -5,6 +5,11 @@ use crate::*;
 #[doc(hidden)]
 pub mod unreleased {}
 
+/// ## Changed
+///  - Removed `impl From<OwnedFd> for Stdio` as it was an unintentional part of the public API.
+///    This is technically a breaking change, but should in practice affect no-one.
+pub mod v0_9_2 {}
+
 /// ## Added
 ///  - [`Session::subsystem`]
 pub mod v0_9_1 {}
