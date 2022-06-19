@@ -854,7 +854,7 @@ async fn test_detach_and_resume_process_mux() {
         session3.close().await.unwrap();
     }
 
-    // test force_terminate
+    // test close
     for session1 in connects().await {
         session1.check().await.unwrap();
 
@@ -899,7 +899,7 @@ async fn test_detach_and_resume_native_mux() {
         session3.close().await.unwrap();
     }
 
-    // test force_terminate
+    // test close
     for session1 in connects().await {
         session1.check().await.unwrap();
 
