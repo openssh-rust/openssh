@@ -73,7 +73,7 @@ impl Session {
     /// simply pass `None` to `master_log`.
     ///
     /// [`Session`] created this way will not be terminated on drop,
-    /// but can be forced terminated by [`Session::force_terminate`].
+    /// but can be forced terminated by [`Session::close`].
     ///
     /// This connects to the ssh multiplex master using process mux impl.
     #[cfg(feature = "process-mux")]
@@ -317,6 +317,8 @@ impl Session {
     }
 
     /// Terminate the remote connection.
+    /// It would terminate the ssh multiplex server
+    /// regardless of how it is created.
     pub async fn close(self) -> Result<(), Error> {
         delegate!(self.0, imp, { imp.close().await })
     }
