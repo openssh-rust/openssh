@@ -75,12 +75,6 @@ impl From<Stdio> for process::Stdio {
     }
 }
 
-impl From<OwnedFd> for Stdio {
-    fn from(fd: OwnedFd) -> Self {
-        Self(StdioImpl::Fd(fd))
-    }
-}
-
 macro_rules! impl_from_for_stdio {
     ($type:ty) => {
         impl From<$type> for Stdio {
