@@ -317,8 +317,9 @@ impl Session {
     }
 
     /// Terminate the remote connection.
-    /// It would terminate the ssh multiplex server
-    /// regardless of how it is created.
+    ///
+    /// This destructor terminates the ssh multiplex server
+    /// regardless of how it was created.
     pub async fn close(self) -> Result<(), Error> {
         delegate!(self.0, imp, { imp.close().await })
     }
