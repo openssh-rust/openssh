@@ -2,14 +2,16 @@
 use crate::*;
 
 /// TODO: RENAME THIS INTO THE NEXT VERSION BEFORE RELEASE
-///
+#[doc(hidden)]
+pub mod unreleased {}
+
 /// ## Added
 ///  - [`Session::resume`]
 ///  - [`Session::resume_mux`]
 ///  - [`Session::leak`]
 ///  - [`Session::force_terminate`]
 #[doc(hidden)]
-pub mod unreleased {}
+pub mod v0_9_3 {}
 
 /// ## Changed
 ///  - Removed `impl From<OwnedFd> for Stdio` as it was an unintentional part of the public API.
