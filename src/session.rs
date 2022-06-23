@@ -65,6 +65,31 @@ impl From<native_mux_impl::Session> for Session {
 // TODO: UserKnownHostsFile for custom known host fingerprint.
 
 impl Session {
+    /// Resume the connection using path to control socket and
+    /// path to ssh multiplex output log.
+    ///
+    /// If you do not use `-E` option (or redirection) to write
+    /// the log of the ssh multiplex master to the disk, you can
+    /// simply pass `None` to `master_log`.
+    ///
+    /// [`Session`] created this way will not be terminated on drop,
+    /// but can be forced terminated by [`Session::close`].
+    ///
+    /// This connects to the ssh multiplex master using process mux impl.
+    #[cfg(feature = "process-mux")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "process-mux")))]
+    pub fn resume(ctl: Box<Path>, master_log: Option<Box<Path>>) -> Self {
+        process_impl::Session::resume(ctl, master_log).into()
+    }
+
+    /// Same as [`Session::resume`] except that it connects to
+    /// the ssh multiplex master using native mux impl.
+    #[cfg(feature = "native-mux")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "native-mux")))]
+    pub fn resume_mux(ctl: Box<Path>, master_log: Option<Box<Path>>) -> Self {
+        native_mux_impl::Session::resume(ctl, master_log).into()
+    }
+
     /// Connect to the host at the given `host` over SSH using process impl, which will
     /// spawn a new ssh process for each `Child` created.
     ///
@@ -292,7 +317,18 @@ impl Session {
     }
 
     /// Terminate the remote connection.
+    ///
+    /// This destructor terminates the ssh multiplex server
+    /// regardless of how it was created.
     pub async fn close(self) -> Result<(), Error> {
         delegate!(self.0, imp, { imp.close().await })
+    }
+
+    /// Detach the lifetime of underlying ssh multiplex master
+    /// from this `Session`.
+    ///
+    /// Return (path to control socket, path to ssh multiplex output log)
+    pub fn detach(self) -> (Box<Path>, Option<Box<Path>>) {
+        delegate!(self.0, imp, { imp.detach() })
     }
 }

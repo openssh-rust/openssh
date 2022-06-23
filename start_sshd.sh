@@ -28,9 +28,10 @@ chmod 600 .test-key
 mkdir -p "$RUNTIME_DIR/openssh-rs/"
 
 echo Waiting for sshd to be up
-while ! ssh -i .test-key -v -p 2222 -l test-user $HOSTNAME -o StrictHostKeyChecking=no -o UserKnownHostsFile="$RUNTIME_DIR/openssh-rs/known_hosts" whoami; do
-    sleep 3
-done
+timeout 30 ./wait_for_sshd_start_up.sh
+
+# Add the ip to  known_hosts file
+ssh -i .test-key -v -p 2222 -l test-user $HOSTNAME -o StrictHostKeyChecking=no -o UserKnownHostsFile="$RUNTIME_DIR/openssh-rs/known_hosts" whoami
 
 # Create sshd_started in runtime directory so that it is auto removed on restart.
 touch "$RUNTIME_DIR/openssh-rs/sshd_started"

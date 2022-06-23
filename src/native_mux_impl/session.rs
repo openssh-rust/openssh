@@ -24,6 +24,10 @@ impl Session {
         }
     }
 
+    pub(crate) fn resume(ctl: Box<Path>, _master_log: Option<Box<Path>>) -> Self {
+        Self { tempdir: None, ctl }
+    }
+
     pub(crate) async fn check(&self) -> Result<(), Error> {
         Connection::connect(&self.ctl)
             .await?
@@ -63,18 +67,36 @@ impl Session {
         Ok(())
     }
 
-    pub(crate) async fn close(mut self) -> Result<(), Error> {
-        // This also set self.tempdir to None so that Drop::drop would do nothing.
-        let tempdir = self.tempdir.take().unwrap();
-
+    async fn close_impl(&self) -> Result<(), Error> {
         Connection::connect(&self.ctl)
             .await?
             .request_stop_listening()
             .await?;
 
-        tempdir.close().map_err(Error::Cleanup)?;
+        Ok(())
+    }
+
+    pub(crate) async fn close(mut self) -> Result<(), Error> {
+        // This also set self.tempdir to None so that Drop::drop would do nothing.
+        if let Some(tempdir) = self.tempdir.take() {
+            self.close_impl().await?;
+
+            tempdir.close().map_err(Error::Cleanup)?;
+        } else {
+            self.close_impl().await?;
+        }
 
         Ok(())
+    }
+
+    pub(crate) fn detach(mut self) -> (Box<Path>, Option<Box<Path>>) {
+        (
+            self.ctl.clone(),
+            self.tempdir.take().map(TempDir::into_path).map(|mut path| {
+                path.push("log");
+                path.into_boxed_path()
+            }),
+        )
     }
 }
 

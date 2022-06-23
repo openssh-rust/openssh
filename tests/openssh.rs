@@ -831,6 +831,96 @@ async fn local_socket_forward() {
 
 #[tokio::test]
 #[cfg_attr(not(ci), ignore)]
+#[cfg(feature = "process-mux")]
+async fn test_detach_and_resume_process_mux() {
+    for session1 in connects().await {
+        session1.check().await.unwrap();
+
+        // First detach
+        let (ctl1, master_log1) = session1.detach();
+
+        // First resume
+        let session2 = Session::resume(ctl1, master_log1);
+        session2.check().await.unwrap();
+
+        // Second detach to ensure detach handles tempdir
+        // set to None correctly.
+        let (ctl2, master_log2) = session2.detach();
+
+        // Second resume to ensure close handles tempdir set to None correctly
+        let session3 = Session::resume(ctl2, master_log2);
+        session3.check().await.unwrap();
+
+        session3.close().await.unwrap();
+    }
+
+    // test close
+    for session1 in connects().await {
+        session1.check().await.unwrap();
+
+        let (ctl1, master_log1) = session1.detach();
+
+        let ctl = ctl1.clone();
+
+        let session2 = Session::resume(ctl1, master_log1);
+        session2.check().await.unwrap();
+
+        session2.close().await.unwrap();
+
+        // Wait for ssh multiplex master to clean up and exit.
+        sleep(Duration::from_secs(3)).await;
+
+        assert!(!ctl.exists());
+    }
+}
+
+#[tokio::test]
+#[cfg_attr(not(ci), ignore)]
+#[cfg(feature = "native-mux")]
+async fn test_detach_and_resume_native_mux() {
+    for session1 in connects().await {
+        session1.check().await.unwrap();
+
+        // First detach
+        let (ctl1, master_log1) = session1.detach();
+
+        // First resume_mux
+        let session2 = Session::resume_mux(ctl1, master_log1);
+        session2.check().await.unwrap();
+
+        // Second detach to ensure detach handles tempdir
+        // set to None correctly.
+        let (ctl2, master_log2) = session2.detach();
+
+        // Second resume_mux to ensure close handles tempdir set to None correctly
+        let session3 = Session::resume_mux(ctl2, master_log2);
+        session3.check().await.unwrap();
+
+        session3.close().await.unwrap();
+    }
+
+    // test close
+    for session1 in connects().await {
+        session1.check().await.unwrap();
+
+        let (ctl1, master_log1) = session1.detach();
+
+        let ctl = ctl1.clone();
+
+        let session2 = Session::resume_mux(ctl1, master_log1);
+        session2.check().await.unwrap();
+
+        session2.close().await.unwrap();
+
+        // Wait for ssh multiplex master to clean up and exit.
+        sleep(Duration::from_secs(3)).await;
+
+        assert!(!ctl.exists());
+    }
+}
+
+#[tokio::test]
+#[cfg_attr(not(ci), ignore)]
 async fn test_sftp_subsystem() {
     use openssh_sftp_client::highlevel::Sftp;
 

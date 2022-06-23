@@ -15,7 +15,7 @@ pub(crate) struct Session {
     tempdir: Option<TempDir>,
     ctl: Box<Path>,
     addr: Box<str>,
-    master_log: Box<Path>,
+    master_log: Option<Box<Path>>,
 }
 
 impl Session {
@@ -27,7 +27,19 @@ impl Session {
             tempdir: Some(tempdir),
             ctl,
             addr: addr.into(),
-            master_log: log,
+            master_log: Some(log),
+        }
+    }
+
+    pub(crate) fn resume(ctl: Box<Path>, master_log: Option<Box<Path>>) -> Self {
+        Self {
+            tempdir: None,
+            ctl,
+            // ssh don't care about the addr as long as we have the ctl.
+            //
+            // I tested this behavior on OpenSSH_8.9p1 Ubuntu-3, OpenSSL 3.0.2 15 Mar 2022
+            addr: "none".into(),
+            master_log,
         }
     }
 
@@ -130,13 +142,12 @@ impl Session {
         }
     }
 
-    pub(crate) async fn close(mut self) -> Result<(), Error> {
-        let mut exit_cmd = self.new_cmd(&["-O", "exit"]);
-
-        // Take self.tempdir so that drop would do nothing
-        let tempdir = self.tempdir.take().unwrap();
-
-        let exit = exit_cmd.output().await.map_err(Error::Ssh)?;
+    async fn close_impl(&self) -> Result<(), Error> {
+        let exit = self
+            .new_cmd(&["-O", "exit"])
+            .output()
+            .await
+            .map_err(Error::Ssh)?;
 
         if let Some(master_error) = self.discover_master_error() {
             return Err(master_error);
@@ -164,13 +175,29 @@ impl Session {
             )));
         }
 
-        tempdir.close().map_err(Error::Cleanup)?;
+        Ok(())
+    }
+
+    pub(crate) async fn close(mut self) -> Result<(), Error> {
+        // Take self.tempdir so that drop would do nothing
+        if let Some(tempdir) = self.tempdir.take() {
+            self.close_impl().await?;
+
+            tempdir.close().map_err(Error::Cleanup)?;
+        } else {
+            self.close_impl().await?;
+        }
 
         Ok(())
     }
 
+    pub(crate) fn detach(mut self) -> (Box<Path>, Option<Box<Path>>) {
+        self.tempdir.take().map(TempDir::into_path);
+        (self.ctl.clone(), self.master_log.take())
+    }
+
     fn discover_master_error(&self) -> Option<Error> {
-        let err = match fs::read_to_string(&self.master_log) {
+        let err = match fs::read_to_string(self.master_log.as_ref()?) {
             Ok(err) => err,
             Err(e) => return Some(Error::Master(e)),
         };
