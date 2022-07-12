@@ -199,10 +199,14 @@ impl Session {
     /// If `program` is not an absolute path, the `PATH` will be searched in an OS-defined way on
     /// the host.
     pub fn raw_command<S: AsRef<OsStr>>(&self, program: S) -> Command<'_> {
-        Command::new(
-            self,
-            delegate!(&self.0, imp, { imp.raw_command(program).into() }),
-        )
+        fn inner<'s>(this: &'s Session, program: &OsStr) -> Command<'s> {
+            Command::new(
+                this,
+                delegate!(&this.0, imp, { imp.raw_command(program).into() }),
+            )
+        }
+
+        inner(self, program.as_ref())
     }
 
     /// Constructs a new [`Command`] for launching subsystem `program` on the remote
