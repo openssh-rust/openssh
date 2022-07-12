@@ -126,7 +126,14 @@ impl<'s> Command<'s> {
     ///
     /// To pass multiple arguments see [`args`](Command::args).
     pub fn arg<S: AsRef<str>>(&mut self, arg: S) -> &mut Self {
-        self.raw_arg(&*shell_escape::unix::escape(Cow::Borrowed(arg.as_ref())))
+        fn inner<'this, 'cmd>(
+            this: &'this mut Command<'cmd>,
+            arg: &str,
+        ) -> &'this mut Command<'cmd> {
+            this.raw_arg(&*shell_escape::unix::escape(Cow::Borrowed(arg)))
+        }
+
+        inner(self, arg.as_ref())
     }
 
     /// Adds an argument to pass to the remote program.
