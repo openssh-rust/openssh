@@ -1,11 +1,5 @@
 use super::{Error, Session};
 
-#[cfg(feature = "process-mux")]
-use super::process_impl;
-
-#[cfg(feature = "native-mux")]
-use super::native_mux_impl;
-
 use std::borrow::Cow;
 use std::ffi::OsString;
 use std::fs;
@@ -185,10 +179,8 @@ impl SessionBuilder {
     #[cfg(feature = "process-mux")]
     #[cfg_attr(docsrs, doc(cfg(feature = "process-mux")))]
     pub async fn connect<S: AsRef<str>>(&self, destination: S) -> Result<Session, Error> {
-        self.connect_impl(destination.as_ref(), |tempdir| {
-            process_impl::Session::new(tempdir).into()
-        })
-        .await
+        self.connect_impl(destination.as_ref(), Session::new_process_mux)
+            .await
     }
 
     /// Connect to the host at the given `host` over SSH using native mux, which will
@@ -207,10 +199,8 @@ impl SessionBuilder {
     #[cfg(feature = "native-mux")]
     #[cfg_attr(docsrs, doc(cfg(feature = "native-mux")))]
     pub async fn connect_mux<S: AsRef<str>>(&self, destination: S) -> Result<Session, Error> {
-        self.connect_impl(destination.as_ref(), |tempdir| {
-            native_mux_impl::Session::new(tempdir).into()
-        })
-        .await
+        self.connect_impl(destination.as_ref(), Session::new_native_mux)
+            .await
     }
 
     async fn connect_impl(

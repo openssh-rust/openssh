@@ -10,6 +10,8 @@ use std::borrow::Cow;
 use std::ffi::OsStr;
 use std::path::Path;
 
+use tempfile::TempDir;
+
 #[derive(Debug)]
 pub(crate) enum SessionImp {
     #[cfg(feature = "process-mux")]
@@ -48,23 +50,21 @@ macro_rules! delegate {
 #[derive(Debug)]
 pub struct Session(SessionImp);
 
-#[cfg(feature = "process-mux")]
-impl From<process_impl::Session> for Session {
-    fn from(imp: process_impl::Session) -> Self {
-        Self(SessionImp::ProcessImpl(imp))
-    }
-}
-
-#[cfg(feature = "native-mux")]
-impl From<native_mux_impl::Session> for Session {
-    fn from(imp: native_mux_impl::Session) -> Self {
-        Self(SessionImp::NativeMuxImpl(imp))
-    }
-}
-
 // TODO: UserKnownHostsFile for custom known host fingerprint.
 
 impl Session {
+    #[cfg(feature = "process-mux")]
+    pub(super) fn new_process_mux(tempdir: TempDir) -> Self {
+        Self(SessionImp::ProcessImpl(process_impl::Session::new(tempdir)))
+    }
+
+    #[cfg(feature = "native-mux")]
+    pub(super) fn new_native_mux(tempdir: TempDir) -> Self {
+        Self(SessionImp::NativeMuxImpl(native_mux_impl::Session::new(
+            tempdir,
+        )))
+    }
+
     /// Resume the connection using path to control socket and
     /// path to ssh multiplex output log.
     ///
@@ -79,7 +79,9 @@ impl Session {
     #[cfg(feature = "process-mux")]
     #[cfg_attr(docsrs, doc(cfg(feature = "process-mux")))]
     pub fn resume(ctl: Box<Path>, master_log: Option<Box<Path>>) -> Self {
-        process_impl::Session::resume(ctl, master_log).into()
+        Self(SessionImp::ProcessImpl(process_impl::Session::resume(
+            ctl, master_log,
+        )))
     }
 
     /// Same as [`Session::resume`] except that it connects to
@@ -87,7 +89,9 @@ impl Session {
     #[cfg(feature = "native-mux")]
     #[cfg_attr(docsrs, doc(cfg(feature = "native-mux")))]
     pub fn resume_mux(ctl: Box<Path>, master_log: Option<Box<Path>>) -> Self {
-        native_mux_impl::Session::resume(ctl, master_log).into()
+        Self(SessionImp::NativeMuxImpl(native_mux_impl::Session::resume(
+            ctl, master_log,
+        )))
     }
 
     /// Connect to the host at the given `host` over SSH using process impl, which will
