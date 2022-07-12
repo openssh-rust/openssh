@@ -8,6 +8,8 @@ use crate::*;
 ///  - [`Command::raw_arg`]: Avoid duplicate monomorphization
 ///  - [`SessionBuilder::connect`]: Avoid duplicate monomorphization
 ///  - [`SessionBuilder::connect_mux`]: Avoid duplicate monomorphization
+///  - [`Session::connect`]: Avoid duplicate monomorphization
+///  - [`Session::connect_mux`]: Avoid duplicate monomorphization
 ///  - Make [`Session`] more compact: Rm "addr" field in process-mux mode
 #[doc(hidden)]
 pub mod unreleased {}
