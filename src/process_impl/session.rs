@@ -10,23 +10,24 @@ use tokio::process;
 
 use tempfile::TempDir;
 
+/// Session does not have field "addr" because ssh don't care about
+/// the addr as long as we have the ctl.
+/// It is tested on OpenSSH_8.9p1 Ubuntu-3, OpenSSL 3.0.2 15 Mar 2022.
 #[derive(Debug)]
 pub(crate) struct Session {
     tempdir: Option<TempDir>,
     ctl: Box<Path>,
-    addr: Box<str>,
     master_log: Option<Box<Path>>,
 }
 
 impl Session {
-    pub(crate) fn new(tempdir: TempDir, addr: &str) -> Self {
+    pub(crate) fn new(tempdir: TempDir) -> Self {
         let log = tempdir.path().join("log").into_boxed_path();
         let ctl = tempdir.path().join("master").into_boxed_path();
 
         Self {
             tempdir: Some(tempdir),
             ctl,
-            addr: addr.into(),
             master_log: Some(log),
         }
     }
@@ -35,10 +36,6 @@ impl Session {
         Self {
             tempdir: None,
             ctl,
-            // ssh don't care about the addr as long as we have the ctl.
-            //
-            // I tested this behavior on OpenSSH_8.9p1 Ubuntu-3, OpenSSL 3.0.2 15 Mar 2022
-            addr: "none".into(),
             master_log,
         }
     }
@@ -51,7 +48,7 @@ impl Session {
             .arg("-o")
             .arg("BatchMode=yes")
             .args(args)
-            .arg(&*self.addr);
+            .arg("none");
         cmd
     }
 
