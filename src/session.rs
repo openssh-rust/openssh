@@ -175,7 +175,11 @@ impl Session {
     /// If `program` is not an absolute path, the `PATH` will be searched in an OS-defined way on
     /// the host.
     pub fn command<'a, S: Into<Cow<'a, str>>>(&self, program: S) -> Command<'_> {
-        self.raw_command(&*shell_escape::unix::escape(program.into()))
+        fn inner<'s>(this: &'s Session, program: Cow<'_, str>) -> Command<'s> {
+            this.raw_command(&*shell_escape::unix::escape(program))
+        }
+
+        inner(self, program.into())
     }
 
     /// Constructs a new [`Command`] for launching the program at path `program` on the remote
