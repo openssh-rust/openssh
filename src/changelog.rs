@@ -2,6 +2,10 @@
 use crate::*;
 
 /// TODO: RENAME THIS INTO THE NEXT VERSION BEFORE RELEASE
+///
+/// ## Optimized
+///  - [`Command::arg`]: Avoid duplicate monomorphization
+///  - [`Command::raw_arg`]: Avoid duplicate monomorphization
 #[doc(hidden)]
 pub mod unreleased {}
 
