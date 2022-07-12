@@ -216,11 +216,15 @@ impl<'s> Command<'s> {
     /// [`inherit`]: struct.Stdio.html#method.inherit
     /// [`piped`]: struct.Stdio.html#method.piped
     pub fn stdout<T: Into<Stdio>>(&mut self, cfg: T) -> &mut Self {
-        delegate!(&mut self.imp, imp, {
-            imp.stdout(cfg.into());
-        });
-        self.stdout_set = true;
-        self
+        fn inner<'cmd, 's>(this: &'cmd mut Command<'s>, cfg: Stdio) -> &'cmd mut Command<'s> {
+            delegate!(&mut this.imp, imp, {
+                imp.stdout(cfg);
+            });
+            this.stdout_set = true;
+            this
+        }
+
+        inner(self, cfg.into())
     }
 
     /// Configuration for the remote process's standard error (stderr) handle.
