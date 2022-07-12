@@ -185,10 +185,10 @@ impl SessionBuilder {
     #[cfg(feature = "process-mux")]
     #[cfg_attr(docsrs, doc(cfg(feature = "process-mux")))]
     pub async fn connect<S: AsRef<str>>(&self, destination: S) -> Result<Session, Error> {
-        let destination = destination.as_ref();
-        let (builder, destination) = self.resolve(destination);
-        let tempdir = builder.launch_master(destination).await?;
-        Ok(process_impl::Session::new(tempdir, destination).into())
+        self.connect_impl(destination.as_ref(), |tempdir, destination| {
+            process_impl::Session::new(tempdir, destination).into()
+        })
+        .await
     }
 
     /// Connect to the host at the given `host` over SSH using native mux, which will
@@ -207,10 +207,20 @@ impl SessionBuilder {
     #[cfg(feature = "native-mux")]
     #[cfg_attr(docsrs, doc(cfg(feature = "native-mux")))]
     pub async fn connect_mux<S: AsRef<str>>(&self, destination: S) -> Result<Session, Error> {
-        let destination = destination.as_ref();
+        self.connect_impl(destination.as_ref(), |tempdir, _destination| {
+            native_mux_impl::Session::new(tempdir).into()
+        })
+        .await
+    }
+
+    async fn connect_impl(
+        &self,
+        destination: &str,
+        f: fn(TempDir, &str) -> Session,
+    ) -> Result<Session, Error> {
         let (builder, destination) = self.resolve(destination);
         let tempdir = builder.launch_master(destination).await?;
-        Ok(native_mux_impl::Session::new(tempdir).into())
+        Ok(f(tempdir, destination))
     }
 
     fn resolve<'a, 'b>(&'a self, mut destination: &'b str) -> (Cow<'a, Self>, &'b str) {
