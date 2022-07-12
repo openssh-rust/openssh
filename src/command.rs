@@ -146,7 +146,7 @@ impl<'s> Command<'s> {
     /// To pass multiple unescaped arguments see [`raw_args`](Command::raw_args).
     pub fn raw_arg<S: AsRef<OsStr>>(&mut self, arg: S) -> &mut Self {
         delegate!(&mut self.imp, imp, {
-            imp.raw_arg(arg);
+            imp.raw_arg(arg.as_ref());
         });
         self
     }
