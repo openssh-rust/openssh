@@ -23,7 +23,7 @@ impl From<super::process_impl::Command> for CommandImp {
 }
 
 #[cfg(feature = "native-mux")]
-impl<'s> From<super::native_mux_impl::Command> for CommandImp {
+impl From<super::native_mux_impl::Command> for CommandImp {
     fn from(imp: super::native_mux_impl::Command) -> Self {
         CommandImp::NativeMuxImpl(imp)
     }
