@@ -260,10 +260,14 @@ impl Session {
     /// # Ok(()) }
     /// ```
     pub fn subsystem<S: AsRef<OsStr>>(&self, program: S) -> Command<'_> {
-        Command::new(
-            self,
-            delegate!(&self.0, imp, { imp.subsystem(program).into() }),
-        )
+        fn inner<'s>(this: &'s Session, program: &OsStr) -> Command<'s> {
+            Command::new(
+                this,
+                delegate!(&this.0, imp, { imp.subsystem(program).into() }),
+            )
+        }
+
+        inner(self, program.as_ref())
     }
 
     /// Constructs a new [`Command`] that runs the provided shell command on the remote host.
