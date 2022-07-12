@@ -126,10 +126,7 @@ impl<'s> Command<'s> {
     ///
     /// To pass multiple arguments see [`args`](Command::args).
     pub fn arg<S: AsRef<str>>(&mut self, arg: S) -> &mut Self {
-        fn inner<'this, 'cmd>(
-            this: &'this mut Command<'cmd>,
-            arg: &str,
-        ) -> &'this mut Command<'cmd> {
+        fn inner<'cmd, 's>(this: &'cmd mut Command<'s>, arg: &str) -> &'cmd mut Command<'s> {
             this.raw_arg(&*shell_escape::unix::escape(Cow::Borrowed(arg)))
         }
 
