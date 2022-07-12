@@ -13,6 +13,7 @@ use crate::*;
 ///  - [`Session::command`]: Avoid duplicate monomorphization
 ///  - [`Session::raw_command`]: Avoid duplicate monomorphization
 ///  - [`Session::subsystem`]: Avoid duplicate monomorphization
+///  - [`Session::shell`]: Avoid duplicate monomorphization
 ///  - Make [`Session`] more compact: Rm "addr" field in process-mux mode
 #[doc(hidden)]
 pub mod unreleased {}

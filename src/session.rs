@@ -310,9 +310,13 @@ impl Session {
     ///   [this article]: https://mywiki.wooledge.org/Arguments
     ///   [`shell-escape`]: https://crates.io/crates/shell-escape
     pub fn shell<S: AsRef<str>>(&self, command: S) -> Command<'_> {
-        let mut cmd = self.command("sh");
-        cmd.arg("-c").arg(command);
-        cmd
+        fn inner<'s>(this: &'s Session, command: &str) -> Command<'s> {
+            let mut cmd = this.command("sh");
+            cmd.arg("-c").arg(command);
+            cmd
+        }
+
+        inner(self, command.as_ref())
     }
 
     /// Request to open a local/remote port forwarding.
