@@ -6,6 +6,7 @@ use crate::*;
 /// ## Optimized
 ///  - [`Command::arg`]: Avoid duplicate monomorphization
 ///  - [`Command::raw_arg`]: Avoid duplicate monomorphization
+///  - [`Command::stdin`]: Avoid duplicate monomorphization
 ///  - [`SessionBuilder::connect`]: Avoid duplicate monomorphization
 ///  - [`SessionBuilder::connect_mux`]: Avoid duplicate monomorphization
 ///  - [`Session::connect`]: Avoid duplicate monomorphization

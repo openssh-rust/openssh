@@ -197,11 +197,15 @@ impl<'s> Command<'s> {
     /// [`inherit`]: struct.Stdio.html#method.inherit
     /// [`null`]: struct.Stdio.html#method.null
     pub fn stdin<T: Into<Stdio>>(&mut self, cfg: T) -> &mut Self {
-        delegate!(&mut self.imp, imp, {
-            imp.stdin(cfg.into());
-        });
-        self.stdin_set = true;
-        self
+        fn inner<'cmd, 's>(this: &'cmd mut Command<'s>, cfg: Stdio) -> &'cmd mut Command<'s> {
+            delegate!(&mut this.imp, imp, {
+                imp.stdin(cfg);
+            });
+            this.stdin_set = true;
+            this
+        }
+
+        inner(self, cfg.into())
     }
 
     /// Configuration for the remote process's standard output (stdout) handle.
