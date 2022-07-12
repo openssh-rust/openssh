@@ -145,10 +145,14 @@ impl<'s> Command<'s> {
     ///
     /// To pass multiple unescaped arguments see [`raw_args`](Command::raw_args).
     pub fn raw_arg<S: AsRef<OsStr>>(&mut self, arg: S) -> &mut Self {
-        delegate!(&mut self.imp, imp, {
-            imp.raw_arg(arg.as_ref());
-        });
-        self
+        fn inner<'cmd, 's>(this: &'cmd mut Command<'s>, arg: &OsStr) -> &'cmd mut Command<'s> {
+            delegate!(&mut this.imp, imp, {
+                imp.raw_arg(arg);
+            });
+            this
+        }
+
+        inner(self, arg.as_ref())
     }
 
     /// Adds multiple arguments to pass to the remote program.
