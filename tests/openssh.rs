@@ -1,10 +1,9 @@
 use lazy_static::lazy_static;
 use regex::Regex;
-use std::borrow::Cow;
 use std::env;
 use std::io;
 use std::io::Write;
-use std::net::{IpAddr, SocketAddr};
+use std::net::IpAddr;
 use std::path::PathBuf;
 use std::time::Duration;
 use tempfile::tempdir;
