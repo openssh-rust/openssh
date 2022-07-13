@@ -733,10 +733,8 @@ async fn remote_socket_forward() {
         session
             .request_port_forward(
                 ForwardType::Remote,
-                Socket::TcpSocket(SocketAddr::new(loopback(), *port)),
-                Socket::UnixSocket {
-                    path: Cow::Borrowed(&unix_socket),
-                },
+                SocketAddr::new(loopback(), *port),
+                Cow::Borrowed(&*unix_socket),
             )
             .await
             .unwrap();

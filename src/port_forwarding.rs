@@ -58,6 +58,14 @@ impl<'a> From<Cow<'a, Path>> for Socket<'a> {
     }
 }
 
+impl<'a> From<&'a Path> for Socket<'a> {
+    fn from(path: &'a Path) -> Self {
+        Socket::UnixSocket {
+            path: Cow::Borrowed(path),
+        }
+    }
+}
+
 impl Socket<'_> {
     /// Create a new TcpSocket
     pub fn new<T: ToSocketAddrs>(addr: &T) -> Result<Socket<'static>, io::Error> {
