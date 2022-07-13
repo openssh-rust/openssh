@@ -18,11 +18,10 @@ pub(crate) struct Session {
     tempdir: Option<TempDir>,
     ctl: Box<Path>,
     master_log: Option<Box<Path>>,
-    addr: Box<str>,
 }
 
 impl Session {
-    pub(crate) fn new(tempdir: TempDir, addr: Box<str>) -> Self {
+    pub(crate) fn new(tempdir: TempDir) -> Self {
         let log = tempdir.path().join("log").into_boxed_path();
         let ctl = tempdir.path().join("master").into_boxed_path();
 
@@ -30,7 +29,6 @@ impl Session {
             tempdir: Some(tempdir),
             ctl,
             master_log: Some(log),
-            addr,
         }
     }
 
@@ -39,7 +37,6 @@ impl Session {
             tempdir: None,
             ctl,
             master_log,
-            addr: "none".into(),
         }
     }
 
@@ -53,7 +50,7 @@ impl Session {
             .arg("-o")
             .arg("UpdateHostKeys=no")
             .args(args)
-            .arg(&*self.addr);
+            .arg("none");
         cmd
     }
 

@@ -206,11 +206,11 @@ impl SessionBuilder {
     pub(super) async fn connect_impl(
         &self,
         destination: &str,
-        f: fn(TempDir, &str) -> Session,
+        f: fn(TempDir) -> Session,
     ) -> Result<Session, Error> {
         let (builder, destination) = self.resolve(destination);
         let tempdir = builder.launch_master(destination).await?;
-        Ok(f(tempdir, destination))
+        Ok(f(tempdir))
     }
 
     fn resolve<'a, 'b>(&'a self, mut destination: &'b str) -> (Cow<'a, Self>, &'b str) {
