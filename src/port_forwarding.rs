@@ -7,7 +7,7 @@ use std::ffi::OsStr;
 use std::borrow::Cow;
 use std::fmt;
 use std::io;
-use std::net::{SocketAddr, ToSocketAddrs};
+use std::net::{self, SocketAddr, ToSocketAddrs};
 use std::path::{Path, PathBuf};
 
 /// Type of forwarding
@@ -52,6 +52,19 @@ impl From<SocketAddr> for Socket<'static> {
         Socket::TcpSocket(addr)
     }
 }
+
+macro_rules! impl_from_addr {
+    ($ip:ty) => {
+        impl From<($ip, u16)> for Socket<'static> {
+            fn from(addr: ($ip, u16)) -> Self {
+                Socket::new(&addr).unwrap()
+            }
+        }
+    };
+}
+
+impl_from_addr!(net::IpAddr);
+
 impl<'a> From<Cow<'a, Path>> for Socket<'a> {
     fn from(path: Cow<'a, Path>) -> Self {
         Socket::UnixSocket { path }
