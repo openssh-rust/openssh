@@ -3,6 +3,9 @@ use crate::*;
 
 /// TODO: RENAME THIS INTO THE NEXT VERSION BEFORE RELEASE
 ///
+/// ## Added
+///  - `From<SocketAddr> for Socket<'static>`
+///
 /// ## Changed
 ///  - [`Session::request_port_forward`] now takes `impl Into<...>`
 ///    to make it much easier to use.

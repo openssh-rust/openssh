@@ -47,6 +47,12 @@ pub enum Socket<'a> {
     TcpSocket(SocketAddr),
 }
 
+impl From<SocketAddr> for Socket<'static> {
+    fn from(addr: SocketAddr) -> Self {
+        Socket::TcpSocket(addr)
+    }
+}
+
 impl Socket<'_> {
     /// Create a new TcpSocket
     pub fn new<T: ToSocketAddrs>(addr: &T) -> Result<Socket<'static>, io::Error> {
