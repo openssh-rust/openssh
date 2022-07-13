@@ -49,13 +49,15 @@ pub enum Socket<'a> {
 impl Socket<'_> {
     /// Create a new TcpSocket
     pub fn new<T: ToSocketAddrs>(addr: &T) -> Result<Self, io::Error> {
-        let mut it = addr.to_socket_addrs()?;
+        fn inner(it: &mut dyn Iterator<Item = SocketAddr>) -> Result<Socket<'static>, io::Error> {
+            let addr = it.next().ok_or_else(|| {
+                io::Error::new(io::ErrorKind::Other, "no more socket addresses to try")
+            })?;
 
-        let addr = it.next().ok_or_else(|| {
-            io::Error::new(io::ErrorKind::Other, "no more socket addresses to try")
-        })?;
+            Ok(Socket::TcpSocket(addr))
+        }
 
-        Ok(Socket::TcpSocket(addr))
+        inner(&mut addr.to_socket_addrs()?)
     }
 
     #[cfg(feature = "process-mux")]
