@@ -76,17 +76,13 @@ impl Session {
         Ok(())
     }
 
-    pub(crate) async fn close(mut self) -> Result<(), Error> {
-        // This also set self.tempdir to None so that Drop::drop would do nothing.
-        if let Some(tempdir) = self.tempdir.take() {
-            self.close_impl().await?;
+    pub(crate) async fn close(mut self) -> Result<Option<TempDir>, Error> {
+        // Take self.tempdir so that drop would do nothing
+        let tempdir = self.tempdir.take();
 
-            tempdir.close().map_err(Error::Cleanup)?;
-        } else {
-            self.close_impl().await?;
-        }
+        self.close_impl().await?;
 
-        Ok(())
+        Ok(tempdir)
     }
 
     pub(crate) fn detach(mut self) -> (Box<Path>, Option<Box<Path>>) {

@@ -362,7 +362,12 @@ impl Session {
     /// This destructor terminates the ssh multiplex server
     /// regardless of how it was created.
     pub async fn close(self) -> Result<(), Error> {
-        delegate!(self.0, imp, { imp.close().await })
+        let res: Result<Option<TempDir>, Error> = delegate!(self.0, imp, { imp.close().await });
+
+        res?.map(TempDir::close)
+            .transpose()
+            .map_err(Error::Cleanup)
+            .map(|_| ())
     }
 
     /// Detach the lifetime of underlying ssh multiplex master
