@@ -5,6 +5,7 @@ use crate::*;
 ///
 /// ## Added
 ///  - `From<SocketAddr> for Socket<'static>`
+///  - `From<Cow<'a, Path>> for Socket<'a>`
 ///
 /// ## Changed
 ///  - [`Session::request_port_forward`] now takes `impl Into<...>`

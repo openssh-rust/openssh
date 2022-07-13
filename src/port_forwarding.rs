@@ -52,6 +52,11 @@ impl From<SocketAddr> for Socket<'static> {
         Socket::TcpSocket(addr)
     }
 }
+impl<'a> From<Cow<'a, Path>> for Socket<'a> {
+    fn from(path: Cow<'a, Path>) -> Self {
+        Socket::UnixSocket { path }
+    }
+}
 
 impl Socket<'_> {
     /// Create a new TcpSocket
