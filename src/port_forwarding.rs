@@ -56,8 +56,8 @@ impl From<SocketAddr> for Socket<'static> {
 macro_rules! impl_from_addr {
     ($ip:ty) => {
         impl From<($ip, u16)> for Socket<'static> {
-            fn from(addr: ($ip, u16)) -> Self {
-                Socket::new(&addr).unwrap()
+            fn from((ip, port): ($ip, u16)) -> Self {
+                SocketAddr::new(ip.into(), port).into()
             }
         }
     };
