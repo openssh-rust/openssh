@@ -3,6 +3,10 @@ use crate::*;
 
 /// TODO: RENAME THIS INTO THE NEXT VERSION BEFORE RELEASE
 ///
+/// ## Changed
+///  - [`Session::request_port_forward`] now takes `impl Into<...>`
+///    to make it much easier to use.
+///
 /// ## Optimized
 ///  - [`Command::arg`]: Avoid duplicate monomorphization
 ///  - [`Command::raw_arg`]: Avoid duplicate monomorphization

@@ -332,14 +332,29 @@ impl Session {
     /// openssh multiplex server/master does not support this.
     pub async fn request_port_forward(
         &self,
-        forward_type: ForwardType,
-        listen_socket: Socket<'_>,
-        connect_socket: Socket<'_>,
+        forward_type: impl Into<ForwardType>,
+        listen_socket: impl Into<Socket<'_>>,
+        connect_socket: impl Into<Socket<'_>>,
     ) -> Result<(), Error> {
-        delegate!(&self.0, imp, {
-            imp.request_port_forward(forward_type, listen_socket, connect_socket)
-                .await
-        })
+        async fn inner(
+            this: &Session,
+            forward_type: ForwardType,
+            listen_socket: Socket<'_>,
+            connect_socket: Socket<'_>,
+        ) -> Result<(), Error> {
+            delegate!(&this.0, imp, {
+                imp.request_port_forward(forward_type, listen_socket, connect_socket)
+                    .await
+            })
+        }
+
+        inner(
+            self,
+            forward_type.into(),
+            listen_socket.into(),
+            connect_socket.into(),
+        )
+        .await
     }
 
     /// Terminate the remote connection.
