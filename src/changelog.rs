@@ -7,8 +7,8 @@ use crate::*;
 ///  - `From<SocketAddr> for Socket<'static>`
 ///  - `From<Cow<'a, Path>> for Socket<'a>`
 ///  - `From<&'a Path> for Socket<'a>`
-///  - `From<PathBuf> for Socket<'a>`
-///  - `From<Box<Path>> for Socket<'a>`
+///  - `From<PathBuf> for Socket<'static>`
+///  - `From<Box<Path>> for Socket<'static>`
 ///  - `From<(IpAddr, u16)> for Socket<'static>`
 ///
 /// ## Changed
