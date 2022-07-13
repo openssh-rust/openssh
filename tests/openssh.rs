@@ -731,11 +731,7 @@ async fn remote_socket_forward() {
 
         eprintln!("Requesting port forward");
         session
-            .request_port_forward(
-                ForwardType::Remote,
-                SocketAddr::new(loopback(), *port),
-                Cow::Borrowed(&*unix_socket),
-            )
+            .request_port_forward(ForwardType::Remote, (loopback(), *port), &*unix_socket)
             .await
             .unwrap();
 
@@ -797,13 +793,7 @@ async fn local_socket_forward() {
         let unix_socket = dir.path().join("unix_socket_forwarded");
 
         session
-            .request_port_forward(
-                ForwardType::Local,
-                Socket::UnixSocket {
-                    path: Cow::Borrowed(&unix_socket),
-                },
-                Socket::TcpSocket(SocketAddr::new(loopback(), port)),
-            )
+            .request_port_forward(ForwardType::Local, &*unix_socket, (loopback(), port))
             .await
             .unwrap();
 
