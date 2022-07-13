@@ -8,7 +8,7 @@ use std::borrow::Cow;
 use std::fmt;
 use std::io;
 use std::net::{SocketAddr, ToSocketAddrs};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 /// Type of forwarding
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -62,6 +62,14 @@ impl<'a> From<&'a Path> for Socket<'a> {
     fn from(path: &'a Path) -> Self {
         Socket::UnixSocket {
             path: Cow::Borrowed(path),
+        }
+    }
+}
+
+impl From<PathBuf> for Socket<'static> {
+    fn from(path: PathBuf) -> Self {
+        Socket::UnixSocket {
+            path: Cow::Owned(path),
         }
     }
 }
