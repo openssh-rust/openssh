@@ -49,6 +49,7 @@ jobs:
         env:
           # makes all the ignored tests not ignored
           RUSTFLAGS: --cfg=ci
+          XDG_RUNTIME_DIR: /tmp
       - run: docker logs $(docker ps | grep openssh-server | awk '{print $1}')
         name: ssh container log
         if: ${{ failure() }}

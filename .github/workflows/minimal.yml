@@ -55,6 +55,7 @@ jobs:
         env:
           # makes all the ignored tests not ignored
           RUSTFLAGS: --cfg=ci
+          XDG_RUNTIME_DIR: /tmp
     services:
       openssh:
         image: linuxserver/openssh-server:amd64-latest
