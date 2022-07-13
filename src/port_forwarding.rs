@@ -74,6 +74,14 @@ impl From<PathBuf> for Socket<'static> {
     }
 }
 
+impl From<Box<Path>> for Socket<'static> {
+    fn from(path: Box<Path>) -> Self {
+        Socket::UnixSocket {
+            path: Cow::Owned(path.into()),
+        }
+    }
+}
+
 impl Socket<'_> {
     /// Create a new TcpSocket
     pub fn new<T: ToSocketAddrs>(addr: &T) -> Result<Socket<'static>, io::Error> {
