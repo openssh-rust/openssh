@@ -11,6 +11,7 @@ use crate::*;
 ///  - `From<Box<Path>> for Socket<'static>`
 ///  - `From<(IpAddr, u16)> for Socket<'static>`
 ///  - `From<(Ipv4Addr, u16)> for Socket<'static>`
+///  - `From<(Ipv6Addr, u16)> for Socket<'static>`
 ///
 /// ## Changed
 ///  - [`Session::request_port_forward`] now takes `impl Into<...>`
