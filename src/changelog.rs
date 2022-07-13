@@ -6,6 +6,7 @@ use crate::*;
 /// ## Changed
 ///  - [`Session::request_port_forward`] now takes `impl Into<...>`
 ///    to make it much easier to use.
+///  - [`Socket::new`] now returns `Socket<'static>`
 ///
 /// ## Optimized
 ///  - [`Command::arg`]: Avoid duplicate monomorphization

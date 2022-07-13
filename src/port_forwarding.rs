@@ -46,9 +46,10 @@ pub enum Socket<'a> {
     /// Tcp socket.
     TcpSocket(SocketAddr),
 }
+
 impl Socket<'_> {
     /// Create a new TcpSocket
-    pub fn new<T: ToSocketAddrs>(addr: &T) -> Result<Self, io::Error> {
+    pub fn new<T: ToSocketAddrs>(addr: &T) -> Result<Socket<'static>, io::Error> {
         fn inner(it: &mut dyn Iterator<Item = SocketAddr>) -> Result<Socket<'static>, io::Error> {
             it.next()
                 .ok_or_else(|| {
