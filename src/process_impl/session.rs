@@ -12,7 +12,7 @@ use tempfile::TempDir;
 
 /// Session does not have field "addr" because ssh don't care about
 /// the addr as long as we have the ctl.
-/// It is tested on OpenSSH_8.9p1 Ubuntu-3, OpenSSL 3.0.2 15 Mar 2022.
+/// It is tested on OpenSSH 8.2p1, 8.9p1, 9.0p1
 #[derive(Debug)]
 pub(crate) struct Session {
     tempdir: Option<TempDir>,
