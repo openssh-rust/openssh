@@ -64,6 +64,7 @@ macro_rules! impl_from_addr {
 }
 
 impl_from_addr!(net::IpAddr);
+impl_from_addr!(net::Ipv4Addr);
 
 impl<'a> From<Cow<'a, Path>> for Socket<'a> {
     fn from(path: Cow<'a, Path>) -> Self {
