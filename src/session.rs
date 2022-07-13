@@ -54,12 +54,15 @@ pub struct Session(SessionImp);
 
 impl Session {
     #[cfg(feature = "process-mux")]
-    pub(super) fn new_process_mux(tempdir: TempDir) -> Self {
-        Self(SessionImp::ProcessImpl(process_impl::Session::new(tempdir)))
+    pub(super) fn new_process_mux(tempdir: TempDir, addr: &str) -> Self {
+        Self(SessionImp::ProcessImpl(process_impl::Session::new(
+            tempdir,
+            addr.into(),
+        )))
     }
 
     #[cfg(feature = "native-mux")]
-    pub(super) fn new_native_mux(tempdir: TempDir) -> Self {
+    pub(super) fn new_native_mux(tempdir: TempDir, _addr: &str) -> Self {
         Self(SessionImp::NativeMuxImpl(native_mux_impl::Session::new(
             tempdir,
         )))
@@ -136,7 +139,7 @@ impl Session {
     async fn connect_impl(
         destination: &str,
         check: KnownHosts,
-        f: fn(TempDir) -> Session,
+        f: fn(TempDir, &str) -> Session,
     ) -> Result<Self, Error> {
         let mut s = SessionBuilder::default();
         s.known_hosts_check(check);
