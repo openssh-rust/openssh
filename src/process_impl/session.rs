@@ -47,8 +47,6 @@ impl Session {
             .arg(&*self.ctl)
             .arg("-o")
             .arg("BatchMode=yes")
-            .arg("-o")
-            .arg("UpdateHostKeys=no")
             .args(args)
             .arg("none");
         cmd
