@@ -203,7 +203,7 @@ impl SessionBuilder {
             .await
     }
 
-    pub(super) async fn connect_impl(
+    async fn connect_impl(
         &self,
         destination: &str,
         f: fn(TempDir) -> Session,

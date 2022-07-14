@@ -108,7 +108,10 @@ impl Session {
     #[cfg(feature = "process-mux")]
     #[cfg_attr(docsrs, doc(cfg(feature = "process-mux")))]
     pub async fn connect<S: AsRef<str>>(destination: S, check: KnownHosts) -> Result<Self, Error> {
-        Self::connect_impl(destination.as_ref(), check, Session::new_process_mux).await
+        SessionBuilder::default()
+            .known_hosts_check(check)
+            .connect(destination)
+            .await
     }
 
     /// Connect to the host at the given `host` over SSH using native mux impl, which
@@ -130,17 +133,10 @@ impl Session {
         destination: S,
         check: KnownHosts,
     ) -> Result<Self, Error> {
-        Self::connect_impl(destination.as_ref(), check, Session::new_native_mux).await
-    }
-
-    async fn connect_impl(
-        destination: &str,
-        check: KnownHosts,
-        f: fn(TempDir) -> Session,
-    ) -> Result<Self, Error> {
-        let mut s = SessionBuilder::default();
-        s.known_hosts_check(check);
-        s.connect_impl(destination, f).await
+        SessionBuilder::default()
+            .known_hosts_check(check)
+            .connect_mux(destination)
+            .await
     }
 
     /// Check the status of the underlying SSH connection.
