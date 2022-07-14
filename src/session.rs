@@ -175,11 +175,7 @@ impl Session {
     /// If `program` is not an absolute path, the `PATH` will be searched in an OS-defined way on
     /// the host.
     pub fn command<'a, S: Into<Cow<'a, str>>>(&self, program: S) -> Command<'_> {
-        fn inner<'s>(this: &'s Session, program: Cow<'_, str>) -> Command<'s> {
-            this.raw_command(&*shell_escape::unix::escape(program))
-        }
-
-        inner(self, program.into())
+        self.raw_command(&*shell_escape::unix::escape(program.into()))
     }
 
     /// Constructs a new [`Command`] for launching the program at path `program` on the remote
@@ -199,14 +195,10 @@ impl Session {
     /// If `program` is not an absolute path, the `PATH` will be searched in an OS-defined way on
     /// the host.
     pub fn raw_command<S: AsRef<OsStr>>(&self, program: S) -> Command<'_> {
-        fn inner<'s>(this: &'s Session, program: &OsStr) -> Command<'s> {
-            Command::new(
-                this,
-                delegate!(&this.0, imp, { imp.raw_command(program).into() }),
-            )
-        }
-
-        inner(self, program.as_ref())
+        Command::new(
+            self,
+            delegate!(&self.0, imp, { imp.raw_command(program.as_ref()).into() }),
+        )
     }
 
     /// Constructs a new [`Command`] for launching subsystem `program` on the remote
@@ -260,14 +252,10 @@ impl Session {
     /// # Ok(()) }
     /// ```
     pub fn subsystem<S: AsRef<OsStr>>(&self, program: S) -> Command<'_> {
-        fn inner<'s>(this: &'s Session, program: &OsStr) -> Command<'s> {
-            Command::new(
-                this,
-                delegate!(&this.0, imp, { imp.subsystem(program).into() }),
-            )
-        }
-
-        inner(self, program.as_ref())
+        Command::new(
+            self,
+            delegate!(&self.0, imp, { imp.subsystem(program.as_ref()).into() }),
+        )
     }
 
     /// Constructs a new [`Command`] that runs the provided shell command on the remote host.
@@ -310,13 +298,9 @@ impl Session {
     ///   [this article]: https://mywiki.wooledge.org/Arguments
     ///   [`shell-escape`]: https://crates.io/crates/shell-escape
     pub fn shell<S: AsRef<str>>(&self, command: S) -> Command<'_> {
-        fn inner<'s>(this: &'s Session, command: &str) -> Command<'s> {
-            let mut cmd = this.command("sh");
-            cmd.arg("-c").arg(command);
-            cmd
-        }
-
-        inner(self, command.as_ref())
+        let mut cmd = self.command("sh");
+        cmd.arg("-c").arg(command.as_ref());
+        cmd
     }
 
     /// Request to open a local/remote port forwarding.
