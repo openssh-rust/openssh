@@ -322,9 +322,9 @@ impl Session {
     ) -> Result<(), Error> {
         delegate!(&self.0, imp, {
             imp.request_port_forward(
-                forward_type.into().into(),
-                listen_socket.into().into(),
-                connect_socket.into().into(),
+                forward_type.into(),
+                listen_socket.into(),
+                connect_socket.into(),
             )
             .await
         })
