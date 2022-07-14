@@ -17,23 +17,6 @@ use crate::*;
 ///  - [`Session::request_port_forward`] now takes `impl Into<...>`
 ///    to make it much easier to use.
 ///  - [`Socket::new`] now returns `Socket<'static>`
-///
-/// ## Optimized
-///  - [`Command::arg`]: Avoid duplicate monomorphization
-///  - [`Command::raw_arg`]: Avoid duplicate monomorphization
-///  - [`Command::stdin`]: Avoid duplicate monomorphization
-///  - [`Command::stdout`]: Avoid duplicate monomorphization
-///  - [`Command::stderr`]: Avoid duplicate monomorphization
-///  - [`SessionBuilder::connect`]: Avoid duplicate monomorphization
-///  - [`SessionBuilder::connect_mux`]: Avoid duplicate monomorphization
-///  - [`Session::connect`]: Avoid duplicate monomorphization
-///  - [`Session::connect_mux`]: Avoid duplicate monomorphization
-///  - [`Session::command`]: Avoid duplicate monomorphization
-///  - [`Session::raw_command`]: Avoid duplicate monomorphization
-///  - [`Session::subsystem`]: Avoid duplicate monomorphization
-///  - [`Session::shell`]: Avoid duplicate monomorphization
-///  - [`Socket::new`]: Avoid duplicate monomorphization
-///  - Make [`Session`] more compact: Rm "addr" field in process-mux mode
 #[doc(hidden)]
 pub mod unreleased {}
 
