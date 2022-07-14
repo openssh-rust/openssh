@@ -126,11 +126,7 @@ impl<'s> Command<'s> {
     ///
     /// To pass multiple arguments see [`args`](Command::args).
     pub fn arg<S: AsRef<str>>(&mut self, arg: S) -> &mut Self {
-        fn inner<'cmd, 's>(this: &'cmd mut Command<'s>, arg: &str) -> &'cmd mut Command<'s> {
-            this.raw_arg(&*shell_escape::unix::escape(Cow::Borrowed(arg)))
-        }
-
-        inner(self, arg.as_ref())
+        self.raw_arg(&*shell_escape::unix::escape(Cow::Borrowed(arg.as_ref())))
     }
 
     /// Adds an argument to pass to the remote program.
@@ -142,14 +138,10 @@ impl<'s> Command<'s> {
     ///
     /// To pass multiple unescaped arguments see [`raw_args`](Command::raw_args).
     pub fn raw_arg<S: AsRef<OsStr>>(&mut self, arg: S) -> &mut Self {
-        fn inner<'cmd, 's>(this: &'cmd mut Command<'s>, arg: &OsStr) -> &'cmd mut Command<'s> {
-            delegate!(&mut this.imp, imp, {
-                imp.raw_arg(arg);
-            });
-            this
-        }
-
-        inner(self, arg.as_ref())
+        delegate!(&mut self.imp, imp, {
+            imp.raw_arg(arg.as_ref());
+        });
+        self
     }
 
     /// Adds multiple arguments to pass to the remote program.
@@ -197,15 +189,11 @@ impl<'s> Command<'s> {
     /// [`inherit`]: struct.Stdio.html#method.inherit
     /// [`null`]: struct.Stdio.html#method.null
     pub fn stdin<T: Into<Stdio>>(&mut self, cfg: T) -> &mut Self {
-        fn inner<'cmd, 's>(this: &'cmd mut Command<'s>, cfg: Stdio) -> &'cmd mut Command<'s> {
-            delegate!(&mut this.imp, imp, {
-                imp.stdin(cfg);
-            });
-            this.stdin_set = true;
-            this
-        }
-
-        inner(self, cfg.into())
+        delegate!(&mut self.imp, imp, {
+            imp.stdin(cfg.into());
+        });
+        self.stdin_set = true;
+        self
     }
 
     /// Configuration for the remote process's standard output (stdout) handle.
@@ -216,15 +204,11 @@ impl<'s> Command<'s> {
     /// [`inherit`]: struct.Stdio.html#method.inherit
     /// [`piped`]: struct.Stdio.html#method.piped
     pub fn stdout<T: Into<Stdio>>(&mut self, cfg: T) -> &mut Self {
-        fn inner<'cmd, 's>(this: &'cmd mut Command<'s>, cfg: Stdio) -> &'cmd mut Command<'s> {
-            delegate!(&mut this.imp, imp, {
-                imp.stdout(cfg);
-            });
-            this.stdout_set = true;
-            this
-        }
-
-        inner(self, cfg.into())
+        delegate!(&mut self.imp, imp, {
+            imp.stdout(cfg.into());
+        });
+        self.stdout_set = true;
+        self
     }
 
     /// Configuration for the remote process's standard error (stderr) handle.
@@ -235,15 +219,11 @@ impl<'s> Command<'s> {
     /// [`inherit`]: struct.Stdio.html#method.inherit
     /// [`piped`]: struct.Stdio.html#method.piped
     pub fn stderr<T: Into<Stdio>>(&mut self, cfg: T) -> &mut Self {
-        fn inner<'cmd, 's>(this: &'cmd mut Command<'s>, cfg: Stdio) -> &'cmd mut Command<'s> {
-            delegate!(&mut this.imp, imp, {
-                imp.stderr(cfg);
-            });
-            this.stderr_set = true;
-            this
-        }
-
-        inner(self, cfg.into())
+        delegate!(&mut self.imp, imp, {
+            imp.stderr(cfg.into());
+        });
+        self.stderr_set = true;
+        self
     }
 
     async fn spawn_impl(&mut self) -> Result<RemoteChild<'s>, Error> {
