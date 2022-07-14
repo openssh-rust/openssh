@@ -104,18 +104,18 @@ impl Session {
 
     pub(crate) async fn request_port_forward(
         &self,
-        forward_type: impl Into<ForwardType>,
-        listen_socket: impl Into<Socket<'_>>,
-        connect_socket: impl Into<Socket<'_>>,
+        forward_type: ForwardType,
+        listen_socket: Socket<'_>,
+        connect_socket: Socket<'_>,
     ) -> Result<(), Error> {
-        let flag = match forward_type.into() {
+        let flag = match forward_type {
             ForwardType::Local => OsStr::new("-L"),
             ForwardType::Remote => OsStr::new("-R"),
         };
 
-        let mut forwarding = listen_socket.into().as_os_str().into_owned();
+        let mut forwarding = listen_socket.as_os_str().into_owned();
         forwarding.push(":");
-        forwarding.push(connect_socket.into().as_os_str());
+        forwarding.push(connect_socket.as_os_str());
 
         let port_forwarding = self
             .new_cmd(&[OsStr::new("-fNT"), flag, &*forwarding])

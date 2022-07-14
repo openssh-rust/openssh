@@ -320,25 +320,14 @@ impl Session {
         listen_socket: impl Into<Socket<'_>>,
         connect_socket: impl Into<Socket<'_>>,
     ) -> Result<(), Error> {
-        async fn inner(
-            this: &Session,
-            forward_type: ForwardType,
-            listen_socket: Socket<'_>,
-            connect_socket: Socket<'_>,
-        ) -> Result<(), Error> {
-            delegate!(&this.0, imp, {
-                imp.request_port_forward(forward_type, listen_socket, connect_socket)
-                    .await
-            })
-        }
-
-        inner(
-            self,
-            forward_type.into(),
-            listen_socket.into(),
-            connect_socket.into(),
-        )
-        .await
+        delegate!(&self.0, imp, {
+            imp.request_port_forward(
+                forward_type.into().into(),
+                listen_socket.into().into(),
+                connect_socket.into().into(),
+            )
+            .await
+        })
     }
 
     /// Terminate the remote connection.
