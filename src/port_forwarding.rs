@@ -100,15 +100,10 @@ impl From<Box<Path>> for Socket<'static> {
 impl Socket<'_> {
     /// Create a new TcpSocket
     pub fn new<T: ToSocketAddrs>(addr: &T) -> Result<Socket<'static>, io::Error> {
-        fn inner(it: &mut dyn Iterator<Item = SocketAddr>) -> Result<Socket<'static>, io::Error> {
-            it.next()
-                .ok_or_else(|| {
-                    io::Error::new(io::ErrorKind::Other, "no more socket addresses to try")
-                })
-                .map(Socket::TcpSocket)
-        }
-
-        inner(&mut addr.to_socket_addrs()?)
+        addr.to_socket_addrs()?
+            .next()
+            .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "no more socket addresses to try"))
+            .map(Socket::TcpSocket)
     }
 
     #[cfg(feature = "process-mux")]
