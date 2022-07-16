@@ -10,9 +10,6 @@ use tokio::process;
 
 use tempfile::TempDir;
 
-/// Session does not have field "addr" because ssh don't care about
-/// the addr as long as we have the ctl.
-/// It is tested on OpenSSH 8.2p1, 8.9p1, 9.0p1
 #[derive(Debug)]
 pub(crate) struct Session {
     tempdir: Option<TempDir>,
@@ -48,6 +45,9 @@ impl Session {
             .arg("-o")
             .arg("BatchMode=yes")
             .args(args)
+            // ssh does not care about the addr as long as we have passed
+            // `-S &*self.ctl`.
+            // It is tested on OpenSSH 8.2p1, 8.9p1, 9.0p1
             .arg("none");
         cmd
     }
