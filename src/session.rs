@@ -10,6 +10,8 @@ use std::borrow::Cow;
 use std::ffi::OsStr;
 use std::path::Path;
 
+use tempfile::TempDir;
+
 #[derive(Debug)]
 pub(crate) enum SessionImp {
     #[cfg(feature = "process-mux")]
@@ -48,23 +50,21 @@ macro_rules! delegate {
 #[derive(Debug)]
 pub struct Session(SessionImp);
 
-#[cfg(feature = "process-mux")]
-impl From<process_impl::Session> for Session {
-    fn from(imp: process_impl::Session) -> Self {
-        Self(SessionImp::ProcessImpl(imp))
-    }
-}
-
-#[cfg(feature = "native-mux")]
-impl From<native_mux_impl::Session> for Session {
-    fn from(imp: native_mux_impl::Session) -> Self {
-        Self(SessionImp::NativeMuxImpl(imp))
-    }
-}
-
 // TODO: UserKnownHostsFile for custom known host fingerprint.
 
 impl Session {
+    #[cfg(feature = "process-mux")]
+    pub(super) fn new_process_mux(tempdir: TempDir) -> Self {
+        Self(SessionImp::ProcessImpl(process_impl::Session::new(tempdir)))
+    }
+
+    #[cfg(feature = "native-mux")]
+    pub(super) fn new_native_mux(tempdir: TempDir) -> Self {
+        Self(SessionImp::NativeMuxImpl(native_mux_impl::Session::new(
+            tempdir,
+        )))
+    }
+
     /// Resume the connection using path to control socket and
     /// path to ssh multiplex output log.
     ///
@@ -79,7 +79,9 @@ impl Session {
     #[cfg(feature = "process-mux")]
     #[cfg_attr(docsrs, doc(cfg(feature = "process-mux")))]
     pub fn resume(ctl: Box<Path>, master_log: Option<Box<Path>>) -> Self {
-        process_impl::Session::resume(ctl, master_log).into()
+        Self(SessionImp::ProcessImpl(process_impl::Session::resume(
+            ctl, master_log,
+        )))
     }
 
     /// Same as [`Session::resume`] except that it connects to
@@ -87,7 +89,9 @@ impl Session {
     #[cfg(feature = "native-mux")]
     #[cfg_attr(docsrs, doc(cfg(feature = "native-mux")))]
     pub fn resume_mux(ctl: Box<Path>, master_log: Option<Box<Path>>) -> Self {
-        native_mux_impl::Session::resume(ctl, master_log).into()
+        Self(SessionImp::NativeMuxImpl(native_mux_impl::Session::resume(
+            ctl, master_log,
+        )))
     }
 
     /// Connect to the host at the given `host` over SSH using process impl, which will
@@ -104,9 +108,10 @@ impl Session {
     #[cfg(feature = "process-mux")]
     #[cfg_attr(docsrs, doc(cfg(feature = "process-mux")))]
     pub async fn connect<S: AsRef<str>>(destination: S, check: KnownHosts) -> Result<Self, Error> {
-        let mut s = SessionBuilder::default();
-        s.known_hosts_check(check);
-        s.connect(destination.as_ref()).await
+        SessionBuilder::default()
+            .known_hosts_check(check)
+            .connect(destination)
+            .await
     }
 
     /// Connect to the host at the given `host` over SSH using native mux impl, which
@@ -128,9 +133,10 @@ impl Session {
         destination: S,
         check: KnownHosts,
     ) -> Result<Self, Error> {
-        let mut s = SessionBuilder::default();
-        s.known_hosts_check(check);
-        s.connect_mux(destination.as_ref()).await
+        SessionBuilder::default()
+            .known_hosts_check(check)
+            .connect_mux(destination)
+            .await
     }
 
     /// Check the status of the underlying SSH connection.
@@ -187,7 +193,7 @@ impl Session {
     pub fn raw_command<S: AsRef<OsStr>>(&self, program: S) -> Command<'_> {
         Command::new(
             self,
-            delegate!(&self.0, imp, { imp.raw_command(program).into() }),
+            delegate!(&self.0, imp, { imp.raw_command(program.as_ref()).into() }),
         )
     }
 
@@ -244,7 +250,7 @@ impl Session {
     pub fn subsystem<S: AsRef<OsStr>>(&self, program: S) -> Command<'_> {
         Command::new(
             self,
-            delegate!(&self.0, imp, { imp.subsystem(program).into() }),
+            delegate!(&self.0, imp, { imp.subsystem(program.as_ref()).into() }),
         )
     }
 
@@ -289,7 +295,7 @@ impl Session {
     ///   [`shell-escape`]: https://crates.io/crates/shell-escape
     pub fn shell<S: AsRef<str>>(&self, command: S) -> Command<'_> {
         let mut cmd = self.command("sh");
-        cmd.arg("-c").arg(command);
+        cmd.arg("-c").arg(command.as_ref());
         cmd
     }
 
@@ -306,13 +312,17 @@ impl Session {
     /// openssh multiplex server/master does not support this.
     pub async fn request_port_forward(
         &self,
-        forward_type: ForwardType,
-        listen_socket: Socket<'_>,
-        connect_socket: Socket<'_>,
+        forward_type: impl Into<ForwardType>,
+        listen_socket: impl Into<Socket<'_>>,
+        connect_socket: impl Into<Socket<'_>>,
     ) -> Result<(), Error> {
         delegate!(&self.0, imp, {
-            imp.request_port_forward(forward_type, listen_socket, connect_socket)
-                .await
+            imp.request_port_forward(
+                forward_type.into(),
+                listen_socket.into(),
+                connect_socket.into(),
+            )
+            .await
         })
     }
 
@@ -321,7 +331,12 @@ impl Session {
     /// This destructor terminates the ssh multiplex server
     /// regardless of how it was created.
     pub async fn close(self) -> Result<(), Error> {
-        delegate!(self.0, imp, { imp.close().await })
+        let res: Result<Option<TempDir>, Error> = delegate!(self.0, imp, { imp.close().await });
+
+        res?.map(TempDir::close)
+            .transpose()
+            .map_err(Error::Cleanup)
+            .map(|_| ())
     }
 
     /// Detach the lifetime of underlying ssh multiplex master

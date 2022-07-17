@@ -1,10 +1,9 @@
 use lazy_static::lazy_static;
 use regex::Regex;
-use std::borrow::Cow;
 use std::env;
 use std::io;
 use std::io::Write;
-use std::net::{IpAddr, SocketAddr};
+use std::net::IpAddr;
 use std::path::PathBuf;
 use std::time::Duration;
 use tempfile::tempdir;
@@ -731,13 +730,7 @@ async fn remote_socket_forward() {
 
         eprintln!("Requesting port forward");
         session
-            .request_port_forward(
-                ForwardType::Remote,
-                Socket::TcpSocket(SocketAddr::new(loopback(), *port)),
-                Socket::UnixSocket {
-                    path: Cow::Borrowed(&unix_socket),
-                },
-            )
+            .request_port_forward(ForwardType::Remote, (loopback(), *port), &*unix_socket)
             .await
             .unwrap();
 
@@ -799,13 +792,7 @@ async fn local_socket_forward() {
         let unix_socket = dir.path().join("unix_socket_forwarded");
 
         session
-            .request_port_forward(
-                ForwardType::Local,
-                Socket::UnixSocket {
-                    path: Cow::Borrowed(&unix_socket),
-                },
-                Socket::TcpSocket(SocketAddr::new(loopback(), port)),
-            )
+            .request_port_forward(ForwardType::Local, &*unix_socket, (loopback(), port))
             .await
             .unwrap();
 

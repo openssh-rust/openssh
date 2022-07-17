@@ -23,7 +23,7 @@ impl From<super::process_impl::Command> for CommandImp {
 }
 
 #[cfg(feature = "native-mux")]
-impl<'s> From<super::native_mux_impl::Command> for CommandImp {
+impl From<super::native_mux_impl::Command> for CommandImp {
     fn from(imp: super::native_mux_impl::Command) -> Self {
         CommandImp::NativeMuxImpl(imp)
     }
@@ -139,7 +139,7 @@ impl<'s> Command<'s> {
     /// To pass multiple unescaped arguments see [`raw_args`](Command::raw_args).
     pub fn raw_arg<S: AsRef<OsStr>>(&mut self, arg: S) -> &mut Self {
         delegate!(&mut self.imp, imp, {
-            imp.raw_arg(arg);
+            imp.raw_arg(arg.as_ref());
         });
         self
     }

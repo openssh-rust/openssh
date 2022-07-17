@@ -2,6 +2,21 @@
 use crate::*;
 
 /// TODO: RENAME THIS INTO THE NEXT VERSION BEFORE RELEASE
+///
+/// ## Added
+///  - `From<SocketAddr> for Socket<'static>`
+///  - `From<Cow<'a, Path>> for Socket<'a>`
+///  - `From<&'a Path> for Socket<'a>`
+///  - `From<PathBuf> for Socket<'static>`
+///  - `From<Box<Path>> for Socket<'static>`
+///  - `From<(IpAddr, u16)> for Socket<'static>`
+///  - `From<(Ipv4Addr, u16)> for Socket<'static>`
+///  - `From<(Ipv6Addr, u16)> for Socket<'static>`
+///
+/// ## Changed
+///  - [`Session::request_port_forward`] now takes `impl Into<...>`
+///    to make it much easier to use.
+///  - [`Socket::new`] now returns `Socket<'static>`
 #[doc(hidden)]
 pub mod unreleased {}
 

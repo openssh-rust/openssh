@@ -62,10 +62,7 @@ impl Stdio {
         }
     }
 
-    fn to_output(
-        &self,
-        get_inherit_rawfd: impl FnOnce() -> RawFd,
-    ) -> Result<(Fd, Option<PipeRead>), Error> {
+    fn to_output(&self, get_inherit_rawfd: fn() -> RawFd) -> Result<(Fd, Option<PipeRead>), Error> {
         match &self.0 {
             StdioImpl::Inherit => Ok((Fd::Borrowed(get_inherit_rawfd()), None)),
             StdioImpl::Null => Ok((Fd::Null, None)),

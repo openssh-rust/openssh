@@ -7,8 +7,8 @@ use std::ffi::OsStr;
 use std::borrow::Cow;
 use std::fmt;
 use std::io;
-use std::net::{SocketAddr, ToSocketAddrs};
-use std::path::Path;
+use std::net::{self, SocketAddr, ToSocketAddrs};
+use std::path::{Path, PathBuf};
 
 /// Type of forwarding
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -46,16 +46,64 @@ pub enum Socket<'a> {
     /// Tcp socket.
     TcpSocket(SocketAddr),
 }
+
+impl From<SocketAddr> for Socket<'static> {
+    fn from(addr: SocketAddr) -> Self {
+        Socket::TcpSocket(addr)
+    }
+}
+
+macro_rules! impl_from_addr {
+    ($ip:ty) => {
+        impl From<($ip, u16)> for Socket<'static> {
+            fn from((ip, port): ($ip, u16)) -> Self {
+                SocketAddr::new(ip.into(), port).into()
+            }
+        }
+    };
+}
+
+impl_from_addr!(net::IpAddr);
+impl_from_addr!(net::Ipv4Addr);
+impl_from_addr!(net::Ipv6Addr);
+
+impl<'a> From<Cow<'a, Path>> for Socket<'a> {
+    fn from(path: Cow<'a, Path>) -> Self {
+        Socket::UnixSocket { path }
+    }
+}
+
+impl<'a> From<&'a Path> for Socket<'a> {
+    fn from(path: &'a Path) -> Self {
+        Socket::UnixSocket {
+            path: Cow::Borrowed(path),
+        }
+    }
+}
+
+impl From<PathBuf> for Socket<'static> {
+    fn from(path: PathBuf) -> Self {
+        Socket::UnixSocket {
+            path: Cow::Owned(path),
+        }
+    }
+}
+
+impl From<Box<Path>> for Socket<'static> {
+    fn from(path: Box<Path>) -> Self {
+        Socket::UnixSocket {
+            path: Cow::Owned(path.into()),
+        }
+    }
+}
+
 impl Socket<'_> {
     /// Create a new TcpSocket
-    pub fn new<T: ToSocketAddrs>(addr: &T) -> Result<Self, io::Error> {
-        let mut it = addr.to_socket_addrs()?;
-
-        let addr = it.next().ok_or_else(|| {
-            io::Error::new(io::ErrorKind::Other, "no more socket addresses to try")
-        })?;
-
-        Ok(Socket::TcpSocket(addr))
+    pub fn new<T: ToSocketAddrs>(addr: &T) -> Result<Socket<'static>, io::Error> {
+        addr.to_socket_addrs()?
+            .next()
+            .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "no more socket addresses to try"))
+            .map(Socket::TcpSocket)
     }
 
     #[cfg(feature = "process-mux")]

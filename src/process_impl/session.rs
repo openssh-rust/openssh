@@ -14,19 +14,17 @@ use tempfile::TempDir;
 pub(crate) struct Session {
     tempdir: Option<TempDir>,
     ctl: Box<Path>,
-    addr: Box<str>,
     master_log: Option<Box<Path>>,
 }
 
 impl Session {
-    pub(crate) fn new(tempdir: TempDir, addr: &str) -> Self {
+    pub(crate) fn new(tempdir: TempDir) -> Self {
         let log = tempdir.path().join("log").into_boxed_path();
         let ctl = tempdir.path().join("master").into_boxed_path();
 
         Self {
             tempdir: Some(tempdir),
             ctl,
-            addr: addr.into(),
             master_log: Some(log),
         }
     }
@@ -35,10 +33,6 @@ impl Session {
         Self {
             tempdir: None,
             ctl,
-            // ssh don't care about the addr as long as we have the ctl.
-            //
-            // I tested this behavior on OpenSSH_8.9p1 Ubuntu-3, OpenSSL 3.0.2 15 Mar 2022
-            addr: "none".into(),
             master_log,
         }
     }
@@ -51,7 +45,10 @@ impl Session {
             .arg("-o")
             .arg("BatchMode=yes")
             .args(args)
-            .arg(&*self.addr);
+            // ssh does not care about the addr as long as we have passed
+            // `-S &*self.ctl`.
+            // It is tested on OpenSSH 8.2p1, 8.9p1, 9.0p1
+            .arg("none");
         cmd
     }
 
@@ -107,18 +104,18 @@ impl Session {
 
     pub(crate) async fn request_port_forward(
         &self,
-        forward_type: impl Into<ForwardType>,
-        listen_socket: impl Into<Socket<'_>>,
-        connect_socket: impl Into<Socket<'_>>,
+        forward_type: ForwardType,
+        listen_socket: Socket<'_>,
+        connect_socket: Socket<'_>,
     ) -> Result<(), Error> {
-        let flag = match forward_type.into() {
+        let flag = match forward_type {
             ForwardType::Local => OsStr::new("-L"),
             ForwardType::Remote => OsStr::new("-R"),
         };
 
-        let mut forwarding = listen_socket.into().as_os_str().into_owned();
+        let mut forwarding = listen_socket.as_os_str().into_owned();
         forwarding.push(":");
-        forwarding.push(connect_socket.into().as_os_str());
+        forwarding.push(connect_socket.as_os_str());
 
         let port_forwarding = self
             .new_cmd(&[OsStr::new("-fNT"), flag, &*forwarding])
@@ -178,17 +175,13 @@ impl Session {
         Ok(())
     }
 
-    pub(crate) async fn close(mut self) -> Result<(), Error> {
+    pub(crate) async fn close(mut self) -> Result<Option<TempDir>, Error> {
         // Take self.tempdir so that drop would do nothing
-        if let Some(tempdir) = self.tempdir.take() {
-            self.close_impl().await?;
+        let tempdir = self.tempdir.take();
 
-            tempdir.close().map_err(Error::Cleanup)?;
-        } else {
-            self.close_impl().await?;
-        }
+        self.close_impl().await?;
 
-        Ok(())
+        Ok(tempdir)
     }
 
     pub(crate) fn detach(mut self) -> (Box<Path>, Option<Box<Path>>) {
