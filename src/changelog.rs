@@ -2,7 +2,9 @@
 use crate::*;
 
 /// TODO: RENAME THIS INTO THE NEXT VERSION BEFORE RELEASE
-///
+#[doc(hidden)]
+pub mod unreleased {}
+
 /// ## Added
 ///  - `From<SocketAddr> for Socket<'static>`
 ///  - `From<Cow<'a, Path>> for Socket<'a>`
@@ -18,7 +20,7 @@ use crate::*;
 ///    to make it much easier to use.
 ///  - [`Socket::new`] now returns `Socket<'static>`
 #[doc(hidden)]
-pub mod unreleased {}
+pub mod v0_9_5 {}
 
 /// ## Added
 ///  - [`Session::resume`]
