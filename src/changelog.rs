@@ -19,7 +19,6 @@ pub mod unreleased {}
 ///  - [`Session::request_port_forward`] now takes `impl Into<...>`
 ///    to make it much easier to use.
 ///  - [`Socket::new`] now returns `Socket<'static>`
-#[doc(hidden)]
 pub mod v0_9_5 {}
 
 /// ## Added
@@ -27,7 +26,6 @@ pub mod v0_9_5 {}
 ///  - [`Session::resume_mux`]
 ///  - [`Session::leak`]
 ///  - [`Session::force_terminate`]
-#[doc(hidden)]
 pub mod v0_9_3 {}
 
 /// ## Changed
