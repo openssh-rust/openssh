@@ -166,7 +166,7 @@ impl SessionBuilder {
     /// This is a shortcut to specify a ProxyJump configuration directive.
     ///
     /// Note that configuration directives specified by [`SessionBuilder`]
-    /// does not apply to the jump hosts.
+    /// do not apply to the jump hosts.
     ///
     /// Use ~/.ssh/config to specify configuration for jump hosts.
     pub fn jump_hosts<T: AsRef<str>>(&mut self, hosts: impl IntoIterator<Item = T>) -> &mut Self {
