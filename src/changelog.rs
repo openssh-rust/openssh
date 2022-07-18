@@ -4,9 +4,14 @@ use crate::*;
 /// TODO: RENAME THIS INTO THE NEXT VERSION BEFORE RELEASE
 ///
 /// ## Added
-///  - [`SessionBuilder::jump_hosts`]
+/// ## Changed
+/// ## Removed
 #[doc(hidden)]
 pub mod unreleased {}
+
+/// ## Added
+///  - [`SessionBuilder::jump_hosts`]
+pub mod v0_9_6 {}
 
 /// ## Added
 ///  - `From<SocketAddr> for Socket<'static>`
