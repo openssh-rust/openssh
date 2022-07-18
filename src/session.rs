@@ -225,7 +225,7 @@ impl Session {
     /// # async fn main() -> Result<(), Box<dyn Error>> {
     ///
     /// use openssh::{Session, KnownHosts, Stdio};
-    /// use openssh_sftp_client::highlevel::Sftp;
+    /// use openssh_sftp_client::Sftp;
     ///
     /// let session = Session::connect_mux("me@ssh.example.com", KnownHosts::Strict).await?;
     ///

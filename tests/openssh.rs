@@ -909,7 +909,7 @@ async fn test_detach_and_resume_native_mux() {
 #[tokio::test]
 #[cfg_attr(not(ci), ignore)]
 async fn test_sftp_subsystem() {
-    use openssh_sftp_client::highlevel::Sftp;
+    use openssh_sftp_client::Sftp;
 
     let content = b"This is a test case for the openssh-rust/openssh crate.\n";
 
