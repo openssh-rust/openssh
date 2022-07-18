@@ -2,6 +2,9 @@
 use crate::*;
 
 /// TODO: RENAME THIS INTO THE NEXT VERSION BEFORE RELEASE
+///
+/// ## Added
+///  - [`SessionBuilder::jump_hosts`]
 #[doc(hidden)]
 pub mod unreleased {}
 

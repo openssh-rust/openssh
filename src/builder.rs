@@ -3,6 +3,7 @@ use super::{Error, Session};
 use std::borrow::Cow;
 use std::ffi::OsString;
 use std::fs;
+use std::iter::IntoIterator;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::str;
@@ -45,6 +46,7 @@ pub struct SessionBuilder {
     control_dir: Option<PathBuf>,
     config_file: Option<PathBuf>,
     compression: Option<bool>,
+    jump_hosts: Vec<Box<str>>,
     user_known_hosts_file: Option<Box<Path>>,
 }
 
@@ -60,6 +62,7 @@ impl Default for SessionBuilder {
             control_dir: None,
             config_file: None,
             compression: None,
+            jump_hosts: Vec::new(),
             user_known_hosts_file: None,
         }
     }
@@ -150,6 +153,27 @@ impl SessionBuilder {
     /// by default.
     pub fn compression(&mut self, compression: bool) -> &mut Self {
         self.compression = Some(compression);
+        self
+    }
+
+    /// Specify one or multiple jump hosts.
+    ///
+    /// Connect to the target host by first making a ssh connection to the
+    /// jump host described by destination and then establishing a TCP
+    /// forwarding to the ultimate destination from there.
+    ///
+    /// Multiple jump hops may be specified.
+    /// This is a shortcut to specify a ProxyJump configuration directive.
+    ///
+    /// Note that configuration directives specified by [`SessionBuilder`]
+    /// do not apply to the jump hosts.
+    ///
+    /// Use ~/.ssh/config to specify configuration for jump hosts.
+    pub fn jump_hosts<T: AsRef<str>>(&mut self, hosts: impl IntoIterator<Item = T>) -> &mut Self {
+        self.jump_hosts = hosts
+            .into_iter()
+            .map(|s| s.as_ref().to_string().into_boxed_str())
+            .collect();
         self
     }
 
@@ -315,6 +339,20 @@ impl SessionBuilder {
             let arg = if compression { "yes" } else { "no" };
 
             init.arg("-o").arg(format!("Compression={}", arg));
+        }
+
+        let mut it = self.jump_hosts.iter();
+
+        if let Some(jump_host) = it.next() {
+            let s = jump_host.to_string();
+
+            let dest = it.fold(s, |mut s, jump_host| {
+                s.push(',');
+                s.push_str(jump_host);
+                s
+            });
+
+            init.arg("-J").arg(&dest);
         }
 
         if let Some(user_known_hosts_file) = &self.user_known_hosts_file {
