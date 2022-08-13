@@ -5,8 +5,8 @@ use super::native_mux_impl;
 
 use std::fs::File;
 use std::io;
-use std::os::unix::io::OwnedFd;
 use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
+use std::os::unix::io::{BorrowedFd, OwnedFd};
 use std::pin::Pin;
 use std::process;
 use std::task::{Context, Poll};
@@ -145,7 +145,13 @@ macro_rules! impl_from_impl_child_io {
                 let fd = arg.as_raw_fd();
 
                 // safety: arg.as_raw_fd() is guaranteed to return a valid fd.
-                let fd = unsafe { dup(fd) }?.into_raw_fd();
+                let fd = unsafe { BorrowedFd::borrow_raw(fd) };
+
+                let fd = fd
+                    .try_clone_to_owned()
+                    .map_err(Error::ChildIo)?
+                    .into_raw_fd();
+
                 <$inner>::from_raw_fd_checked(fd)
                     .map(Self)
                     .map_err(Error::ChildIo)
