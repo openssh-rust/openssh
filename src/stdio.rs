@@ -5,8 +5,7 @@ use super::native_mux_impl;
 
 use std::fs::File;
 use std::io;
-use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
-use std::os::unix::io::{BorrowedFd, OwnedFd};
+use std::os::unix::io::{AsRawFd, BorrowedFd, FromRawFd, IntoRawFd, OwnedFd, RawFd};
 use std::pin::Pin;
 use std::process;
 use std::task::{Context, Poll};
