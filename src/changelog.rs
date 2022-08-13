@@ -4,6 +4,7 @@ use crate::*;
 /// TODO: RENAME THIS INTO THE NEXT VERSION BEFORE RELEASE
 ///
 /// ## Added
+///  - `impl From<std::os::unix::io::OwnedFd> for Stdio`
 /// ## Changed
 /// ## Removed
 #[doc(hidden)]
