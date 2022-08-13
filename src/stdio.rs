@@ -3,9 +3,9 @@ use super::Error;
 #[cfg(feature = "native-mux")]
 use super::native_mux_impl;
 
-use io_lifetimes::OwnedFd;
 use std::fs::File;
 use std::io;
+use std::os::unix::io::OwnedFd;
 use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
 use std::pin::Pin;
 use std::process;
