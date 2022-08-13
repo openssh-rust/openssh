@@ -27,6 +27,7 @@ jobs:
         with:
           profile: minimal
           toolchain: ${{ matrix.toolchain }}
+          override: true
       - uses: actions/checkout@v2
       - run: |
           # Wait for startup of openssh-server
