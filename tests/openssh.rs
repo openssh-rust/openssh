@@ -579,7 +579,7 @@ async fn process_exit_on_signal() {
         assert!(matches!(failed, Error::RemoteProcessTerminated));
 
         // the connection should still work though
-        let _ = session.check().await.unwrap();
+        session.check().await.unwrap();
     }
 }
 
