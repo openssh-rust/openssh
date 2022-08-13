@@ -1,4 +1,4 @@
-use lazy_static::lazy_static;
+use once_cell::sync::Lazy;
 use regex::Regex;
 use std::env;
 use std::io;
@@ -136,12 +136,12 @@ struct ProtoUserHostPort<'a> {
 }
 
 fn parse_user_host_port(s: &str) -> Option<ProtoUserHostPort> {
-    lazy_static! {
-        static ref SSH_REGEX: Regex = Regex::new(
-            r"(?x)^((?P<proto>[[:alpha:]]+)://)?((?P<user>.*?)@)?(?P<host>.*?)(:(?P<port>\d+))?$"
+    static SSH_REGEX: Lazy<Regex> = Lazy::new(|| {
+        Regex::new(
+            r"(?x)^((?P<proto>[[:alpha:]]+)://)?((?P<user>.*?)@)?(?P<host>.*?)(:(?P<port>\d+))?$",
         )
-        .unwrap();
-    }
+        .unwrap()
+    });
 
     SSH_REGEX.captures(s).map(|cap| ProtoUserHostPort {
         proto: cap.name("proto").map(|m| m.as_str()),
