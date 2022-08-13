@@ -33,8 +33,7 @@ pub mod v0_9_5 {}
 /// ## Added
 ///  - [`Session::resume`]
 ///  - [`Session::resume_mux`]
-///  - [`Session::leak`]
-///  - [`Session::force_terminate`]
+///  - [`Session::detach`]
 pub mod v0_9_3 {}
 
 /// ## Changed
