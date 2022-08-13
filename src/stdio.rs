@@ -12,16 +12,6 @@ use std::process;
 use std::task::{Context, Poll};
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 
-pub(crate) unsafe fn dup(raw_fd: RawFd) -> Result<OwnedFd, Error> {
-    let res = libc::dup(raw_fd);
-    if res == -1 {
-        Err(Error::ChildIo(io::Error::last_os_error()))
-    } else {
-        // safety: dup returns a valid fd on success.
-        Ok(OwnedFd::from_raw_fd(res))
-    }
-}
-
 #[derive(Debug)]
 pub(crate) enum StdioImpl {
     /// Read/Write to /dev/null
