@@ -4,6 +4,7 @@ use crate::*;
 /// TODO: RENAME THIS INTO THE NEXT VERSION BEFORE RELEASE
 ///
 /// ## Added
+///  - `impl From<std::os::unix::io::OwnedFd> for Stdio`
 /// ## Changed
 /// ## Removed
 #[doc(hidden)]
@@ -32,8 +33,7 @@ pub mod v0_9_5 {}
 /// ## Added
 ///  - [`Session::resume`]
 ///  - [`Session::resume_mux`]
-///  - [`Session::leak`]
-///  - [`Session::force_terminate`]
+///  - [`Session::detach`]
 pub mod v0_9_3 {}
 
 /// ## Changed

@@ -3,24 +3,13 @@ use super::Error;
 #[cfg(feature = "native-mux")]
 use super::native_mux_impl;
 
-use io_lifetimes::OwnedFd;
 use std::fs::File;
 use std::io;
-use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
+use std::os::unix::io::{AsRawFd, BorrowedFd, FromRawFd, IntoRawFd, OwnedFd, RawFd};
 use std::pin::Pin;
 use std::process;
 use std::task::{Context, Poll};
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
-
-pub(crate) unsafe fn dup(raw_fd: RawFd) -> Result<OwnedFd, Error> {
-    let res = libc::dup(raw_fd);
-    if res == -1 {
-        Err(Error::ChildIo(io::Error::last_os_error()))
-    } else {
-        // safety: dup returns a valid fd on success.
-        Ok(OwnedFd::from_raw_fd(res))
-    }
-}
 
 #[derive(Debug)]
 pub(crate) enum StdioImpl {
@@ -72,6 +61,12 @@ impl From<Stdio> for process::Stdio {
             // for invoking from_raw_fd.
             StdioImpl::Fd(fd) => unsafe { process::Stdio::from_raw_fd(IntoRawFd::into_raw_fd(fd)) },
         }
+    }
+}
+
+impl From<OwnedFd> for Stdio {
+    fn from(fd: OwnedFd) -> Self {
+        Self(StdioImpl::Fd(fd))
     }
 }
 
@@ -145,7 +140,13 @@ macro_rules! impl_from_impl_child_io {
                 let fd = arg.as_raw_fd();
 
                 // safety: arg.as_raw_fd() is guaranteed to return a valid fd.
-                let fd = unsafe { dup(fd) }?.into_raw_fd();
+                let fd = unsafe { BorrowedFd::borrow_raw(fd) };
+
+                let fd = fd
+                    .try_clone_to_owned()
+                    .map_err(Error::ChildIo)?
+                    .into_raw_fd();
+
                 <$inner>::from_raw_fd_checked(fd)
                     .map(Self)
                     .map_err(Error::ChildIo)
