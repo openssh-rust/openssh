@@ -10,6 +10,10 @@ use crate::*;
 #[doc(hidden)]
 pub mod unreleased {}
 
+/// ## Changed
+///  - Bumped minimum version of `openssh-mux-client` to 0.15.1
+pub mod v0_9_7 {}
+
 /// ## Added
 ///  - [`SessionBuilder::jump_hosts`]
 pub mod v0_9_6 {}
