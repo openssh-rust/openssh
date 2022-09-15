@@ -28,7 +28,7 @@ chmod 600 .test-key
 mkdir -p "$RUNTIME_DIR/openssh-rs/"
 
 echo Waiting for sshd to be up
-timeout 30 ./wait_for_sshd_start_up.sh
+timeout 120 ./wait_for_sshd_start_up.sh
 
 # Add the ip to  known_hosts file
 ssh -i .test-key -v -p 2222 -l test-user $HOSTNAME -o StrictHostKeyChecking=no -o UserKnownHostsFile="$RUNTIME_DIR/openssh-rs/known_hosts" whoami
