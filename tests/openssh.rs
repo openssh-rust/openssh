@@ -1,15 +1,9 @@
 use once_cell::sync::Lazy;
 use regex::Regex;
-use std::env;
-use std::io;
-use std::io::Write;
-use std::net::IpAddr;
-use std::path::PathBuf;
-use std::time::Duration;
+use std::{env, io, io::Write, net::IpAddr, path::PathBuf, process, time::Duration};
 use tempfile::tempdir;
-
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::{
+    io::{AsyncReadExt, AsyncWriteExt},
     net::{UnixListener, UnixStream},
     time::sleep,
 };
@@ -940,5 +934,25 @@ async fn test_sftp_subsystem() {
         }
 
         sftp.close().await.unwrap();
+    }
+}
+
+#[tokio::test]
+#[cfg_attr(not(ci), ignore)]
+async fn test_read_large_file_bug() {
+    for session in connects().await {
+        let bs = 1024;
+        let count = 20480;
+
+        let process::Output { status, stdout, .. } = session
+            .shell(format!("dd if=/dev/zero bs={bs} count={count}"))
+            .output()
+            .await
+            .unwrap();
+
+        assert!(status.success());
+
+        assert_eq!(stdout.len(), bs * count);
+        stdout.iter().copied().for_each(|byte| assert_eq!(byte, 0));
     }
 }
