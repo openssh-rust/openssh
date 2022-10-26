@@ -962,7 +962,7 @@ async fn test_read_large_file_bug() {
 
         assert!(status.success());
 
-        assert_eq!(stdout.len(), bs * count);
         stdout.iter().copied().for_each(|byte| assert_eq!(byte, 0));
+        assert_eq!(stdout.len(), bs * count);
     }
 }
