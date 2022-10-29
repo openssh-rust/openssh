@@ -974,34 +974,3 @@ async fn test_read_large_file_bug() {
         assert_eq!(stdout.len(), bs * count);
     }
 }
-
-#[tokio::test]
-#[cfg_attr(not(ci), ignore)]
-async fn test_read_large_file_bug2() {
-    for (session, name) in connects_with_name().await {
-        eprintln!("Testing {name} implementation");
-
-        let bs = 1024;
-        let count = 20480;
-
-        let file = tempfile().unwrap();
-
-        let status = session
-            .shell(format!("dd if=/dev/zero bs={bs} count={count}"))
-            .stdout(Stdio::from(file.as_fd().try_clone_to_owned().unwrap()))
-            .spawn()
-            .await
-            .unwrap()
-            .wait()
-            .await
-            .unwrap();
-
-        assert!(status.success());
-
-        let mut stdout = Vec::with_capacity(bs * count);
-        (&file).read_to_end(&mut stdout).unwrap();
-
-        stdout.iter().copied().for_each(|byte| assert_eq!(byte, 0));
-        assert_eq!(stdout.len(), bs * count);
-    }
-}
