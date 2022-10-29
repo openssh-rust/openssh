@@ -1,12 +1,13 @@
-use crate::stdio::StdioImpl;
-use crate::Error;
-use crate::Stdio;
+use crate::{stdio::StdioImpl, Error, Stdio};
 
+use std::{
+    fs::{File, OpenOptions},
+    io,
+    os::unix::io::{AsRawFd, RawFd},
+};
+
+use libc::{c_int, fcntl, F_GETFL, F_SETFL, O_NONBLOCK};
 use once_cell::sync::OnceCell;
-
-use std::fs::{File, OpenOptions};
-use std::io;
-use std::os::unix::io::{AsRawFd, RawFd};
 use tokio_pipe::{pipe, PipeRead, PipeWrite};
 
 fn create_pipe() -> Result<(PipeRead, PipeWrite), Error> {
@@ -35,16 +36,39 @@ pub(crate) enum Fd {
     Null,
 }
 
+fn cvt(ret: c_int) -> io::Result<c_int> {
+    if ret == -1 {
+        Err(io::Error::last_os_error())
+    } else {
+        Ok(ret)
+    }
+}
+
+fn set_blocking(fd: RawFd) -> io::Result<()> {
+    let flags = cvt(unsafe { fcntl(fd, F_GETFL) })?;
+    cvt(unsafe { fcntl(fd, F_SETFL, flags & (!O_NONBLOCK)) })?;
+
+    Ok(())
+}
+
 impl Fd {
     pub(crate) fn as_raw_fd_or_null_fd(&self) -> Result<RawFd, Error> {
         use Fd::*;
 
-        match self {
-            PipeReadEnd(fd) => Ok(AsRawFd::as_raw_fd(fd)),
-            PipeWriteEnd(fd) => Ok(AsRawFd::as_raw_fd(fd)),
+        let fd = match self {
+            PipeReadEnd(fd) => Some(AsRawFd::as_raw_fd(fd)),
+            PipeWriteEnd(fd) => Some(AsRawFd::as_raw_fd(fd)),
 
-            Borrowed(rawfd) => Ok(*rawfd),
-            Null => get_null_fd(),
+            Borrowed(rawfd) => Some(*rawfd),
+            Null => None,
+        };
+
+        if let Some(fd) = fd {
+            set_blocking(fd).map_err(Error::ChildIo)?;
+
+            Ok(fd)
+        } else {
+            get_null_fd()
         }
     }
 }
