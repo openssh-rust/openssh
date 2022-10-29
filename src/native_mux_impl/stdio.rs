@@ -3,7 +3,7 @@ use crate::{stdio::StdioImpl, Error, Stdio};
 use std::{
     fs::{File, OpenOptions},
     io,
-    os::unix::io::{AsRawFd, RawFd},
+    os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, OwnedFd, RawFd},
 };
 
 use libc::{c_int, fcntl, F_GETFL, F_SETFL, O_NONBLOCK};
@@ -29,9 +29,7 @@ fn get_null_fd() -> Result<RawFd, Error> {
 }
 
 pub(crate) enum Fd {
-    PipeReadEnd(PipeRead),
-    PipeWriteEnd(PipeWrite),
-
+    Owned(OwnedFd),
     Borrowed(RawFd),
     Null,
 }
@@ -56,9 +54,7 @@ impl Fd {
         use Fd::*;
 
         let fd = match self {
-            PipeReadEnd(fd) => Some(AsRawFd::as_raw_fd(fd)),
-            PipeWriteEnd(fd) => Some(AsRawFd::as_raw_fd(fd)),
-
+            Owned(owned_fd) => Some(owned_fd.as_raw_fd()),
             Borrowed(rawfd) => Some(*rawfd),
             Null => None,
         };
@@ -71,6 +67,12 @@ impl Fd {
             get_null_fd()
         }
     }
+
+    fn new_owned<T: IntoRawFd>(fd: T) -> Self {
+        let raw_fd = fd.into_raw_fd();
+        // Safety: IntoRawFd::into_raw_fd must return a valid raw fd.
+        unsafe { Fd::Owned(OwnedFd::from_raw_fd(raw_fd)) }
+    }
 }
 
 impl Stdio {
@@ -80,7 +82,7 @@ impl Stdio {
             StdioImpl::Null => Ok((Fd::Null, None)),
             StdioImpl::Pipe => {
                 let (read, write) = create_pipe()?;
-                Ok((Fd::PipeReadEnd(read), Some(write)))
+                Ok((Fd::new_owned(read), Some(write)))
             }
             StdioImpl::Fd(fd) => Ok((Fd::Borrowed(fd.as_raw_fd()), None)),
         }
@@ -92,7 +94,7 @@ impl Stdio {
             StdioImpl::Null => Ok((Fd::Null, None)),
             StdioImpl::Pipe => {
                 let (read, write) = create_pipe()?;
-                Ok((Fd::PipeWriteEnd(write), Some(read)))
+                Ok((Fd::new_owned(write), Some(read)))
             }
             StdioImpl::Fd(fd) => Ok((Fd::Borrowed(fd.as_raw_fd()), None)),
         }
