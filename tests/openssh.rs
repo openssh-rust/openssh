@@ -1,7 +1,15 @@
 use once_cell::sync::Lazy;
 use regex::Regex;
-use std::{env, io, io::Write, net::IpAddr, path::PathBuf, process, time::Duration};
-use tempfile::tempdir;
+use std::{
+    env,
+    io::{self, Read, Write},
+    net::IpAddr,
+    os::unix::io::AsFd,
+    path::PathBuf,
+    process,
+    time::Duration,
+};
+use tempfile::{tempdir, tempfile};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::{UnixListener, UnixStream},
@@ -961,6 +969,37 @@ async fn test_read_large_file_bug() {
             .unwrap();
 
         assert!(status.success());
+
+        stdout.iter().copied().for_each(|byte| assert_eq!(byte, 0));
+        assert_eq!(stdout.len(), bs * count);
+    }
+}
+
+#[tokio::test]
+#[cfg_attr(not(ci), ignore)]
+async fn test_read_large_file_bug2() {
+    for (session, name) in connects_with_name().await {
+        eprintln!("Testing {name} implementation");
+
+        let bs = 1024;
+        let count = 20480;
+
+        let file = tempfile().unwrap();
+
+        let status = session
+            .shell(format!("dd if=/dev/zero bs={bs} count={count}"))
+            .stdout(Stdio::from(file.as_fd().try_clone_to_owned().unwrap()))
+            .spawn()
+            .await
+            .unwrap()
+            .wait()
+            .await
+            .unwrap();
+
+        assert!(status.success());
+
+        let mut stdout = Vec::with_capacity(bs * count);
+        (&file).read_to_end(&mut stdout).unwrap();
 
         stdout.iter().copied().for_each(|byte| assert_eq!(byte, 0));
         assert_eq!(stdout.len(), bs * count);
