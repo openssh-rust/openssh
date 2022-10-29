@@ -2,14 +2,13 @@ use once_cell::sync::Lazy;
 use regex::Regex;
 use std::{
     env,
-    io::{self, Read, Write},
+    io::{self, Write},
     net::IpAddr,
-    os::unix::io::AsFd,
     path::PathBuf,
     process,
     time::Duration,
 };
-use tempfile::{tempdir, tempfile};
+use tempfile::tempdir;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::{UnixListener, UnixStream},
