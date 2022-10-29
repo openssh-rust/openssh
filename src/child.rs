@@ -169,9 +169,12 @@ impl<'s> RemoteChild<'s> {
 
         // Execute them concurrently to avoid the pipe buffer being filled up
         // and cause the remote process to block forever.
-        let (status, stdout, stderr) = try_join!(self.wait(), stdout_read, stderr_read)?;
+        let (stdout, stderr) = try_join!(stdout_read, stderr_read)?;
         Ok(Output {
-            status,
+            // Once self.wait().await is done, the connection to the multiplex
+            // server would also be dropped and the server would stop
+            // sending data to stdout/stderr.
+            status: self.wait().await?,
             stdout,
             stderr,
         })
