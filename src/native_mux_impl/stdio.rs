@@ -68,10 +68,29 @@ impl Fd {
         }
     }
 
-    fn new_owned<T: IntoRawFd>(fd: T) -> Self {
+    unsafe fn new_owned<T: IntoRawFd>(fd: T) -> Self {
         let raw_fd = fd.into_raw_fd();
-        // Safety: IntoRawFd::into_raw_fd must return a valid raw fd.
-        unsafe { Fd::Owned(OwnedFd::from_raw_fd(raw_fd)) }
+        Fd::Owned(OwnedFd::from_raw_fd(raw_fd))
+    }
+}
+
+impl From<PipeRead> for Fd {
+    fn from(pipe_read: PipeRead) -> Self {
+        // Safety:
+        //
+        // PipeRead::into_raw_fd returns a valid fd and transfers the
+        // ownership of it.
+        unsafe { Self::new_owned(pipe_read) }
+    }
+}
+
+impl From<PipeWrite> for Fd {
+    fn from(pipe_write: PipeWrite) -> Self {
+        // Safety:
+        //
+        // PipeWrite::into_raw_fd returns a valid fd and transfers the
+        // ownership of it.
+        unsafe { Self::new_owned(pipe_write) }
     }
 }
 
@@ -82,7 +101,7 @@ impl Stdio {
             StdioImpl::Null => Ok((Fd::Null, None)),
             StdioImpl::Pipe => {
                 let (read, write) = create_pipe()?;
-                Ok((Fd::new_owned(read), Some(write)))
+                Ok((read.into(), Some(write)))
             }
             StdioImpl::Fd(fd) => Ok((Fd::Borrowed(fd.as_raw_fd()), None)),
         }
@@ -94,7 +113,7 @@ impl Stdio {
             StdioImpl::Null => Ok((Fd::Null, None)),
             StdioImpl::Pipe => {
                 let (read, write) = create_pipe()?;
-                Ok((Fd::new_owned(write), Some(read)))
+                Ok((write.into(), Some(read)))
             }
             StdioImpl::Fd(fd) => Ok((Fd::Borrowed(fd.as_raw_fd()), None)),
         }
