@@ -68,6 +68,10 @@ impl Fd {
         }
     }
 
+    /// # Safety
+    ///
+    /// `T::into_raw_fd` must return a valid fd and transfers
+    /// the ownershipt of it.
     unsafe fn new_owned<T: IntoRawFd>(fd: T) -> Self {
         let raw_fd = fd.into_raw_fd();
         Fd::Owned(OwnedFd::from_raw_fd(raw_fd))
