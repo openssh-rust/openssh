@@ -174,9 +174,12 @@ impl<'s> RemoteChild<'s> {
         // and cause the remote process to block forever.
         let (stdout, stderr) = try_join!(stdout_read, stderr_read)?;
         Ok(Output {
-            // Once self.wait().await is done, the connection to the multiplex
-            // server will also be dropped and the server will stop sending
-            // data to stdout/stderr.
+            // The self.wait() future terminates the stdout and stderr futures
+            // when it resolves, even if there may still be more data arriving
+            // from the server.
+            //
+            // Therefore, we wait for them first, and only once they're complete
+            // do we wait for the process to have terminated.
             status: self.wait().await?,
             stdout,
             stderr,
