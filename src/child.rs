@@ -175,8 +175,8 @@ impl<'s> RemoteChild<'s> {
         let (stdout, stderr) = try_join!(stdout_read, stderr_read)?;
         Ok(Output {
             // Once self.wait().await is done, the connection to the multiplex
-            // server would also be dropped and the server would stop
-            // sending data to stdout/stderr.
+            // server will also be dropped and the server will stop sending
+            // data to stdout/stderr.
             status: self.wait().await?,
             stdout,
             stderr,
