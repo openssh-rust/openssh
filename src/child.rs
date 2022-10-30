@@ -62,7 +62,7 @@ macro_rules! delegate {
 /// available,`Stdio::piped()` should be passed to the corresponding method on
 /// [`Command`](crate::Command).
 ///
-/// NOTE that once `RemoteChild` is dropped, any data written to `stdin` will not be send to the
+/// NOTE that once `RemoteChild` is dropped, any data written to `stdin` will not be sent to the
 /// remote process and `stdout` and `stderr` would eof immediately.
 ///
 /// ```rust,no_run
