@@ -42,11 +42,15 @@ fn cvt(ret: c_int) -> io::Result<c_int> {
     }
 }
 
-fn set_blocking(fd: RawFd) -> io::Result<()> {
+fn set_blocking_inner(fd: RawFd) -> io::Result<()> {
     let flags = cvt(unsafe { fcntl(fd, F_GETFL) })?;
     cvt(unsafe { fcntl(fd, F_SETFL, flags & (!O_NONBLOCK)) })?;
 
     Ok(())
+}
+
+fn set_blocking(fd: RawFd) -> Result<(), Error> {
+    set_blocking_inner(fd).map_err(Error::ChildIo)
 }
 
 impl Fd {
@@ -66,12 +70,7 @@ impl Fd {
     /// the ownershipt of it.
     unsafe fn new_owned<T: IntoRawFd>(fd: T) -> Result<Self, Error> {
         let raw_fd = fd.into_raw_fd();
-        // Create owned_fd so that the fd will be closed on error
-        let owned_fd = OwnedFd::from_raw_fd(raw_fd);
-
-        set_blocking(raw_fd).map_err(Error::ChildIo)?;
-
-        Ok(Fd::Owned(owned_fd))
+        Ok(Fd::Owned(OwnedFd::from_raw_fd(raw_fd)))
     }
 }
 
@@ -106,12 +105,16 @@ impl Stdio {
             StdioImpl::Null => Ok((Fd::Null, None)),
             StdioImpl::Pipe => {
                 let (read, write) = create_pipe()?;
+
+                // read end will be sent to ssh multiplex server
+                // and it expects blocking fd.
+                set_blocking(read.as_raw_fd())?;
                 Ok((read.try_into()?, Some(write)))
             }
             StdioImpl::Fd(fd, owned) => {
                 let raw_fd = fd.as_raw_fd();
                 if *owned {
-                    set_blocking(raw_fd).map_err(Error::ChildIo)?;
+                    set_blocking(raw_fd)?;
                 }
                 Ok((Fd::Borrowed(raw_fd), None))
             }
@@ -124,12 +127,16 @@ impl Stdio {
             StdioImpl::Null => Ok((Fd::Null, None)),
             StdioImpl::Pipe => {
                 let (read, write) = create_pipe()?;
+
+                // write end will be sent to ssh multiplex server
+                // and it expects blocking fd.
+                set_blocking(write.as_raw_fd())?;
                 Ok((write.try_into()?, Some(read)))
             }
             StdioImpl::Fd(fd, owned) => {
                 let raw_fd = fd.as_raw_fd();
                 if *owned {
-                    set_blocking(raw_fd).map_err(Error::ChildIo)?;
+                    set_blocking(raw_fd)?;
                 }
                 Ok((Fd::Borrowed(raw_fd), None))
             }
