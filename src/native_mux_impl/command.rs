@@ -1,6 +1,6 @@
 use super::Error;
 use super::RemoteChild;
-use super::{ChildStderr, ChildStdin, ChildStdout, Stdio};
+use super::{stdio::set_blocking, ChildStderr, ChildStdin, ChildStdout, Stdio};
 
 use std::borrow::Cow;
 use std::ffi::OsStr;
@@ -70,6 +70,10 @@ impl Command {
             stdout.as_raw_fd_or_null_fd()?,
             stderr.as_raw_fd_or_null_fd()?,
         ];
+
+        for stdio in stdios {
+            set_blocking(stdio).map_err(Error::ChildIo)?;
+        }
 
         let cmd = NonZeroByteSlice::new(&self.cmd).ok_or(Error::InvalidCommand)?;
 

@@ -42,7 +42,7 @@ fn cvt(ret: c_int) -> io::Result<c_int> {
     }
 }
 
-fn set_blocking(fd: RawFd) -> io::Result<()> {
+pub(super) fn set_blocking(fd: RawFd) -> io::Result<()> {
     let flags = cvt(unsafe { fcntl(fd, F_GETFL) })?;
     cvt(unsafe { fcntl(fd, F_SETFL, flags & (!O_NONBLOCK)) })?;
 
@@ -53,18 +53,10 @@ impl Fd {
     pub(crate) fn as_raw_fd_or_null_fd(&self) -> Result<RawFd, Error> {
         use Fd::*;
 
-        let fd = match self {
-            Owned(owned_fd) => Some(owned_fd.as_raw_fd()),
-            Borrowed(rawfd) => Some(*rawfd),
-            Null => None,
-        };
-
-        if let Some(fd) = fd {
-            set_blocking(fd).map_err(Error::ChildIo)?;
-
-            Ok(fd)
-        } else {
-            get_null_fd()
+        match self {
+            Owned(owned_fd) => Ok(owned_fd.as_raw_fd()),
+            Borrowed(rawfd) => Ok(*rawfd),
+            Null => get_null_fd(),
         }
     }
 
