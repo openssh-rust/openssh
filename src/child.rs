@@ -63,7 +63,7 @@ macro_rules! delegate {
 /// [`Command`](crate::Command).
 ///
 /// NOTE that once `RemoteChild` is dropped, any data written to `stdin` will not be sent to the
-/// remote process and `stdout` and `stderr` would eof immediately.
+/// remote process and `stdout` and `stderr` will yield EOF immediately.
 ///
 /// ```rust,no_run
 /// # async fn foo() {
