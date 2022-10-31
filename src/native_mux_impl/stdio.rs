@@ -42,7 +42,7 @@ fn cvt(ret: c_int) -> io::Result<c_int> {
     }
 }
 
-pub(super) fn set_blocking(fd: RawFd) -> io::Result<()> {
+fn set_blocking(fd: RawFd) -> io::Result<()> {
     let flags = cvt(unsafe { fcntl(fd, F_GETFL) })?;
     cvt(unsafe { fcntl(fd, F_SETFL, flags & (!O_NONBLOCK)) })?;
 
@@ -64,14 +64,21 @@ impl Fd {
     ///
     /// `T::into_raw_fd` must return a valid fd and transfers
     /// the ownershipt of it.
-    unsafe fn new_owned<T: IntoRawFd>(fd: T) -> Self {
+    unsafe fn new_owned<T: IntoRawFd>(fd: T) -> Result<Self, Error> {
         let raw_fd = fd.into_raw_fd();
-        Fd::Owned(OwnedFd::from_raw_fd(raw_fd))
+        // Create owned_fd so that the fd will be closed on error
+        let owned_fd = OwnedFd::from_raw_fd(raw_fd);
+
+        set_blocking(raw_fd).map_err(Error::ChildIo)?;
+
+        Ok(Fd::Owned(owned_fd))
     }
 }
 
-impl From<PipeRead> for Fd {
-    fn from(pipe_read: PipeRead) -> Self {
+impl TryFrom<PipeRead> for Fd {
+    type Error = Error;
+
+    fn try_from(pipe_read: PipeRead) -> Result<Self, Error> {
         // Safety:
         //
         // PipeRead::into_raw_fd returns a valid fd and transfers the
@@ -80,8 +87,10 @@ impl From<PipeRead> for Fd {
     }
 }
 
-impl From<PipeWrite> for Fd {
-    fn from(pipe_write: PipeWrite) -> Self {
+impl TryFrom<PipeWrite> for Fd {
+    type Error = Error;
+
+    fn try_from(pipe_write: PipeWrite) -> Result<Self, Error> {
         // Safety:
         //
         // PipeWrite::into_raw_fd returns a valid fd and transfers the
@@ -97,9 +106,15 @@ impl Stdio {
             StdioImpl::Null => Ok((Fd::Null, None)),
             StdioImpl::Pipe => {
                 let (read, write) = create_pipe()?;
-                Ok((read.into(), Some(write)))
+                Ok((read.try_into()?, Some(write)))
             }
-            StdioImpl::Fd(fd) => Ok((Fd::Borrowed(fd.as_raw_fd()), None)),
+            StdioImpl::Fd(fd, owned) => {
+                let raw_fd = fd.as_raw_fd();
+                if *owned {
+                    set_blocking(raw_fd).map_err(Error::ChildIo)?;
+                }
+                Ok((Fd::Borrowed(raw_fd), None))
+            }
         }
     }
 
@@ -109,9 +124,15 @@ impl Stdio {
             StdioImpl::Null => Ok((Fd::Null, None)),
             StdioImpl::Pipe => {
                 let (read, write) = create_pipe()?;
-                Ok((write.into(), Some(read)))
+                Ok((write.try_into()?, Some(read)))
             }
-            StdioImpl::Fd(fd) => Ok((Fd::Borrowed(fd.as_raw_fd()), None)),
+            StdioImpl::Fd(fd, owned) => {
+                let raw_fd = fd.as_raw_fd();
+                if *owned {
+                    set_blocking(raw_fd).map_err(Error::ChildIo)?;
+                }
+                Ok((Fd::Borrowed(raw_fd), None))
+            }
         }
     }
 

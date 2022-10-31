@@ -1,6 +1,6 @@
 use super::Error;
 use super::RemoteChild;
-use super::{stdio::set_blocking, ChildStderr, ChildStdin, ChildStdout, Stdio};
+use super::{ChildStderr, ChildStdin, ChildStdout, Stdio};
 
 use std::borrow::Cow;
 use std::ffi::OsStr;
@@ -70,27 +70,6 @@ impl Command {
             stdout.as_raw_fd_or_null_fd()?,
             stderr.as_raw_fd_or_null_fd()?,
         ];
-
-        let is_inherited = [
-            self.stdin_v.is_inherited(),
-            self.stdout_v.is_inherited(),
-            self.stderr_v.is_inherited(),
-        ];
-
-        stdios
-            .into_iter()
-            .zip(is_inherited)
-            .filter_map(|(stdio, is_inherited)| if !is_inherited { Some(stdio) } else { None })
-            // Note that once we do this, these file descriptors
-            // (and the Fds we got them from above) should no longer be used in
-            // any async context, as they'd start blocking.
-            //
-            // We give away the descriptors in stdios when we pass them to
-            // open_new_session (which doesn't use them in an async context),
-            // and the Fds are dropped when this function returns, meaning no
-            // owned file descriptors we set to be blocking here can be used in
-            // an async context in the future.
-            .try_for_each(|stdio| set_blocking(stdio).map_err(Error::ChildIo))?;
 
         let cmd = NonZeroByteSlice::new(&self.cmd).ok_or(Error::InvalidCommand)?;
 
