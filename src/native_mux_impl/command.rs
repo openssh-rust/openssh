@@ -71,9 +71,17 @@ impl Command {
             stderr.as_raw_fd_or_null_fd()?,
         ];
 
-        for stdio in stdios {
-            set_blocking(stdio).map_err(Error::ChildIo)?;
-        }
+        let is_inherited = [
+            self.stdin_v.is_inherited(),
+            self.stdout_v.is_inherited(),
+            self.stderr_v.is_inherited(),
+        ];
+
+        stdios
+            .into_iter()
+            .zip(is_inherited)
+            .filter_map(|(stdio, is_inherited)| if !is_inherited { Some(stdio) } else { None })
+            .try_for_each(|stdio| set_blocking(stdio).map_err(Error::ChildIo))?;
 
         let cmd = NonZeroByteSlice::new(&self.cmd).ok_or(Error::InvalidCommand)?;
 

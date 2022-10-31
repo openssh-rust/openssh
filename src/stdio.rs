@@ -43,6 +43,11 @@ impl Stdio {
     pub const fn inherit() -> Self {
         Self(StdioImpl::Inherit)
     }
+
+    #[cfg(feature = "native-mux")]
+    pub(super) fn is_inherited(&self) -> bool {
+        matches!(self.0, StdioImpl::Inherit)
+    }
 }
 impl FromRawFd for Stdio {
     unsafe fn from_raw_fd(fd: RawFd) -> Self {
