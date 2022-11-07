@@ -47,6 +47,19 @@ impl Stdio {
     pub const fn inherit() -> Self {
         Self(StdioImpl::Inherit)
     }
+
+    /// `Stdio::from_raw_fd_owned` takes ownership of the fd passed in
+    /// and closes the fd on drop.
+    ///
+    /// NOTE that the fd will be put into blocking mode, then it will be
+    /// closed when `Stdio` is dropped.
+    ///
+    /// # Safety
+    ///
+    /// * `fd` - must be a valid fd and must give its ownership to `Stdio`.
+    pub unsafe fn from_raw_fd_owned(fd: RawFd) -> Self {
+        Self(StdioImpl::Fd(OwnedFd::from_raw_fd(fd), true))
+    }
 }
 /// FromRawFd takes ownership of the fd passed in
 /// and closes the fd on drop.
