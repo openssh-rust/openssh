@@ -108,10 +108,27 @@ macro_rules! impl_from_for_stdio {
             }
         }
     };
+    (deprecated $type:ty) => {
+        #[allow(useless_deprecated)]
+        #[deprecated(
+            since = "0.9.8",
+            note = "Use From<OwnedFd> for Stdio or Stdio::from_raw_fd_owned instead"
+        )]
+        /// deprecated, use `From<OwnedFd> for Stdio` or
+        /// [`Stdio::from_raw_fd_owned`] instead.
+        impl From<$type> for Stdio {
+            fn from(arg: $type) -> Self {
+                let fd = arg.into_raw_fd();
+                // safety: $type must have a valid into_raw_fd implementation
+                // and must not be RawFd.
+                Self(StdioImpl::Fd(unsafe { OwnedFd::from_raw_fd(fd) }, true))
+            }
+        }
+    };
 }
 
-impl_from_for_stdio!(tokio_pipe::PipeWrite);
-impl_from_for_stdio!(tokio_pipe::PipeRead);
+impl_from_for_stdio!(deprecated tokio_pipe::PipeWrite);
+impl_from_for_stdio!(deprecated tokio_pipe::PipeRead);
 
 impl_from_for_stdio!(process::ChildStdin);
 impl_from_for_stdio!(process::ChildStdout);
