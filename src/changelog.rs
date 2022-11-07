@@ -5,7 +5,13 @@ use crate::*;
 ///
 /// ## Added
 ///  - `impl From<std::os::unix::io::OwnedFd> for Stdio`
+///  -  Add new fn `Stdio::from_raw_fd_owned`
 /// ## Changed
+///  - Mark `FromRawFd` impl for `Stdio` as deprecated
+///  - Mark `From<tokio_pipe::PipeRead>` for `Stdio` as deprecated
+///  - Mark `From<tokio_pipe::PipeWrite>` for `Stdio` as deprecated
+/// ## Fixed
+///  - [`wait_with_output` + `native-mux` cuts off stdout output](https://github.com/openssh-rust/openssh/issues/103)
 /// ## Removed
 #[doc(hidden)]
 pub mod unreleased {}
