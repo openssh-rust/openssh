@@ -1,15 +1,16 @@
 use once_cell::sync::Lazy;
 use regex::Regex;
-use std::env;
-use std::io;
-use std::io::Write;
-use std::net::IpAddr;
-use std::path::PathBuf;
-use std::time::Duration;
+use std::{
+    env,
+    io::{self, Write},
+    net::IpAddr,
+    path::PathBuf,
+    process,
+    time::Duration,
+};
 use tempfile::tempdir;
-
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::{
+    io::{AsyncReadExt, AsyncWriteExt},
     net::{UnixListener, UnixStream},
     time::sleep,
 };
@@ -52,7 +53,7 @@ async fn session_builder_connect(mut builder: SessionBuilder, addr: &str) -> Vec
     sessions
 }
 
-async fn connects() -> Vec<Session> {
+async fn connects_with_name() -> Vec<(Session, &'static str)> {
     let mut sessions = Vec::with_capacity(2);
 
     let mut builder = SessionBuilder::default();
@@ -63,15 +64,23 @@ async fn connects() -> Vec<Session> {
 
     #[cfg(feature = "process-mux")]
     {
-        sessions.push(builder.connect(&addr()).await.unwrap());
+        sessions.push((builder.connect(&addr()).await.unwrap(), "process-mux"));
     }
 
     #[cfg(feature = "native-mux")]
     {
-        sessions.push(builder.connect_mux(&addr()).await.unwrap());
+        sessions.push((builder.connect_mux(&addr()).await.unwrap(), "native-mux"));
     }
 
     sessions
+}
+
+async fn connects() -> Vec<Session> {
+    connects_with_name()
+        .await
+        .into_iter()
+        .map(|(session, _name)| session)
+        .collect()
 }
 
 async fn connects_err(host: &str) -> Vec<Error> {
@@ -940,5 +949,27 @@ async fn test_sftp_subsystem() {
         }
 
         sftp.close().await.unwrap();
+    }
+}
+
+#[tokio::test]
+#[cfg_attr(not(ci), ignore)]
+async fn test_read_large_file_bug() {
+    for (session, name) in connects_with_name().await {
+        eprintln!("Testing {name} implementation");
+
+        let bs = 1024;
+        let count = 20480;
+
+        let process::Output { status, stdout, .. } = session
+            .shell(format!("dd if=/dev/zero bs={bs} count={count}"))
+            .output()
+            .await
+            .unwrap();
+
+        assert!(status.success());
+
+        stdout.iter().copied().for_each(|byte| assert_eq!(byte, 0));
+        assert_eq!(stdout.len(), bs * count);
     }
 }

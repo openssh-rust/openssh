@@ -18,7 +18,7 @@ pub(crate) enum StdioImpl {
     /// Read/Write to a newly created pipe
     Pipe,
     /// Read/Write to custom fd
-    Fd(OwnedFd),
+    Fd(OwnedFd, bool),
     /// Inherit stdin/stdout/stderr
     Inherit,
 }
@@ -40,13 +40,40 @@ impl Stdio {
     }
 
     /// The child inherits from the corresponding parent descriptor.
+    ///
+    /// NOTE that the stdio fd must be in blocking mode, otherwise
+    /// ssh might not flush all output since it considers
+    /// (`EAGAIN`/`EWOULDBLOCK`) as an error
     pub const fn inherit() -> Self {
         Self(StdioImpl::Inherit)
     }
+
+    /// `Stdio::from_raw_fd_owned` takes ownership of the fd passed in
+    /// and closes the fd on drop.
+    ///
+    /// NOTE that the fd will be put into blocking mode, then it will be
+    /// closed when `Stdio` is dropped.
+    ///
+    /// # Safety
+    ///
+    /// * `fd` - must be a valid fd and must give its ownership to `Stdio`.
+    pub unsafe fn from_raw_fd_owned(fd: RawFd) -> Self {
+        Self(StdioImpl::Fd(OwnedFd::from_raw_fd(fd), true))
+    }
 }
+/// **Deprecated, use [`Stdio::from_raw_fd_owned`] instead.**
+///
+/// FromRawFd takes ownership of the fd passed in
+/// and closes the fd on drop.
+///
+/// NOTE that the fd must be in blocking mode, otherwise
+/// ssh might not flush all output since it considers
+/// (`EAGAIN`/`EWOULDBLOCK`) as an error
+#[allow(useless_deprecated)]
+#[deprecated(since = "0.9.8", note = "Use Stdio::from_raw_fd_owned instead")]
 impl FromRawFd for Stdio {
     unsafe fn from_raw_fd(fd: RawFd) -> Self {
-        Self(StdioImpl::Fd(OwnedFd::from_raw_fd(fd)))
+        Self(StdioImpl::Fd(OwnedFd::from_raw_fd(fd), false))
     }
 }
 impl From<Stdio> for process::Stdio {
@@ -59,14 +86,16 @@ impl From<Stdio> for process::Stdio {
             // safety: StdioImpl(fd) is only constructed from known-valid and
             // owned file descriptors by virtue of the safety requirement
             // for invoking from_raw_fd.
-            StdioImpl::Fd(fd) => unsafe { process::Stdio::from_raw_fd(IntoRawFd::into_raw_fd(fd)) },
+            StdioImpl::Fd(fd, _) => unsafe {
+                process::Stdio::from_raw_fd(IntoRawFd::into_raw_fd(fd))
+            },
         }
     }
 }
 
 impl From<OwnedFd> for Stdio {
     fn from(fd: OwnedFd) -> Self {
-        Self(StdioImpl::Fd(fd))
+        Self(StdioImpl::Fd(fd, true))
     }
 }
 
@@ -77,14 +106,31 @@ macro_rules! impl_from_for_stdio {
                 let fd = arg.into_raw_fd();
                 // safety: $type must have a valid into_raw_fd implementation
                 // and must not be RawFd.
-                unsafe { Self::from_raw_fd(fd) }
+                Self(StdioImpl::Fd(unsafe { OwnedFd::from_raw_fd(fd) }, true))
+            }
+        }
+    };
+    (deprecated $type:ty) => {
+        #[allow(useless_deprecated)]
+        #[deprecated(
+            since = "0.9.8",
+            note = "Use From<OwnedFd> for Stdio or Stdio::from_raw_fd_owned instead"
+        )]
+        /// **Deprecated, use `From<OwnedFd> for Stdio` or
+        /// [`Stdio::from_raw_fd_owned`] instead.**
+        impl From<$type> for Stdio {
+            fn from(arg: $type) -> Self {
+                let fd = arg.into_raw_fd();
+                // safety: $type must have a valid into_raw_fd implementation
+                // and must not be RawFd.
+                Self(StdioImpl::Fd(unsafe { OwnedFd::from_raw_fd(fd) }, true))
             }
         }
     };
 }
 
-impl_from_for_stdio!(tokio_pipe::PipeWrite);
-impl_from_for_stdio!(tokio_pipe::PipeRead);
+impl_from_for_stdio!(deprecated tokio_pipe::PipeWrite);
+impl_from_for_stdio!(deprecated tokio_pipe::PipeRead);
 
 impl_from_for_stdio!(process::ChildStdin);
 impl_from_for_stdio!(process::ChildStdout);

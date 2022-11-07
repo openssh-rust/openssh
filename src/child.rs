@@ -62,6 +62,9 @@ macro_rules! delegate {
 /// available,`Stdio::piped()` should be passed to the corresponding method on
 /// [`Command`](crate::Command).
 ///
+/// NOTE that once `RemoteChild` is dropped, any data written to `stdin` will not be sent to the
+/// remote process and `stdout` and `stderr` will yield EOF immediately.
+///
 /// ```rust,no_run
 /// # async fn foo() {
 /// # let child: openssh::RemoteChild<'static> = unimplemented!();
@@ -169,9 +172,15 @@ impl<'s> RemoteChild<'s> {
 
         // Execute them concurrently to avoid the pipe buffer being filled up
         // and cause the remote process to block forever.
-        let (status, stdout, stderr) = try_join!(self.wait(), stdout_read, stderr_read)?;
+        let (stdout, stderr) = try_join!(stdout_read, stderr_read)?;
         Ok(Output {
-            status,
+            // The self.wait() future terminates the stdout and stderr futures
+            // when it resolves, even if there may still be more data arriving
+            // from the server.
+            //
+            // Therefore, we wait for them first, and only once they're complete
+            // do we wait for the process to have terminated.
+            status: self.wait().await?,
             stdout,
             stderr,
         })

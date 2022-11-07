@@ -1,12 +1,13 @@
-use crate::stdio::StdioImpl;
-use crate::Error;
-use crate::Stdio;
+use crate::{stdio::StdioImpl, Error, Stdio};
 
+use std::{
+    fs::{File, OpenOptions},
+    io,
+    os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, OwnedFd, RawFd},
+};
+
+use libc::{c_int, fcntl, F_GETFL, F_SETFL, O_NONBLOCK};
 use once_cell::sync::OnceCell;
-
-use std::fs::{File, OpenOptions};
-use std::io;
-use std::os::unix::io::{AsRawFd, RawFd};
 use tokio_pipe::{pipe, PipeRead, PipeWrite};
 
 fn create_pipe() -> Result<(PipeRead, PipeWrite), Error> {
@@ -28,11 +29,28 @@ fn get_null_fd() -> Result<RawFd, Error> {
 }
 
 pub(crate) enum Fd {
-    PipeReadEnd(PipeRead),
-    PipeWriteEnd(PipeWrite),
-
+    Owned(OwnedFd),
     Borrowed(RawFd),
     Null,
+}
+
+fn cvt(ret: c_int) -> io::Result<c_int> {
+    if ret == -1 {
+        Err(io::Error::last_os_error())
+    } else {
+        Ok(ret)
+    }
+}
+
+fn set_blocking_inner(fd: RawFd) -> io::Result<()> {
+    let flags = cvt(unsafe { fcntl(fd, F_GETFL) })?;
+    cvt(unsafe { fcntl(fd, F_SETFL, flags & (!O_NONBLOCK)) })?;
+
+    Ok(())
+}
+
+fn set_blocking(fd: RawFd) -> Result<(), Error> {
+    set_blocking_inner(fd).map_err(Error::ChildIo)
 }
 
 impl Fd {
@@ -40,12 +58,43 @@ impl Fd {
         use Fd::*;
 
         match self {
-            PipeReadEnd(fd) => Ok(AsRawFd::as_raw_fd(fd)),
-            PipeWriteEnd(fd) => Ok(AsRawFd::as_raw_fd(fd)),
-
+            Owned(owned_fd) => Ok(owned_fd.as_raw_fd()),
             Borrowed(rawfd) => Ok(*rawfd),
             Null => get_null_fd(),
         }
+    }
+
+    /// # Safety
+    ///
+    /// `T::into_raw_fd` must return a valid fd and transfers
+    /// the ownershipt of it.
+    unsafe fn new_owned<T: IntoRawFd>(fd: T) -> Result<Self, Error> {
+        let raw_fd = fd.into_raw_fd();
+        Ok(Fd::Owned(OwnedFd::from_raw_fd(raw_fd)))
+    }
+}
+
+impl TryFrom<PipeRead> for Fd {
+    type Error = Error;
+
+    fn try_from(pipe_read: PipeRead) -> Result<Self, Error> {
+        // Safety:
+        //
+        // PipeRead::into_raw_fd returns a valid fd and transfers the
+        // ownership of it.
+        unsafe { Self::new_owned(pipe_read) }
+    }
+}
+
+impl TryFrom<PipeWrite> for Fd {
+    type Error = Error;
+
+    fn try_from(pipe_write: PipeWrite) -> Result<Self, Error> {
+        // Safety:
+        //
+        // PipeWrite::into_raw_fd returns a valid fd and transfers the
+        // ownership of it.
+        unsafe { Self::new_owned(pipe_write) }
     }
 }
 
@@ -56,9 +105,19 @@ impl Stdio {
             StdioImpl::Null => Ok((Fd::Null, None)),
             StdioImpl::Pipe => {
                 let (read, write) = create_pipe()?;
-                Ok((Fd::PipeReadEnd(read), Some(write)))
+
+                // read end will be sent to ssh multiplex server
+                // and it expects blocking fd.
+                set_blocking(read.as_raw_fd())?;
+                Ok((read.try_into()?, Some(write)))
             }
-            StdioImpl::Fd(fd) => Ok((Fd::Borrowed(fd.as_raw_fd()), None)),
+            StdioImpl::Fd(fd, owned) => {
+                let raw_fd = fd.as_raw_fd();
+                if *owned {
+                    set_blocking(raw_fd)?;
+                }
+                Ok((Fd::Borrowed(raw_fd), None))
+            }
         }
     }
 
@@ -68,9 +127,19 @@ impl Stdio {
             StdioImpl::Null => Ok((Fd::Null, None)),
             StdioImpl::Pipe => {
                 let (read, write) = create_pipe()?;
-                Ok((Fd::PipeWriteEnd(write), Some(read)))
+
+                // write end will be sent to ssh multiplex server
+                // and it expects blocking fd.
+                set_blocking(write.as_raw_fd())?;
+                Ok((write.try_into()?, Some(read)))
             }
-            StdioImpl::Fd(fd) => Ok((Fd::Borrowed(fd.as_raw_fd()), None)),
+            StdioImpl::Fd(fd, owned) => {
+                let raw_fd = fd.as_raw_fd();
+                if *owned {
+                    set_blocking(raw_fd)?;
+                }
+                Ok((Fd::Borrowed(raw_fd), None))
+            }
         }
     }
 
