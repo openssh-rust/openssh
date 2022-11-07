@@ -4,6 +4,12 @@ use crate::*;
 /// TODO: RENAME THIS INTO THE NEXT VERSION BEFORE RELEASE
 ///
 /// ## Added
+/// ## Changed
+/// ## Removed
+#[doc(hidden)]
+pub mod unreleased {}
+
+/// ## Added
 ///  - `impl From<std::os::unix::io::OwnedFd> for Stdio`
 ///  -  Add new fn `Stdio::from_raw_fd_owned`
 /// ## Changed
@@ -12,9 +18,7 @@ use crate::*;
 ///  - Mark `From<tokio_pipe::PipeWrite>` for `Stdio` as deprecated
 /// ## Fixed
 ///  - [`wait_with_output` + `native-mux` cuts off stdout output](https://github.com/openssh-rust/openssh/issues/103)
-/// ## Removed
-#[doc(hidden)]
-pub mod unreleased {}
+pub mod v0_9_8 {}
 
 /// ## Changed
 ///  - Bumped minimum version of `openssh-mux-client` to 0.15.1
