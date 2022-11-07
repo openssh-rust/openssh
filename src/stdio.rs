@@ -61,6 +61,8 @@ impl Stdio {
         Self(StdioImpl::Fd(OwnedFd::from_raw_fd(fd), true))
     }
 }
+/// **Deprecated, use [`Stdio::from_raw_fd_owned`] instead.**
+///
 /// FromRawFd takes ownership of the fd passed in
 /// and closes the fd on drop.
 ///
@@ -114,8 +116,8 @@ macro_rules! impl_from_for_stdio {
             since = "0.9.8",
             note = "Use From<OwnedFd> for Stdio or Stdio::from_raw_fd_owned instead"
         )]
-        /// deprecated, use `From<OwnedFd> for Stdio` or
-        /// [`Stdio::from_raw_fd_owned`] instead.
+        /// **Deprecated, use `From<OwnedFd> for Stdio` or
+        /// [`Stdio::from_raw_fd_owned`] instead.**
         impl From<$type> for Stdio {
             fn from(arg: $type) -> Self {
                 let fd = arg.into_raw_fd();
