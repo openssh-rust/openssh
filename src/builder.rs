@@ -1,6 +1,7 @@
 use super::{Error, Session};
 
 use std::borrow::Cow;
+use std::env;
 use std::ffi::OsString;
 use std::fs;
 use std::iter::IntoIterator;
@@ -199,6 +200,24 @@ impl SessionBuilder {
     /// The default is `None`.
     pub fn ssh_auth_sock(&mut self, ssh_auth_sock: impl AsRef<Path>) -> &mut Self {
         self.ssh_auth_sock = Some(ssh_auth_sock.as_ref().to_owned().into_boxed_path());
+        self
+    }
+
+    /// Inherit the `SSH_AUTH_SOCK` environment variable from parent.
+    ///
+    /// This is equivalent to:
+    ///
+    /// ```
+    /// let mut builder = SessionBuilder::default();
+    ///
+    /// if let Some(ssh_auth_sock) = env::var_os("SSH_AUTH_SOCK") {
+    ///     builder.ssh_auth_sock(PathBuf::new(ssh_auth_sock));
+    /// }
+    /// ```
+    pub fn inherit_ssh_auth_sock(&mut self) -> &mut Self {
+        if let Some(ssh_auth_sock) = env::var_os("SSH_AUTH_SOCK") {
+            self.ssh_auth_sock = Some(PathBuf::from(ssh_auth_sock).into_boxed_path());
+        }
         self
     }
 
