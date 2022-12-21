@@ -214,7 +214,7 @@ impl SessionBuilder {
     /// let mut builder = SessionBuilder::default();
     ///
     /// if let Some(ssh_auth_sock) = env::var_os("SSH_AUTH_SOCK") {
-    ///     builder.ssh_auth_sock(PathBuf::new(ssh_auth_sock));
+    ///     builder.ssh_auth_sock(PathBuf::from(ssh_auth_sock));
     /// }
     /// ```
     pub fn inherit_ssh_auth_sock(&mut self) -> &mut Self {
