@@ -208,6 +208,9 @@ impl SessionBuilder {
     /// This is equivalent to:
     ///
     /// ```
+    /// use openssh::SessionBuilder;
+    /// use std::{env, path::PathBuf};
+    ///
     /// let mut builder = SessionBuilder::default();
     ///
     /// if let Some(ssh_auth_sock) = env::var_os("SSH_AUTH_SOCK") {
