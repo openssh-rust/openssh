@@ -48,6 +48,7 @@ pub struct SessionBuilder {
     compression: Option<bool>,
     jump_hosts: Vec<Box<str>>,
     user_known_hosts_file: Option<Box<Path>>,
+    ssh_auth_sock: Option<Box<Path>>,
 }
 
 impl Default for SessionBuilder {
@@ -64,6 +65,7 @@ impl Default for SessionBuilder {
             compression: None,
             jump_hosts: Vec::new(),
             user_known_hosts_file: None,
+            ssh_auth_sock: None,
         }
     }
 }
@@ -186,6 +188,17 @@ impl SessionBuilder {
     pub fn user_known_hosts_file(&mut self, user_known_hosts_file: impl AsRef<Path>) -> &mut Self {
         self.user_known_hosts_file =
             Some(user_known_hosts_file.as_ref().to_owned().into_boxed_path());
+        self
+    }
+
+    /// Specify the path to the ssh-agent.
+    ///
+    /// The path provided may use tilde notation (`~`) to refer to the user's
+    /// home directory.
+    ///
+    /// The default is `None`.
+    pub fn ssh_auth_sock(&mut self, ssh_auth_sock: impl AsRef<Path>) -> &mut Self {
+        self.ssh_auth_sock = Some(ssh_auth_sock.as_ref().to_owned().into_boxed_path());
         self
     }
 
@@ -339,6 +352,10 @@ impl SessionBuilder {
             let arg = if compression { "yes" } else { "no" };
 
             init.arg("-o").arg(format!("Compression={}", arg));
+        }
+
+        if let Some(ssh_auth_sock) = self.ssh_auth_sock.as_deref() {
+            init.env("SSH_AUTH_SOCK", ssh_auth_sock);
         }
 
         let mut it = self.jump_hosts.iter();
