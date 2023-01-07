@@ -203,27 +203,6 @@ impl SessionBuilder {
         self
     }
 
-    /// Inherit the `SSH_AUTH_SOCK` environment variable from parent.
-    ///
-    /// This is equivalent to:
-    ///
-    /// ```
-    /// use openssh::SessionBuilder;
-    /// use std::{env, path::PathBuf};
-    ///
-    /// let mut builder = SessionBuilder::default();
-    ///
-    /// if let Some(ssh_auth_sock) = env::var_os("SSH_AUTH_SOCK") {
-    ///     builder.ssh_auth_sock(PathBuf::from(ssh_auth_sock));
-    /// }
-    /// ```
-    pub fn inherit_ssh_auth_sock(&mut self) -> &mut Self {
-        if let Some(ssh_auth_sock) = env::var_os("SSH_AUTH_SOCK") {
-            self.ssh_auth_sock = Some(PathBuf::from(ssh_auth_sock).into_boxed_path());
-        }
-        self
-    }
-
     /// Connect to the host at the given `host` over SSH using process impl, which will
     /// spawn a new ssh process for each `Child` created.
     ///
