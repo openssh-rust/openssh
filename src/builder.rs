@@ -1,7 +1,6 @@
 use super::{Error, Session};
 
 use std::borrow::Cow;
-use std::env;
 use std::ffi::OsString;
 use std::fs;
 use std::iter::IntoIterator;
