@@ -4,6 +4,7 @@ use crate::*;
 /// TODO: RENAME THIS INTO THE NEXT VERSION BEFORE RELEASE
 ///
 /// ## Added
+///  - Add new fn `SessionBuilder::ssh_auth_sock`
 /// ## Changed
 /// ## Removed
 #[doc(hidden)]
