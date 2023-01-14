@@ -11,6 +11,10 @@ use crate::*;
 pub mod unreleased {}
 
 /// ## Added
+///  - Add new fn `SessionBuilder::ssh_auth_sock`
+pub mod v0_9_9 {}
+
+/// ## Added
 ///  - `impl From<std::os::unix::io::OwnedFd> for Stdio`
 ///  -  Add new fn `Stdio::from_raw_fd_owned`
 /// ## Changed
