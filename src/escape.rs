@@ -1,29 +1,28 @@
 //! Escape characters that may have special meaning in a shell, including spaces.
 //! This is a modified version of the [`shell-escape::unix`] module of [`shell-escape`] crate.
-//! 
+//!
 //! [`shell-escape`]: https://crates.io/crates/shell-escape
 //! [`shell-escape::unix`]: https://docs.rs/shell-escape/latest/src/shell_escape/lib.rs.html#101
 
 use std::{
-    borrow::Cow, 
+    borrow::Cow,
     ffi::{OsStr, OsString},
     os::unix::ffi::OsStrExt,
     os::unix::ffi::OsStringExt,
 };
-
 
 fn whitelisted(byte: u8) -> bool {
     matches!(byte, b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'-' | b'_' | b'=' | b'/' | b',' | b'.' | b'+')
 }
 
 /// Escape characters that may have special meaning in a shell, including spaces.
-/// 
+///
 /// **Note**: This function is an adaptation of [`shell-escape::unix::escape`].
 /// This function exists only for type compatibility and the implementation is
 /// almost exactly the same as [`shell-escape::unix::escape`].
-/// 
+///
 /// [`shell-escape::unix::escape`]: https://docs.rs/shell-escape/latest/src/shell_escape/lib.rs.html#101
-/// 
+///
 pub(crate) fn escape(s: &OsStr) -> Cow<'_, OsStr> {
     let as_bytes = s.as_bytes();
     let all_whitelisted = as_bytes.iter().copied().all(whitelisted);
@@ -51,7 +50,6 @@ pub(crate) fn escape(s: &OsStr) -> Cow<'_, OsStr> {
     OsString::from_vec(escaped).into()
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -75,36 +73,21 @@ mod tests {
     fn test_escape() {
         test_escape_case(
             "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_=/,.+",
-            "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_=/,.+"
+            "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_=/,.+",
         );
-        test_escape_case(
-            "--aaa=bbb-ccc",
-            "--aaa=bbb-ccc"
-        );
+        test_escape_case("--aaa=bbb-ccc", "--aaa=bbb-ccc");
         test_escape_case(
             "linker=gcc -L/foo -Wl,bar",
-            r#"'linker=gcc -L/foo -Wl,bar'"#
+            r#"'linker=gcc -L/foo -Wl,bar'"#,
         );
-        test_escape_case(
-            r#"--features="default""#,
-            r#"'--features="default"'"#
-        );
-        test_escape_case(
-            r#"'!\$`\\\n "#,
-            r#"''\'''\!'\$`\\\n '"#
-        );
-        test_escape_case(
-            "",
-            r#"''"#
-        );
-        test_escape_case(
-            " ",
-            r#"' '"#
-        );
+        test_escape_case(r#"--features="default""#, r#"'--features="default"'"#);
+        test_escape_case(r#"'!\$`\\\n "#, r#"''\'''\!'\$`\\\n '"#);
+        test_escape_case("", r#"''"#);
+        test_escape_case(" ", r#"' '"#);
 
         test_escape_from_bytes(
             &[0x66, 0x6f, 0x80, 0x6f],
-            &[b'\'', 0x66, 0x6f, 0x80, 0x6f, b'\'']
+            &[b'\'', 0x66, 0x6f, 0x80, 0x6f, b'\''],
         );
     }
 }

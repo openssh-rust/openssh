@@ -55,14 +55,14 @@ macro_rules! delegate {
 /// Primarily a way to allow `std::process::Command` to be turned directly into an `openssh::Command`.
 pub trait OverSsh {
     /// Given a session, return a command that can be executed over that session.
-    /// 
-    /// **Note**: The command to be executed on the remote machine does not include 
+    ///
+    /// **Note**: The command to be executed on the remote machine does not include
     /// any environment variables or the current directory. They must be
     /// set explicitly, if desired.
-    /// 
+    ///
     /// # Example
     /// Consider the implementation of `OverSsh` for `std::process::Command`:
-    /// 
+    ///
     /// ```no_run
     /// # #[tokio::main(flavor = "current_thread")]
     /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -70,7 +70,7 @@ pub trait OverSsh {
     ///     use openssh::{Session, KnownHosts, OverSsh};
     ///
     ///     let session = Session::connect_mux("me@ssh.example.com", KnownHosts::Strict).await?;
-    ///     let ls = 
+    ///     let ls =
     ///         Command::new("ls")
     ///         .arg("-l")
     ///         .arg("-a")
@@ -78,11 +78,11 @@ pub trait OverSsh {
     ///         .over_session(&session)
     ///         .output()
     ///         .await?;
-    /// 
+    ///
     ///     assert!(String::from_utf8(ls.stdout).unwrap().contains("total"));
     /// #   Ok(())
     /// }
-    /// 
+    ///
     /// ```
     fn over_session<'session>(&self, session: &'session Session) -> crate::Command<'session>;
 }
@@ -91,15 +91,12 @@ impl OverSsh for std::process::Command {
     fn over_session<'session>(&self, session: &'session Session) -> Command<'session> {
         let program_escaped: Cow<'_, OsStr> = escape(self.get_program());
         let mut command = session.raw_command(program_escaped);
-        
-        let args = self
-            .get_args()
-            .map(escape);
+
+        let args = self.get_args().map(escape);
         command.raw_args(args);
         command
     }
 }
-
 
 impl OverSsh for tokio::process::Command {
     fn over_session<'session>(&self, session: &'session Session) -> Command<'session> {
@@ -107,10 +104,9 @@ impl OverSsh for tokio::process::Command {
     }
 }
 
-
 impl<S> OverSsh for &S
 where
-    S: OverSsh
+    S: OverSsh,
 {
     fn over_session<'session>(&self, session: &'session Session) -> Command<'session> {
         <S as OverSsh>::over_session(self, session)
@@ -119,7 +115,7 @@ where
 
 impl<S> OverSsh for Box<S>
 where
-    S: OverSsh
+    S: OverSsh,
 {
     fn over_session<'session>(&self, session: &'session Session) -> Command<'session> {
         <S as OverSsh>::over_session(self, session)
@@ -128,7 +124,7 @@ where
 
 impl<S> OverSsh for std::rc::Rc<S>
 where
-    S: OverSsh
+    S: OverSsh,
 {
     fn over_session<'session>(&self, session: &'session Session) -> Command<'session> {
         <S as OverSsh>::over_session(self, session)
@@ -137,7 +133,7 @@ where
 
 impl<S> OverSsh for std::sync::Arc<S>
 where
-    S: OverSsh
+    S: OverSsh,
 {
     fn over_session<'session>(&self, session: &'session Session) -> Command<'session> {
         <S as OverSsh>::over_session(self, session)
