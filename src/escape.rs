@@ -29,7 +29,7 @@ fn whitelisted(byte: u8) -> bool {
 /// 
 pub fn escape(s: &OsStr) -> Cow<'_, OsStr> {
     let s = s.as_bytes();
-    let all_whitelisted = s.iter().all(|x| whitelisted(*x));
+    let all_whitelisted = s.iter().copied().all(whitelisted);
 
     if !s.is_empty() && all_whitelisted {
         return OsString::from_vec(s.to_vec()).into();
