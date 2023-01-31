@@ -6,7 +6,7 @@ use std::{
     net::IpAddr,
     path::PathBuf,
     process,
-    time::Duration,
+    time::Duration, ffi::OsStr, os::unix::prelude::OsStrExt,
 };
 use tempfile::tempdir;
 use tokio::{
@@ -291,6 +291,69 @@ async fn stdout() {
         session.close().await.unwrap();
     }
 }
+
+
+#[tokio::test]
+#[cfg_attr(not(ci), ignore)]
+async fn with_session() {
+    for session in connects().await {
+        let mut command = 
+            std::process::Command::new("echo")
+            .arg("foo")
+            .with_session(&session)
+            .expect("Expected valid utf-8 command.");
+
+        let child = command.output().await.unwrap();
+        assert_eq!(child.stdout, b"foo\n");
+
+        let child = session
+            .command("echo")
+            .arg("foo")
+            .raw_arg(">")
+            .arg("/dev/stderr")
+            .output()
+            .await
+            .unwrap();
+        assert!(child.stdout.is_empty());
+
+        session.close().await.unwrap();
+    }
+}
+
+
+#[tokio::test]
+#[cfg_attr(not(ci), ignore)]
+async fn with_session_err() {
+    
+    for session in connects().await {
+        let bad_string = OsStr::from_bytes(b"foo\xFF");
+        let command = 
+            std::process::Command::new("echo")
+            .arg(bad_string)
+            .with_session(&session);
+        
+        let expected_error = openssh::Error::InvalidUtf8String(bad_string.to_owned());
+        assert!(command.is_err());
+        let err = command.unwrap_err();
+        assert_eq!(err.to_string(), expected_error.to_string());
+
+        // let child = command.output().await.unwrap();
+        // assert_eq!(child.stdout, b"foo\n");
+
+        // let child = session
+        //     .command("echo")
+        //     .arg("foo")
+        //     .raw_arg(">")
+        //     .arg("/dev/stderr")
+        //     .output()
+        //     .await
+        //     .unwrap();
+        // assert!(child.stdout.is_empty());
+
+        session.close().await.unwrap();
+    }
+}
+
 
 #[tokio::test]
 #[cfg_attr(not(ci), ignore)]
