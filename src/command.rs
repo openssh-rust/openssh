@@ -53,7 +53,7 @@ macro_rules! delegate {
 /// Primarily a way to allow `std::process::Command` to be turned directly into an `openssh::Command`.
 pub trait OverSsh {
     /// Given a session, return a command that can be executed over that session.
-    fn with_session<'session>(&self, session: &'session Session) -> Result<crate::Command<'session>, Error>;
+    fn over_session<'session>(&self, session: &'session Session) -> crate::Command<'session>;
 }
 
 impl OverSsh for std::process::Command {
@@ -69,35 +69,19 @@ impl OverSsh for std::process::Command {
     ///     .arg("-l")
     ///     .arg("-a")
     ///     .arg("-h")
-    ///     .with_session(&session)
+    ///     .over_session(&session)
     ///     .output()
     ///     .await?;
+    /// 
     /// assert!(String::from_utf8(ls.stdout).unwrap().contains("total"));
     /// 
     /// 
     /// ```
-    fn with_session<'session>(&self, session: &'session Session) -> Result<Command<'session>, Error> {
-        let program = 
-            self
-            .get_program()
-            .to_str()
-            .ok_or_else(|| Error::InvalidUtf8String(self.get_program().to_os_string()))?;
+    fn over_session<'session>(&self, session: &'session Session) -> Command<'session> {
 
-        let args = 
-            self.
-            get_args()
-            .into_iter()
-            .map(
-                |s| 
-                s
-                .to_str()
-                .ok_or_else(|| Error::InvalidUtf8String(s.to_os_string()))
-            )
-            .collect::<Result<Vec<_>, Error>>()?;
-
-        let mut command = session.command(program);
-        command.args(args);
-        Ok(command)
+        let mut command = session.raw_command(self.get_program());
+        command.raw_args(self.get_args());
+        command
     }
 }
 

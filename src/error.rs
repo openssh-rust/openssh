@@ -34,11 +34,6 @@ pub enum Error {
     #[error("the remote command could not be executed")]
     Remote(#[source] io::Error),
 
-    /// Invalid UTF-8 string when trying to
-    /// convert a `std::ffi::OsString` to a `String`.
-    #[error("invalid string")]
-    InvalidUtf8String(std::ffi::OsString),
-
     /// The connection to the remote host was severed.
     ///
     /// Note that for the process impl, this is a best-effort error, and it _may_ instead
