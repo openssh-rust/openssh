@@ -49,6 +49,41 @@ macro_rules! delegate {
     }};
 }
 
+/// If a command is `OverSsh` then it can be executed over an SSH session.
+/// Primarily a way to allow `std::process::Command` to be turned directly into an `openssh::Command`.
+pub trait OverSsh {
+    /// Given a session, return a command that can be executed over that session.
+    fn with_session<'session>(&self, session: &'session Session) -> Result<crate::Command<'session>, Error>;
+}
+
+impl OverSsh for std::process::Command {
+    /// Given a session, convert a std::process::Command into an `openssh::Command` 
+    /// that can be executed over that session.
+    fn with_session<'session>(&self, session: &'session Session) -> Result<Command<'session>, Error> {
+        let program = 
+            self
+            .get_program()
+            .to_str()
+            .ok_or_else(|| Error::InvalidUtf8String(self.get_program().to_os_string()))?;
+
+        let args = 
+            self.
+            get_args()
+            .into_iter()
+            .map(
+                |s| 
+                s
+                .to_str()
+                .ok_or_else(|| Error::InvalidUtf8String(s.to_os_string()))
+            )
+            .collect::<Result<Vec<_>, Error>>()?;
+
+        let mut command = session.command(program);
+        command.args(args);
+        Ok(command)
+    }
+}
+
 /// A remote process builder, providing fine-grained control over how a new remote process should
 /// be spawned.
 ///
