@@ -4,10 +4,17 @@
 //! [`shell-escape`]: https://crates.io/crates/shell-escape
 //! [`shell-escape::unix`]: https://docs.rs/shell-escape/latest/src/shell_escape/lib.rs.html#101
 
+use std::{
+    borrow::Cow, 
+    ffi::{OsStr, OsString},
+    os::unix::ffi::OsStrExt,
+    os::unix::ffi::OsStringExt,
+};
 
-fn whitelisted(ch: char) -> bool {
-    match ch {
-        'a'..='z' | 'A'..='Z' | '0'..='9' | '-' | '_' | '=' | '/' | ',' | '.' | '+' => true,
+
+fn whitelisted(byte: u8) -> bool {
+    match byte {
+        b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'-' | b'_' | b'=' | b'/' | b',' | b'.' | b'+' => true,
         _ => false,
     }
 }
@@ -20,30 +27,30 @@ fn whitelisted(ch: char) -> bool {
 /// 
 /// [`shell-escape::unix::escape`]: https://docs.rs/shell-escape/latest/src/shell_escape/lib.rs.html#101
 /// 
-pub fn escape(s: &[u8]) -> String {
-    let all_whitelisted = s.iter().all(|x| whitelisted(*x as char));
+pub fn escape(s: &OsStr) -> Cow<'_, OsStr> {
+    let s = s.as_bytes();
+    let all_whitelisted = s.iter().all(|x| whitelisted(*x));
 
     if !s.is_empty() && all_whitelisted {
-        // All bytes are whitelisted and valid single-byte UTF-8, 
-        // so we can build the original string and return as is.
-        return String::from_utf8(s.to_vec()).unwrap();
+        return OsString::from_vec(s.to_vec()).into();
     }
 
-    let mut escaped = String::with_capacity(s.len() + 2);
-    escaped.push('\'');
+    let mut escaped = Vec::with_capacity(s.len() + 2);
+    escaped.push(b'\'');
 
     for &b in s {
         match b {
             b'\'' | b'!' => {
-                escaped.push_str("'\\");
-                escaped.push(b as char);
-                escaped.push('\'');
+                escaped.push(b'\'');
+                escaped.push(b'\\');
+                escaped.push(b);
+                escaped.push(b'\'');
             }
-            _ => escaped.push(b as char),
+            _ => escaped.push(b),
         }
     }
-    escaped.push('\'');
-    escaped
+    escaped.push(b'\'');
+    OsString::from_vec(escaped).into()
 }
 
 
@@ -51,31 +58,43 @@ pub fn escape(s: &[u8]) -> String {
 mod tests {
     use super::*;
 
+    fn test_escape_case(input: &str, expected: &str) {
+        let input_os_str = OsStr::from_bytes(input.as_bytes());
+        let observed_os_str = escape(input_os_str);
+        let expected_os_str = OsStr::from_bytes(expected.as_bytes());
+        assert_eq!(observed_os_str, expected_os_str);
+    }
+
     // These tests are courtesy of the `shell-escape` crate.
     #[test]
     fn test_escape() {
-        assert_eq!(
-            escape(b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_=/,.+"), 
+        test_escape_case(
+            "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_=/,.+",
             "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_=/,.+"
         );
-        assert_eq!(
-            escape(b"--aaa=bbb-ccc"), 
+        test_escape_case(
+            "--aaa=bbb-ccc",
             "--aaa=bbb-ccc"
         );
-        assert_eq!(
-            escape(b"linker=gcc -L/foo -Wl,bar"), 
+        test_escape_case(
+            "linker=gcc -L/foo -Wl,bar",
             r#"'linker=gcc -L/foo -Wl,bar'"#
         );
-        assert_eq!(
-            escape(br#"--features="default""#), 
+        test_escape_case(
+            r#"--features="default""#,
             r#"'--features="default"'"#
         );
-        assert_eq!(
-            escape(br#"'!\$`\\\n "#), 
+        test_escape_case(
+            r#"'!\$`\\\n "#,
             r#"''\'''\!'\$`\\\n '"#
         );
-        assert_eq!(escape(b""), r#"''"#);
-        assert_eq!(escape(b" "), r#"' '"#);
-        assert_eq!(escape(b"\xC4b"), r#"'Äb'"#);
+        test_escape_case(
+            "",
+            r#"''"#
+        );
+        test_escape_case(
+            " ",
+            r#"' '"#
+        );
     }
 }

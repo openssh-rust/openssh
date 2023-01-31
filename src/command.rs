@@ -1,4 +1,4 @@
-use crate::escape;
+use crate::escape::escape;
 
 use super::stdio::TryFromChildIo;
 use super::RemoteChild;
@@ -7,7 +7,6 @@ use super::{Error, Session};
 
 use std::borrow::Cow;
 use std::ffi::OsStr;
-use std::os::unix::prelude::OsStrExt;
 use std::process;
 
 #[derive(Debug)]
@@ -90,15 +89,13 @@ pub trait OverSsh {
 
 impl OverSsh for std::process::Command {
     fn over_session<'session>(&self, session: &'session Session) -> Command<'session> {
-        let program_escaped = escape(self.get_program().as_bytes());
-        let mut command = session.command(Cow::Borrowed(program_escaped.as_str()));
+        let program_escaped: Cow<'_, OsStr> = escape(self.get_program());
+        let mut command = session.raw_command(program_escaped);
         
-        self
-        .get_args()
-        .for_each(|arg| {
-            let arg_escaped = escape(arg.as_bytes());
-            command.arg(Cow::Borrowed(arg_escaped.as_str()));
-        });
+        let args = self
+            .get_args()
+            .map(|arg| escape(arg));
+        command.raw_args(args);
         command
     }
 }
