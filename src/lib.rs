@@ -169,7 +169,7 @@ pub use builder::{KnownHosts, SessionBuilder};
 mod command;
 pub use command::{Command, OverSsh};
 
-pub(crate) mod escape;
+mod escape;
 
 mod child;
 pub use child::RemoteChild;
