@@ -13,10 +13,7 @@ use std::{
 
 
 fn whitelisted(byte: u8) -> bool {
-    match byte {
-        b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'-' | b'_' | b'=' | b'/' | b',' | b'.' | b'+' => true,
-        _ => false,
-    }
+    matches!(byte, b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'-' | b'_' | b'=' | b'/' | b',' | b'.' | b'+')
 }
 
 /// Escape characters that may have special meaning in a shell, including spaces.
@@ -27,7 +24,7 @@ fn whitelisted(byte: u8) -> bool {
 /// 
 /// [`shell-escape::unix::escape`]: https://docs.rs/shell-escape/latest/src/shell_escape/lib.rs.html#101
 /// 
-pub fn escape(s: &OsStr) -> Cow<'_, OsStr> {
+pub(crate) fn escape(s: &OsStr) -> Cow<'_, OsStr> {
     let as_bytes = s.as_bytes();
     let all_whitelisted = as_bytes.iter().copied().all(whitelisted);
 
