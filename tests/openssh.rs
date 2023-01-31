@@ -6,7 +6,7 @@ use std::{
     net::IpAddr,
     path::PathBuf,
     process,
-    time::Duration, ffi::OsStr, os::unix::prelude::OsStrExt,
+    time::Duration,
 };
 use tempfile::tempdir;
 use tokio::{
@@ -295,7 +295,7 @@ async fn stdout() {
 
 #[tokio::test]
 #[cfg_attr(not(ci), ignore)]
-async fn with_session() {
+async fn over_session() {
     for session in connects().await {
         let mut command = 
             std::process::Command::new("echo")
