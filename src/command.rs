@@ -94,7 +94,7 @@ impl OverSsh for std::process::Command {
         
         let args = self
             .get_args()
-            .map(|arg| escape(arg));
+            .map(escape);
         command.raw_args(args);
         command
     }
