@@ -292,13 +292,11 @@ async fn stdout() {
     }
 }
 
-
 #[tokio::test]
 #[cfg_attr(not(ci), ignore)]
 async fn over_session() {
     for session in connects().await {
-        let mut command = 
-            std::process::Command::new("echo")
+        let mut command = std::process::Command::new("echo")
             .arg("foo")
             .over_session(&session);
 
@@ -318,7 +316,6 @@ async fn over_session() {
         session.close().await.unwrap();
     }
 }
-
 
 #[tokio::test]
 #[cfg_attr(not(ci), ignore)]
