@@ -28,18 +28,18 @@ fn whitelisted(byte: u8) -> bool {
 /// [`shell-escape::unix::escape`]: https://docs.rs/shell-escape/latest/src/shell_escape/lib.rs.html#101
 /// 
 pub fn escape(s: &OsStr) -> Cow<'_, OsStr> {
-    let s = s.as_bytes();
-    let all_whitelisted = s.iter().copied().all(whitelisted);
+    let as_bytes = s.as_bytes();
+    let all_whitelisted = as_bytes.iter().copied().all(whitelisted);
 
-    if !s.is_empty() && all_whitelisted {
+    if !as_bytes.is_empty() && all_whitelisted {
         return Cow::Borrowed(s);
     }
 
-    let mut escaped = Vec::with_capacity(s.len() + 2);
+    let mut escaped = Vec::with_capacity(as_bytes.len() + 2);
     escaped.reserve(4);
     escaped.push(b'\'');
 
-    for &b in s {
+    for &b in as_bytes {
         match b {
             b'\'' | b'!' => {
                 escaped.push(b'\'');
