@@ -32,10 +32,11 @@ pub fn escape(s: &OsStr) -> Cow<'_, OsStr> {
     let all_whitelisted = s.iter().copied().all(whitelisted);
 
     if !s.is_empty() && all_whitelisted {
-        return OsString::from_vec(s.to_vec()).into();
+        return Cow::Borrowed(s);
     }
 
     let mut escaped = Vec::with_capacity(s.len() + 2);
+    escaped.reserve(4);
     escaped.push(b'\'');
 
     for &b in s {
@@ -62,6 +63,13 @@ mod tests {
         let input_os_str = OsStr::from_bytes(input.as_bytes());
         let observed_os_str = escape(input_os_str);
         let expected_os_str = OsStr::from_bytes(expected.as_bytes());
+        assert_eq!(observed_os_str, expected_os_str);
+    }
+
+    fn test_escape_from_bytes(input: &[u8], expected: &[u8]) {
+        let input_os_str = OsStr::from_bytes(input);
+        let observed_os_str = escape(input_os_str);
+        let expected_os_str = OsStr::from_bytes(expected);
         assert_eq!(observed_os_str, expected_os_str);
     }
 
@@ -95,6 +103,11 @@ mod tests {
         test_escape_case(
             " ",
             r#"' '"#
+        );
+
+        test_escape_from_bytes(
+            &[0x66, 0x6f, 0x80, 0x6f],
+            &[b'\'', 0x66, 0x6f, 0x80, 0x6f, b'\'']
         );
     }
 }
