@@ -71,7 +71,7 @@ impl OverSsh for std::process::Command {
     /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
     ///     use std::process::Command;
     ///     use openssh::{Session, KnownHosts, OverSsh};
-
+    ///
     ///     let session = Session::connect_mux("me@ssh.example.com", KnownHosts::Strict).await?;
     ///     let ls = 
     ///         Command::new("ls")
