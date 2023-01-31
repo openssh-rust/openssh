@@ -59,6 +59,23 @@ pub trait OverSsh {
 impl OverSsh for std::process::Command {
     /// Given a session, convert a std::process::Command into an `openssh::Command` 
     /// that can be executed over that session.
+    /// ```no_run
+    /// use std::process::Command;
+    /// use openssh::{Session, KnownHosts, OverSsh};
+
+    /// let session = Session::connect_mux("me@ssh.example.com", KnownHosts::Strict).await?;
+    /// let ls = 
+    ///     Command::new("ls")
+    ///     .arg("-l")
+    ///     .arg("-a")
+    ///     .arg("-h")
+    ///     .with_session(&session)
+    ///     .output()
+    ///     .await?;
+    /// assert!(String::from_utf8(ls.stdout).unwrap().contains("total"));
+    /// 
+    /// 
+    /// ```
     fn with_session<'session>(&self, session: &'session Session) -> Result<Command<'session>, Error> {
         let program = 
             self
