@@ -57,7 +57,7 @@ pub trait OverSsh {
 }
 
 impl OverSsh for std::process::Command {
-    /// Given a session, convert a std::process::Command into an `openssh::Command` 
+    /// Given a session, convert a `std::process::Command` into an `openssh::Command` 
     /// that can be executed over that session.
     /// ```no_run
     /// use std::process::Command;
