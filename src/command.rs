@@ -1,3 +1,5 @@
+use crate::escape;
+
 use super::stdio::TryFromChildIo;
 use super::RemoteChild;
 use super::Stdio;
@@ -5,6 +7,7 @@ use super::{Error, Session};
 
 use std::borrow::Cow;
 use std::ffi::OsStr;
+use std::os::unix::prelude::OsStrExt;
 use std::process;
 
 #[derive(Debug)]
@@ -57,15 +60,10 @@ pub trait OverSsh {
     /// **Note**: The command to be executed on the remote machine does not include 
     /// any environment variables or the current directory. They must be
     /// set explicitly, if desired.
-    fn over_session<'session>(&self, session: &'session Session) -> crate::Command<'session>;
-}
-
-impl OverSsh for std::process::Command {
-    /// Given a session, convert a `std::process::Command` into an `openssh::Command` 
-    /// that can be executed over that session.
-    /// **Note**: The command to be executed on the remote machine does not include 
-    /// any environment variables or the current directory. They must be
-    /// set explicitly, if desired.
+    /// 
+    /// # Example
+    /// Consider the implementation of `OverSsh` for `std::process::Command`:
+    /// 
     /// ```no_run
     /// # #[tokio::main(flavor = "current_thread")]
     /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -87,42 +85,26 @@ impl OverSsh for std::process::Command {
     /// }
     /// 
     /// ```
+    fn over_session<'session>(&self, session: &'session Session) -> crate::Command<'session>;
+}
+
+impl OverSsh for std::process::Command {
     fn over_session<'session>(&self, session: &'session Session) -> Command<'session> {
-        let mut command = session.command(self.get_program().to_string_lossy());
-        command.raw_args(self.get_args());
+        let program_escaped = escape(self.get_program().as_bytes());
+        let mut command = session.command(Cow::Borrowed(program_escaped.as_str()));
+        
+        self
+        .get_args()
+        .for_each(|arg| {
+            let arg_escaped = escape(arg.as_bytes());
+            command.arg(Cow::Borrowed(arg_escaped.as_str()));
+        });
         command
     }
 }
 
 
 impl OverSsh for tokio::process::Command {
-    /// Given a session, convert a `tokio::process::Command` into an `openssh::Command` 
-    /// that can be executed over that session.
-    /// 
-    /// **Note**: The command to be executed on the remote machine does not include 
-    /// any environment variables or the current directory. They must be
-    /// set explicitly, if desired.
-    /// ```no_run
-    /// # #[tokio::main(flavor = "current_thread")]
-    /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    ///     use tokio::process::Command;
-    ///     use openssh::{Session, KnownHosts, OverSsh};
-
-    ///     let session = Session::connect_mux("me@ssh.example.com", KnownHosts::Strict).await?;
-    ///     let ls = 
-    ///         Command::new("ls")
-    ///         .arg("-l")
-    ///         .arg("-a")
-    ///         .arg("-h")
-    ///         .over_session(&session)
-    ///         .output()
-    ///         .await?;
-    /// 
-    ///     assert!(String::from_utf8(ls.stdout).unwrap().contains("total"));
-    /// #   Ok(())
-    /// # }
-    /// 
-    /// ```
     fn over_session<'session>(&self, session: &'session Session) -> Command<'session> {
         self.as_std().over_session(session)
     }
@@ -130,15 +112,6 @@ impl OverSsh for tokio::process::Command {
 
 
 impl<S> OverSsh for &S
-where
-    S: OverSsh
-{
-    fn over_session<'session>(&self, session: &'session Session) -> Command<'session> {
-        <S as OverSsh>::over_session(self, session)
-    }
-}
-
-impl<S> OverSsh for &mut S
 where
     S: OverSsh
 {

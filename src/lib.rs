@@ -169,6 +169,9 @@ pub use builder::{KnownHosts, SessionBuilder};
 mod command;
 pub use command::{Command, OverSsh};
 
+mod escape;
+pub use escape::escape;
+
 mod child;
 pub use child::RemoteChild;
 
