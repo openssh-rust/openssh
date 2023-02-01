@@ -55,10 +55,7 @@ mod tests {
     use super::*;
 
     fn test_escape_case(input: &str, expected: &str) {
-        let input_os_str = OsStr::from_bytes(input.as_bytes());
-        let observed_os_str = escape(input_os_str);
-        let expected_os_str = OsStr::from_bytes(expected.as_bytes());
-        assert_eq!(observed_os_str, expected_os_str);
+        test_escape_from_bytes(input.as_bytes(), expected.as_bytes())
     }
 
     fn test_escape_from_bytes(input: &[u8], expected: &[u8]) {
