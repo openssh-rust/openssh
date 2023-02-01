@@ -38,6 +38,7 @@ pub(crate) fn escape(s: &OsStr) -> Cow<'_, OsStr> {
     for &b in as_bytes {
         match b {
             b'\'' | b'!' => {
+                escaped.reserve(4);
                 escaped.push(b'\'');
                 escaped.push(b'\\');
                 escaped.push(b);
