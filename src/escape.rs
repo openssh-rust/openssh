@@ -32,7 +32,6 @@ pub(crate) fn escape(s: &OsStr) -> Cow<'_, OsStr> {
     }
 
     let mut escaped = Vec::with_capacity(as_bytes.len() + 2);
-    escaped.reserve(4);
     escaped.push(b'\'');
 
     for &b in as_bytes {
