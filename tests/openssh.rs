@@ -294,11 +294,11 @@ async fn stdout() {
 
 #[tokio::test]
 #[cfg_attr(not(ci), ignore)]
-async fn over_session() {
+async fn over_session_ok() {
     for session in connects().await {
         let mut command = std::process::Command::new("echo")
             .arg("foo")
-            .over_session(&session);
+            .over_ssh(&session).expect("No env vars or current working dir is set.");
 
         let child = command.output().await.unwrap();
         assert_eq!(child.stdout, b"foo\n");
@@ -314,6 +314,32 @@ async fn over_session() {
         assert!(child.stdout.is_empty());
 
         session.close().await.unwrap();
+    }
+}
+
+/// Test that `over_ssh` errors if the source command has env vars specified.
+#[tokio::test]
+#[cfg_attr(not(ci), ignore)]
+async fn over_session_err_because_env_var() {
+    for session in connects().await {
+        let command_with_env = std::process::Command::new("printenv")
+            .arg("MY_ENV_VAR")
+            .env("MY_ENV_VAR", "foo")
+            .over_ssh(&session);
+        assert!(matches!(command_with_env, Err(openssh::Error::CommandHasEnv)));
+    }
+}
+
+/// Test that `over_ssh` errors if the source command has a `current_dir` specified.
+#[tokio::test]
+#[cfg_attr(not(ci), ignore)]
+async fn over_session_err_because_cwd() {
+    for session in connects().await {
+        let command_with_current_dir = std::process::Command::new("echo")
+            .arg("foo")
+            .current_dir("/tmp")
+            .over_ssh(&session);
+        assert!(matches!(command_with_current_dir, Err(openssh::Error::CommandHasCwd)));
     }
 }
 
