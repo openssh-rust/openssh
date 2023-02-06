@@ -11,7 +11,7 @@ use std::{
     os::unix::ffi::OsStringExt,
 };
 
-fn whitelisted(byte: u8) -> bool {
+fn allowed(byte: u8) -> bool {
     matches!(byte, b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'-' | b'_' | b'=' | b'/' | b',' | b'.' | b'+')
 }
 
@@ -25,9 +25,9 @@ fn whitelisted(byte: u8) -> bool {
 ///
 pub(crate) fn escape(s: &OsStr) -> Cow<'_, OsStr> {
     let as_bytes = s.as_bytes();
-    let all_whitelisted = as_bytes.iter().copied().all(whitelisted);
+    let all_allowed = as_bytes.iter().copied().all(allowed);
 
-    if !as_bytes.is_empty() && all_whitelisted {
+    if !as_bytes.is_empty() && all_allowed {
         return Cow::Borrowed(s);
     }
 
@@ -81,6 +81,7 @@ mod tests {
         test_escape_case(r#"'!\$`\\\n "#, r#"''\'''\!'\$`\\\n '"#);
         test_escape_case("", r#"''"#);
         test_escape_case(" ", r#"' '"#);
+        test_escape_case("*", r#"'*'"#);
 
         test_escape_from_bytes(
             &[0x66, 0x6f, 0x80, 0x6f],
