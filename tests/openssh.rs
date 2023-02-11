@@ -298,7 +298,8 @@ async fn over_session_ok() {
     for session in connects().await {
         let mut command = std::process::Command::new("echo")
             .arg("foo")
-            .over_ssh(&session).expect("No env vars or current working dir is set.");
+            .over_ssh(&session)
+            .expect("No env vars or current working dir is set.");
 
         let child = command.output().await.unwrap();
         assert_eq!(child.stdout, b"foo\n");
@@ -317,14 +318,14 @@ async fn over_session_ok() {
     }
 }
 
-
 #[tokio::test]
 #[cfg_attr(not(ci), ignore)]
 async fn over_session_ok_require_escaping_arguments() {
     for session in connects().await {
         let mut command = std::process::Command::new("echo")
             .arg("\"\'\' foo \'\'\"")
-            .over_ssh(&session).expect("No env vars or current working dir is set.");
+            .over_ssh(&session)
+            .expect("No env vars or current working dir is set.");
 
         let child = command.output().await.unwrap();
         assert_eq!(child.stdout, b"\"\'\' foo \'\'\"\n");
@@ -352,7 +353,10 @@ async fn over_session_err_because_env_var() {
             .arg("MY_ENV_VAR")
             .env("MY_ENV_VAR", "foo")
             .over_ssh(&session);
-        assert!(matches!(command_with_env, Err(openssh::Error::CommandHasEnv)));
+        assert!(matches!(
+            command_with_env,
+            Err(openssh::Error::CommandHasEnv)
+        ));
     }
 }
 
@@ -365,7 +369,10 @@ async fn over_session_err_because_cwd() {
             .arg("foo")
             .current_dir("/tmp")
             .over_ssh(&session);
-        assert!(matches!(command_with_current_dir, Err(openssh::Error::CommandHasCwd)));
+        assert!(matches!(
+            command_with_current_dir,
+            Err(openssh::Error::CommandHasCwd)
+        ));
     }
 }
 
