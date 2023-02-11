@@ -323,11 +323,11 @@ async fn over_session_ok() {
 async fn over_session_ok_require_escaping_arguments() {
     for session in connects().await {
         let mut command = std::process::Command::new("echo")
-            .arg("\"\'\'foo\'\'\"")
+            .arg("\"\'\' foo \'\'\"")
             .over_ssh(&session).expect("No env vars or current working dir is set.");
 
         let child = command.output().await.unwrap();
-        assert_eq!(child.stdout, b"\"\'\'foo\'\'\"\n");
+        assert_eq!(child.stdout, b"\"\'\' foo \'\'\"\n");
 
         let child = session
             .command("echo")
