@@ -103,9 +103,10 @@ pub trait OverSsh {
     ///     let session = Session::connect_mux("me@ssh.example.com", KnownHosts::Strict).await?;
     ///     let echo =
     ///         Command::new("echo")
+    ///         .env("MY_ENV_VAR", "foo")
     ///         .arg("$MY_ENV_VAR")
     ///         .over_ssh(&session);
-    ///     assert_matches!(echo, Err(openssh::Error::CommandHasEnv));
+    ///     assert!(matches!(echo, Err(openssh::Error::CommandHasEnv)));
     ///
     /// #   Ok(())
     /// }
