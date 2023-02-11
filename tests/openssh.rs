@@ -317,6 +317,32 @@ async fn over_session_ok() {
     }
 }
 
+
+#[tokio::test]
+#[cfg_attr(not(ci), ignore)]
+async fn over_session_ok_require_escaping_arguments() {
+    for session in connects().await {
+        let mut command = std::process::Command::new("echo")
+            .arg("\"\'\'foo\'\'\"")
+            .over_ssh(&session).expect("No env vars or current working dir is set.");
+
+        let child = command.output().await.unwrap();
+        assert_eq!(child.stdout, b"\"\'\'foo\'\'\"\n");
+
+        let child = session
+            .command("echo")
+            .arg("foo")
+            .raw_arg(">")
+            .arg("/dev/stderr")
+            .output()
+            .await
+            .unwrap();
+        assert!(child.stdout.is_empty());
+
+        session.close().await.unwrap();
+    }
+}
+
 /// Test that `over_ssh` errors if the source command has env vars specified.
 #[tokio::test]
 #[cfg_attr(not(ci), ignore)]
