@@ -6,8 +6,7 @@ use std::ffi::OsStr;
 
 use std::borrow::Cow;
 use std::fmt;
-use std::io;
-use std::net::{self, SocketAddr, ToSocketAddrs};
+use std::net::{self, SocketAddr};
 use std::path::{Path, PathBuf};
 
 /// Type of forwarding
@@ -44,12 +43,20 @@ pub enum Socket<'a> {
     },
 
     /// Tcp socket.
-    TcpSocket(SocketAddr),
+    TcpSocket {
+        /// Hostname.
+        host: Cow<'a, str>,
+        /// Port.
+        port: u16,
+    },
 }
 
 impl From<SocketAddr> for Socket<'static> {
     fn from(addr: SocketAddr) -> Self {
-        Socket::TcpSocket(addr)
+        Socket::TcpSocket {
+            host: addr.ip().to_string().into(),
+            port: addr.port(),
+        }
     }
 }
 
@@ -99,11 +106,11 @@ impl From<Box<Path>> for Socket<'static> {
 
 impl Socket<'_> {
     /// Create a new TcpSocket
-    pub fn new<T: ToSocketAddrs>(addr: &T) -> Result<Socket<'static>, io::Error> {
-        addr.to_socket_addrs()?
-            .next()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "no more socket addresses to try"))
-            .map(Socket::TcpSocket)
+    pub fn new<'a, S>(host: S, port: u16) -> Socket<'a>
+    where
+        S: Into<Cow<'a, str>>,
+    {
+        Socket::TcpSocket { host: host.into(), port }
     }
 
     #[cfg(feature = "process-mux")]
@@ -111,7 +118,7 @@ impl Socket<'_> {
         match self {
             #[cfg(unix)]
             Socket::UnixSocket { path } => Cow::Borrowed(path.as_os_str()),
-            Socket::TcpSocket(socket) => Cow::Owned(format!("{}", socket).into()),
+            Socket::TcpSocket { host, port } => Cow::Owned(format!("{host}:{port}").into()),
         }
     }
 }
@@ -124,9 +131,9 @@ impl<'a> From<Socket<'a>> for native_mux_impl::Socket<'a> {
         match socket {
             #[cfg(unix)]
             Socket::UnixSocket { path } => UnixSocket { path },
-            Socket::TcpSocket(socket) => TcpSocket {
-                port: socket.port() as u32,
-                host: socket.ip().to_string().into(),
+            Socket::TcpSocket { host, port } => TcpSocket {
+                host,
+                port: port as u32,
             },
         }
     }
@@ -139,7 +146,7 @@ impl<'a> fmt::Display for Socket<'a> {
             Socket::UnixSocket { path } => {
                 write!(f, "{}", path.to_string_lossy())
             }
-            Socket::TcpSocket(socket) => write!(f, "{}", socket),
+            Socket::TcpSocket { host, port } => write!(f, "{host}:{port}"),
         }
     }
 }
