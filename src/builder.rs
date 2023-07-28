@@ -160,17 +160,10 @@ impl SessionBuilder {
         self
     }
 
-    /// Clean the directory in which the temporary directory containing the control socket.
-    ///
-    /// Generally, the configuration of 'control_directory' is usually a Temporary folder.
-    /// Please refer to issue:https://github.com/openssh-rust/openssh/pull/28
-    //
-    // If not configured, openssh will automatically create a temporary .ssh_connection dir in the
-    // current running environment.
-    //
-    // This method provides control for cleaning up history 'control_directory' function,
-    // default openssh will not clean up. If necessary, you can manually call this method
-    ///
+    /// Clean up the temporary directories with the `.ssh-connection` prefix
+    /// in directory specified by [`SessionBuilder::control_directory`], created by
+    /// previous `openssh::Session` that is not cleaned up for some reasons
+    /// (e.g. process getting killed, abort on panic, etc)
     #[cfg(not(windows))]
     #[cfg_attr(docsrs, doc(cfg(not(windows))))]
     pub fn clean_history_control_directory(&mut self, clean: bool) -> &mut Self {
