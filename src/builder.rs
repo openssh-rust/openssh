@@ -40,7 +40,7 @@ fn clean_history_control_dir(dir: &TempDir, prefix: &str) -> io::Result<()> {
         // Read the entries in the parent directory
         fs::read_dir(parent)?
             // Filter out and keep only the valid entries
-            .filter_map(|entry| entry.ok())
+            .filter_map(Result::ok)
             // Filter the entries to only include files that start with prefix
             .filter(|entry| {
                 if let Ok(file_type) = entry.file_type() {
