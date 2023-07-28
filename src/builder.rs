@@ -164,6 +164,9 @@ impl SessionBuilder {
     /// in directory specified by [`SessionBuilder::control_directory`], created by
     /// previous `openssh::Session` that is not cleaned up for some reasons
     /// (e.g. process getting killed, abort on panic, etc)
+    ///
+    /// Use this with caution, do not enable this if you don't understand
+    /// what it does,
     #[cfg(not(windows))]
     #[cfg_attr(docsrs, doc(cfg(not(windows))))]
     pub fn clean_history_control_directory(&mut self, clean: bool) -> &mut Self {
