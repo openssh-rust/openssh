@@ -2,11 +2,11 @@ use super::{Error, Session};
 
 use std::borrow::Cow;
 use std::ffi::OsString;
-use std::fs;
 use std::iter::IntoIterator;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::str;
+use std::{fs, io};
 
 use dirs::state_dir;
 use once_cell::sync::OnceCell;
@@ -34,6 +34,31 @@ fn get_default_control_dir<'a>() -> Result<&'a Path, Error> {
         })
 }
 
+fn clean_history_control_dir(dir: &TempDir, prefix: &str) -> io::Result<()> {
+    // Check if the parent directory of the given TempDir exists
+    if let Some(parent) = dir.path().parent() {
+        // Read the entries in the parent directory
+        fs::read_dir(parent)?
+            // Filter out and keep only the valid entries
+            .filter_map(|entry| entry.ok())
+            // Filter the entries to only include files that start with prefix
+            .filter(|entry| {
+                if let Ok(file_type) = entry.file_type() {
+                    file_type.is_dir()
+                        && entry.file_name().to_string_lossy().starts_with(prefix)
+                        && entry.path() != dir.path()
+                } else {
+                    false
+                }
+            })
+            // For each matching entry, remove the directory
+            .for_each(|entry| {
+                let _ = fs::remove_dir_all(entry.path());
+            });
+    }
+    Ok(())
+}
+
 /// Build a [`Session`] with options.
 #[derive(Debug, Clone)]
 pub struct SessionBuilder {
@@ -44,6 +69,7 @@ pub struct SessionBuilder {
     server_alive_interval: Option<u64>,
     known_hosts_check: KnownHosts,
     control_dir: Option<PathBuf>,
+    clean_history_control_dir: bool,
     config_file: Option<PathBuf>,
     compression: Option<bool>,
     jump_hosts: Vec<Box<str>>,
@@ -61,6 +87,7 @@ impl Default for SessionBuilder {
             server_alive_interval: None,
             known_hosts_check: KnownHosts::Add,
             control_dir: None,
+            clean_history_control_dir: false,
             config_file: None,
             compression: None,
             jump_hosts: Vec::new(),
@@ -130,6 +157,24 @@ impl SessionBuilder {
     #[cfg_attr(docsrs, doc(cfg(not(windows))))]
     pub fn control_directory(&mut self, p: impl AsRef<Path>) -> &mut Self {
         self.control_dir = Some(p.as_ref().to_path_buf());
+        self
+    }
+
+    /// Clean the directory in which the temporary directory containing the control socket.
+    ///
+    /// Generally, the configuration of 'control_directory' is usually a Temporary folder.
+    /// Please refer to issue:https://github.com/openssh-rust/openssh/pull/28
+    //
+    // If not configured, openssh will automatically create a temporary .ssh_connection dir in the
+    // current running environment.
+    //
+    // This method provides control for cleaning up history 'control_directory' function,
+    // default openssh will not clean up. If necessary, you can manually call this method
+    ///
+    #[cfg(not(windows))]
+    #[cfg_attr(docsrs, doc(cfg(not(windows))))]
+    pub fn clean_history_control_directory(&mut self, clean: bool) -> &mut Self {
+        self.clean_history_control_dir = clean;
         self
     }
 
@@ -295,10 +340,15 @@ impl SessionBuilder {
             get_default_control_dir()?
         };
 
+        let prefix = ".ssh-connection";
         let dir = Builder::new()
-            .prefix(".ssh-connection")
+            .prefix(prefix)
             .tempdir_in(socketdir)
             .map_err(Error::Master)?;
+
+        if self.clean_history_control_dir {
+            let _ = clean_history_control_dir(&dir, prefix);
+        }
 
         let log = dir.path().join("log");
 
