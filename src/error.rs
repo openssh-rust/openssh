@@ -67,6 +67,16 @@ pub enum Error {
     /// IO Error when creating/reading/writing from ChildStdin, ChildStdout, ChildStderr.
     #[error("failure while accessing standard i/o of remote process")]
     ChildIo(#[source] io::Error),
+
+    /// The command has some env variables that it expects to carry over ssh.
+    /// However, OverSsh does not support passing env variables over ssh.
+    #[error("rejected runing a command over ssh that expects env variables to be carried over to remote.")]
+    CommandHasEnv,
+
+    /// The command expects to be in a specific working directory in remote.
+    /// However, OverSsh does not support setting a working directory for commands to be executed over ssh.
+    #[error("rejected runing a command over ssh that expects a specific working directory to be carried over to remote.")]
+    CommandHasCwd,
 }
 
 #[cfg(feature = "native-mux")]

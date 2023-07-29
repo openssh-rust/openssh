@@ -1,3 +1,5 @@
+use crate::escape::escape;
+
 use super::stdio::TryFromChildIo;
 use super::RemoteChild;
 use super::Stdio;
@@ -47,6 +49,130 @@ macro_rules! delegate {
     ($impl:expr, $var:ident, $then:block) => {{
         unreachable!("Neither feature process-mux nor native-mux is enabled")
     }};
+}
+
+/// If a command is `OverSsh` then it can be executed over an SSH session.
+///
+/// Primarily a way to allow `std::process::Command` to be turned directly into an `openssh::Command`.
+pub trait OverSsh {
+    /// Given an ssh session, return a command that can be executed over that ssh session.
+    ///
+    /// ### Notes
+    ///
+    /// The command to be executed on the remote machine should not explicitly
+    /// set environment variables or the current working directory. It errors if the source command
+    /// has environment variables or a current working directory set, since `openssh` doesn't (yet) have
+    /// a method to set environment variables and `ssh` doesn't support setting a current working directory
+    /// outside of `bash/dash/zsh` (which is not always available).
+    ///
+    /// ###  Examples
+    ///
+    /// 1. Consider the implementation of `OverSsh` for `std::process::Command`. Let's build a
+    /// `ls -l -a -h` command and execute it over an SSH session.
+    ///
+    /// ```no_run
+    /// # #[tokio::main(flavor = "current_thread")]
+    /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///     use std::process::Command;
+    ///     use openssh::{Session, KnownHosts, OverSsh};
+    ///
+    ///     let session = Session::connect_mux("me@ssh.example.com", KnownHosts::Strict).await?;
+    ///     let ls =
+    ///         Command::new("ls")
+    ///         .arg("-l")
+    ///         .arg("-a")
+    ///         .arg("-h")
+    ///         .over_ssh(&session)?
+    ///         .output()
+    ///         .await?;
+    ///
+    ///     assert!(String::from_utf8(ls.stdout).unwrap().contains("total"));
+    /// #   Ok(())
+    /// }
+    ///
+    /// ```
+    /// 2. Building a command with environment variables or a current working directory set will
+    /// results in an error.
+    ///
+    /// ```no_run
+    /// # #[tokio::main(flavor = "current_thread")]
+    /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///     use std::process::Command;
+    ///     use openssh::{Session, KnownHosts, OverSsh};
+    ///
+    ///     let session = Session::connect_mux("me@ssh.example.com", KnownHosts::Strict).await?;
+    ///     let echo =
+    ///         Command::new("echo")
+    ///         .env("MY_ENV_VAR", "foo")
+    ///         .arg("$MY_ENV_VAR")
+    ///         .over_ssh(&session);
+    ///     assert!(matches!(echo, Err(openssh::Error::CommandHasEnv)));
+    ///
+    /// #   Ok(())
+    /// }
+    ///
+    /// ```
+    fn over_ssh<'session>(
+        &self,
+        session: &'session Session,
+    ) -> Result<crate::Command<'session>, crate::Error>;
+}
+
+impl OverSsh for std::process::Command {
+    fn over_ssh<'session>(
+        &self,
+        session: &'session Session,
+    ) -> Result<Command<'session>, crate::Error> {
+        // I'd really like `!self.get_envs().is_empty()` here, but that's
+        // behind a `exact_size_is_empty` feature flag.
+        if self.get_envs().len() > 0 {
+            return Err(crate::Error::CommandHasEnv);
+        }
+
+        if self.get_current_dir().is_some() {
+            return Err(crate::Error::CommandHasCwd);
+        }
+
+        let program_escaped: Cow<'_, OsStr> = escape(self.get_program());
+        let mut command = session.raw_command(program_escaped);
+
+        let args = self.get_args().map(escape);
+        command.raw_args(args);
+        Ok(command)
+    }
+}
+
+impl OverSsh for tokio::process::Command {
+    fn over_ssh<'session>(
+        &self,
+        session: &'session Session,
+    ) -> Result<Command<'session>, crate::Error> {
+        self.as_std().over_ssh(session)
+    }
+}
+
+impl<S> OverSsh for &S
+where
+    S: OverSsh,
+{
+    fn over_ssh<'session>(
+        &self,
+        session: &'session Session,
+    ) -> Result<Command<'session>, crate::Error> {
+        <S as OverSsh>::over_ssh(self, session)
+    }
+}
+
+impl<S> OverSsh for &mut S
+where
+    S: OverSsh,
+{
+    fn over_ssh<'session>(
+        &self,
+        session: &'session Session,
+    ) -> Result<Command<'session>, crate::Error> {
+        <S as OverSsh>::over_ssh(self, session)
+    }
 }
 
 /// A remote process builder, providing fine-grained control over how a new remote process should
