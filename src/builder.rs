@@ -34,28 +34,23 @@ fn get_default_control_dir<'a>() -> Result<&'a Path, Error> {
         })
 }
 
-fn clean_history_control_dir(dir: &TempDir, prefix: &str) -> io::Result<()> {
-    // Check if the parent directory of the given TempDir exists
-    if let Some(parent) = dir.path().parent() {
-        // Read the entries in the parent directory
-        fs::read_dir(parent)?
-            // Filter out and keep only the valid entries
-            .filter_map(Result::ok)
-            // Filter the entries to only include files that start with prefix
-            .filter(|entry| {
-                if let Ok(file_type) = entry.file_type() {
-                    file_type.is_dir()
-                        && entry.file_name().to_string_lossy().starts_with(prefix)
-                        && entry.path() != dir.path()
-                } else {
-                    false
-                }
-            })
-            // For each matching entry, remove the directory
-            .for_each(|entry| {
-                let _ = fs::remove_dir_all(entry.path());
-            });
-    }
+fn clean_history_control_dir(socketdir: &Path, prefix: &str) -> io::Result<()> {
+    // Read the entries in the parent directory
+    fs::read_dir(socketdir)?
+        // Filter out and keep only the valid entries
+        .filter_map(Result::ok)
+        // Filter the entries to only include files that start with prefix
+        .filter(|entry| {
+            if let Ok(file_type) = entry.file_type() {
+                file_type.is_dir() && entry.file_name().to_string_lossy().starts_with(prefix)
+            } else {
+                false
+            }
+        })
+        // For each matching entry, remove the directory
+        .for_each(|entry| {
+            let _ = fs::remove_dir_all(entry.path());
+        });
     Ok(())
 }
 
@@ -337,14 +332,15 @@ impl SessionBuilder {
         };
 
         let prefix = ".ssh-connection";
+
+        if self.clean_history_control_dir {
+            let _ = clean_history_control_dir(&socketdir, prefix);
+        }
+
         let dir = Builder::new()
             .prefix(prefix)
             .tempdir_in(socketdir)
             .map_err(Error::Master)?;
-
-        if self.clean_history_control_dir {
-            let _ = clean_history_control_dir(&dir, prefix);
-        }
 
         let log = dir.path().join("log");
 
