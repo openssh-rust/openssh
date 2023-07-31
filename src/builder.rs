@@ -292,11 +292,13 @@ impl SessionBuilder {
     /// # Examples
     ///
     /// ```rust
+    /// use std::borrow::Cow;
     /// use openssh::SessionBuilder;
     /// let b = SessionBuilder::default();
     /// let (b, d) = b.resolve("ssh://test-user@127.0.0.1:2222");
     /// assert_eq!(d, "127.0.0.1");
-    /// assert_eq!(b, SessionBuilder::default().port(2222).user(test-user));
+    /// assert_eq!(b, Cow::Borrowed(SessionBuilder::default()
+    /// .port(2222).user("test-user".to_string())));
     /// ```
     ///
     pub fn resolve<'a, 'b>(&'a self, mut destination: &'b str) -> (Cow<'a, Self>, &'b str) {
