@@ -67,7 +67,7 @@ impl Session {
     /// use openssh::{Session, Stdio};
     /// use openssh_sftp_client::Sftp;
     ///
-    /// #[derive(Clone, Debug)]
+    /// #[derive(Clone, Debug, Default)]
     /// pub struct CustomSessionBuilder {
     ///    user: Option<String>,
     ///    port: Option<String>,
@@ -117,7 +117,7 @@ impl Session {
     /// use openssh::{Session, Stdio};
     /// use openssh_sftp_client::Sftp;
     ///
-    /// #[derive(Clone, Debug)]
+    /// #[derive(Clone, Debug, Default)]
     /// pub struct CustomSessionBuilder {
     ///    user: Option<String>,
     ///    port: Option<String>,
