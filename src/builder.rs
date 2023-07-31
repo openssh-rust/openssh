@@ -286,7 +286,7 @@ impl SessionBuilder {
         Ok(f(tempdir))
     }
 
-    fn resolve<'a, 'b>(&'a self, mut destination: &'b str) -> (Cow<'a, Self>, &'b str) {
+    pub fn resolve<'a, 'b>(&'a self, mut destination: &'b str) -> (Cow<'a, Self>, &'b str) {
         // the "new" ssh://user@host:port form is not supported by all versions of ssh,
         // so we always translate it into the option form.
         let mut user = None;
@@ -324,7 +324,7 @@ impl SessionBuilder {
         (Cow::Owned(with_overrides), destination)
     }
 
-    async fn launch_master(&self, destination: &str) -> Result<TempDir, Error> {
+    pub async fn launch_master(&self, destination: &str) -> Result<TempDir, Error> {
         let socketdir = if let Some(socketdir) = self.control_dir.as_ref() {
             socketdir
         } else {
