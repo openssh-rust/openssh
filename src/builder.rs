@@ -302,7 +302,6 @@ impl SessionBuilder {
     /// # Examples
     ///
     /// ```rust
-    /// use std::borrow::Cow;
     /// use openssh::SessionBuilder;
     /// let b = SessionBuilder::default();
     /// let (b, d) = b.resolve("ssh://test-user@127.0.0.1:2222");
