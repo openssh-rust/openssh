@@ -53,13 +53,93 @@ pub struct Session(SessionImp);
 // TODO: UserKnownHostsFile for custom known host fingerprint.
 
 impl Session {
+    /// The method for creating a [`Session`] and externally control the creation of TempDir.
+    ///
+    /// By using the built-in [`SessionBuilder`] in openssh, or a custom SessionBuilder,
+    /// create a TempDir.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// # use std::error::Error;
+    /// # #[cfg(feature = "process-mux")]
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), Box<dyn Error>> {
+    ///
+    /// use openssh::{Session, Stdio, SessionBuilder};
+    /// use openssh_sftp_client::Sftp;
+    ///
+    /// let builder = SessionBuilder::default();
+    /// let (builder, destination) = builder.resolve("ssh://jon@ssh.thesquareplanet.com:222");
+    /// let tempdir = builder.launch_master(destination).await?;
+    ///
+    /// let session = Session::new_process_mux(tempdir);
+    ///
+    /// let mut child = session
+    ///     .subsystem("sftp")
+    ///     .stdin(Stdio::piped())
+    ///     .stdout(Stdio::piped())
+    ///     .spawn()
+    ///     .await?;
+    ///
+    /// Sftp::new(
+    ///     child.stdin().take().unwrap(),
+    ///     child.stdout().take().unwrap(),
+    ///     Default::default(),
+    /// )
+    /// .await?
+    /// .close()
+    /// .await?;
+    ///
+    /// # Ok(()) }
+    /// ```
     #[cfg(feature = "process-mux")]
-    pub(super) fn new_process_mux(tempdir: TempDir) -> Self {
+    pub fn new_process_mux(tempdir: TempDir) -> Self {
         Self(SessionImp::ProcessImpl(process_impl::Session::new(tempdir)))
     }
 
+    /// The method for creating a [`Session`] and externally control the creation of TempDir.
+    ///
+    /// By using the built-in [`SessionBuilder`] in openssh, or a custom SessionBuilder,
+    /// create a TempDir.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// # use std::error::Error;
+    /// # #[cfg(feature = "native-mux")]
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), Box<dyn Error>> {
+    ///
+    /// use openssh::{Session, Stdio, SessionBuilder};
+    /// use openssh_sftp_client::Sftp;
+    ///
+    /// let builder = SessionBuilder::default();
+    /// let (builder, destination) = builder.resolve("ssh://jon@ssh.thesquareplanet.com:222");
+    /// let tempdir = builder.launch_master(destination).await?;
+    ///
+    /// let session = Session::new_native_mux(tempdir);
+    ///
+    /// let mut child = session
+    ///     .subsystem("sftp")
+    ///     .stdin(Stdio::piped())
+    ///     .stdout(Stdio::piped())
+    ///     .spawn()
+    ///     .await?;
+    ///
+    /// Sftp::new(
+    ///     child.stdin().take().unwrap(),
+    ///     child.stdout().take().unwrap(),
+    ///     Default::default(),
+    /// )
+    /// .await?
+    /// .close()
+    /// .await?;
+    ///
+    /// # Ok(()) }
+    /// ```
     #[cfg(feature = "native-mux")]
-    pub(super) fn new_native_mux(tempdir: TempDir) -> Self {
+    pub fn new_native_mux(tempdir: TempDir) -> Self {
         Self(SessionImp::NativeMuxImpl(native_mux_impl::Session::new(
             tempdir,
         )))
