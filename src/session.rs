@@ -58,23 +58,18 @@ impl Session {
     /// By using the built-in [`SessionBuilder`] in openssh, or a custom SessionBuilder,
     /// create a TempDir.
     ///
+    /// # Examples
+    ///
     /// ```rust,no_run
+    /// # use std::error::Error;
     /// # #[cfg(feature = "process-mux")]
     /// # #[tokio::main]
     /// # async fn main() -> Result<(), Box<dyn Error>> {
     ///
-    /// use openssh::{Session, KnownHosts, Stdio, SessionBuilder};
+    /// use openssh::{Session, Stdio, SessionBuilder};
     /// use openssh_sftp_client::Sftp;
     ///
-    ///
-    /// #[derive(Clone, Debug)]
-    /// pub struct CustomSessionBuilder {
-    ///    user: Option<String>,
-    ///    port: Option<String>,
-    ///    password: Option<String>,
-    /// }
-    ///
-    /// let builder = CustomSessionBuilder::default().password("123456");
+    /// let builder = SessionBuilder::default();
     /// let (builder, destination) = builder.resolve("ssh://jon@ssh.thesquareplanet.com:222");
     /// let tempdir = builder.launch_master(destination).await?;
     ///
@@ -108,23 +103,18 @@ impl Session {
     /// By using the built-in [`SessionBuilder`] in openssh, or a custom SessionBuilder,
     /// create a TempDir.
     ///
+    /// # Examples
+    ///
     /// ```rust,no_run
+    /// # use std::error::Error;
     /// # #[cfg(feature = "native-mux")]
     /// # #[tokio::main]
     /// # async fn main() -> Result<(), Box<dyn Error>> {
     ///
-    /// use openssh::{Session, KnownHosts, Stdio, SessionBuilder};
+    /// use openssh::{Session, Stdio, SessionBuilder};
     /// use openssh_sftp_client::Sftp;
     ///
-    ///
-    /// #[derive(Clone, Debug)]
-    /// pub struct CustomSessionBuilder {
-    ///    user: Option<String>,
-    ///    port: Option<String>,
-    ///    password: Option<String>,
-    /// }
-    ///
-    /// let builder = CustomSessionBuilder::default().password("123456");
+    /// let builder = SessionBuilder::default();
     /// let (builder, destination) = builder.resolve("ssh://jon@ssh.thesquareplanet.com:222");
     /// let tempdir = builder.launch_master(destination).await?;
     ///
