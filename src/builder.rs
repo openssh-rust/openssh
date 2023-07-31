@@ -55,7 +55,7 @@ fn clean_history_control_dir(socketdir: &Path, prefix: &str) -> io::Result<()> {
 }
 
 /// Build a [`Session`] with options.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct SessionBuilder {
     user: Option<String>,
     port: Option<String>,
@@ -286,6 +286,19 @@ impl SessionBuilder {
         Ok(f(tempdir))
     }
 
+    /// [`SessionBuilder`] support for `destination` parsing.
+    /// The format of `destination` is the same as the `destination` argument to `ssh`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use openssh::SessionBuilder;
+    /// let b = SessionBuilder::default();
+    /// let (b, d) = b.resolve("ssh://test-user@127.0.0.1:2222");
+    /// assert_eq!(d, "127.0.0.1");
+    /// assert_eq!(b, SessionBuilder::default().port(2222).user(test-user));
+    /// ```
+    ///
     pub fn resolve<'a, 'b>(&'a self, mut destination: &'b str) -> (Cow<'a, Self>, &'b str) {
         // the "new" ssh://user@host:port form is not supported by all versions of ssh,
         // so we always translate it into the option form.
@@ -324,6 +337,7 @@ impl SessionBuilder {
         (Cow::Owned(with_overrides), destination)
     }
 
+    /// Create ssh master session and return [`TempDir`]
     pub async fn launch_master(&self, destination: &str) -> Result<TempDir, Error> {
         let socketdir = if let Some(socketdir) = self.control_dir.as_ref() {
             socketdir
@@ -436,7 +450,7 @@ impl SessionBuilder {
 }
 
 /// Specifies how the host's key fingerprint should be handled.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum KnownHosts {
     /// The host's fingerprint must match what is in the known hosts file.
     ///
