@@ -58,14 +58,14 @@ impl Session {
     /// By using the built-in [`SessionBuilder`] in openssh, or a custom SessionBuilder,
     /// create a TempDir.
     ///
-    /// ```rust,no_run
+    /// ```no_run
+    /// # use std::error::Error;
     /// # #[cfg(feature = "process-mux")]
     /// # #[tokio::main]
     /// # async fn main() -> Result<(), Box<dyn Error>> {
     ///
-    /// use openssh::{Session, KnownHosts, Stdio, SessionBuilder};
+    /// use openssh::{Session, Stdio};
     /// use openssh_sftp_client::Sftp;
-    ///
     ///
     /// #[derive(Clone, Debug)]
     /// pub struct CustomSessionBuilder {
@@ -108,14 +108,14 @@ impl Session {
     /// By using the built-in [`SessionBuilder`] in openssh, or a custom SessionBuilder,
     /// create a TempDir.
     ///
-    /// ```rust,no_run
+    /// ```no_run
+    /// # use std::error::Error;
     /// # #[cfg(feature = "native-mux")]
     /// # #[tokio::main]
     /// # async fn main() -> Result<(), Box<dyn Error>> {
     ///
-    /// use openssh::{Session, KnownHosts, Stdio, SessionBuilder};
+    /// use openssh::{Session, Stdio};
     /// use openssh_sftp_client::Sftp;
-    ///
     ///
     /// #[derive(Clone, Debug)]
     /// pub struct CustomSessionBuilder {
