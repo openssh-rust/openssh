@@ -348,7 +348,8 @@ impl SessionBuilder {
         (Cow::Owned(with_overrides), destination)
     }
 
-    /// Create ssh master session and return [`TempDir`]
+    /// Create ssh master session and return [`TempDir`] which
+    /// contains the ssh control socket.
     pub async fn launch_master(&self, destination: &str) -> Result<TempDir, Error> {
         let socketdir = if let Some(socketdir) = self.control_dir.as_ref() {
             socketdir
