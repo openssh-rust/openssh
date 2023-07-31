@@ -334,7 +334,7 @@ impl SessionBuilder {
         let prefix = ".ssh-connection";
 
         if self.clean_history_control_dir {
-            let _ = clean_history_control_dir(&socketdir, prefix);
+            let _ = clean_history_control_dir(socketdir, prefix);
         }
 
         let dir = Builder::new()
