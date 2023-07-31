@@ -58,7 +58,9 @@ impl Session {
     /// By using the built-in [`SessionBuilder`] in openssh, or a custom SessionBuilder,
     /// create a TempDir.
     ///
-    /// ```no_run
+    /// # Examples
+    ///
+    /// ```ignore
     /// # use std::error::Error;
     /// # #[cfg(feature = "process-mux")]
     /// # #[tokio::main]
@@ -108,7 +110,9 @@ impl Session {
     /// By using the built-in [`SessionBuilder`] in openssh, or a custom SessionBuilder,
     /// create a TempDir.
     ///
-    /// ```no_run
+    /// # Examples
+    ///
+    /// ```ignore
     /// # use std::error::Error;
     /// # #[cfg(feature = "native-mux")]
     /// # #[tokio::main]
