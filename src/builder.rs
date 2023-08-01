@@ -93,6 +93,16 @@ impl Default for SessionBuilder {
 }
 
 impl SessionBuilder {
+    /// Return the user set in builder.
+    pub fn get_user(&self) -> Option<&str> {
+        self.user.as_deref()
+    }
+
+    /// Return the port set in builder.
+    pub fn get_port(&self) -> Option<&str> {
+        self.port.as_deref()
+    }
+
     /// Set the ssh user (`ssh -l`).
     ///
     /// Defaults to `None`.
@@ -286,7 +296,20 @@ impl SessionBuilder {
         Ok(f(tempdir))
     }
 
-    fn resolve<'a, 'b>(&'a self, mut destination: &'b str) -> (Cow<'a, Self>, &'b str) {
+    /// [`SessionBuilder`] support for `destination` parsing.
+    /// The format of `destination` is the same as the `destination` argument to `ssh`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use openssh::SessionBuilder;
+    /// let b = SessionBuilder::default();
+    /// let (b, d) = b.resolve("ssh://test-user@127.0.0.1:2222");
+    /// assert_eq!(b.get_port().as_deref(), Some("2222"));
+    /// assert_eq!(b.get_user().as_deref(), Some("test-user"));
+    /// assert_eq!(d, "127.0.0.1");
+    /// ```
+    pub fn resolve<'a, 'b>(&'a self, mut destination: &'b str) -> (Cow<'a, Self>, &'b str) {
         // the "new" ssh://user@host:port form is not supported by all versions of ssh,
         // so we always translate it into the option form.
         let mut user = None;
@@ -324,7 +347,9 @@ impl SessionBuilder {
         (Cow::Owned(with_overrides), destination)
     }
 
-    async fn launch_master(&self, destination: &str) -> Result<TempDir, Error> {
+    /// Create ssh master session and return [`TempDir`] which
+    /// contains the ssh control socket.
+    pub async fn launch_master(&self, destination: &str) -> Result<TempDir, Error> {
         let socketdir = if let Some(socketdir) = self.control_dir.as_ref() {
             socketdir
         } else {
@@ -334,7 +359,7 @@ impl SessionBuilder {
         let prefix = ".ssh-connection";
 
         if self.clean_history_control_dir {
-            let _ = clean_history_control_dir(&socketdir, prefix);
+            let _ = clean_history_control_dir(socketdir, prefix);
         }
 
         let dir = Builder::new()
