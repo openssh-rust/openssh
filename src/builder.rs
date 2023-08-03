@@ -11,7 +11,7 @@ use std::{fs, io};
 use dirs::state_dir;
 use once_cell::sync::OnceCell;
 use tempfile::{Builder, TempDir};
-use tokio::process;
+use tokio::process::Command;
 
 /// The returned `&'static Path` can be coreced to any lifetime.
 fn get_default_control_dir<'a>() -> Result<&'a Path, Error> {
@@ -60,6 +60,7 @@ pub struct SessionBuilder {
     user: Option<String>,
     port: Option<String>,
     keyfile: Option<PathBuf>,
+    password: Option<String>,
     connect_timeout: Option<String>,
     server_alive_interval: Option<u64>,
     known_hosts_check: KnownHosts,
@@ -78,6 +79,7 @@ impl Default for SessionBuilder {
             user: None,
             port: None,
             keyfile: None,
+            password: None,
             connect_timeout: None,
             server_alive_interval: None,
             known_hosts_check: KnownHosts::Add,
@@ -106,8 +108,8 @@ impl SessionBuilder {
     /// Set the ssh user (`ssh -l`).
     ///
     /// Defaults to `None`.
-    pub fn user(&mut self, user: String) -> &mut Self {
-        self.user = Some(user);
+    pub fn user(&mut self, user: impl AsRef<str>) -> &mut Self {
+        self.user = Some(user.as_ref().to_string());
         self
     }
 
@@ -124,6 +126,14 @@ impl SessionBuilder {
     /// Defaults to `None`.
     pub fn keyfile(&mut self, p: impl AsRef<Path>) -> &mut Self {
         self.keyfile = Some(p.as_ref().to_path_buf());
+        self
+    }
+
+    /// Set the ssh password.
+    ///
+    /// Defaults to `None`.
+    pub fn password(&mut self, p: impl AsRef<str>) -> &mut Self {
+        self.password = Some(p.as_ref().to_string());
         self
     }
 
@@ -337,7 +347,7 @@ impl SessionBuilder {
 
         let mut with_overrides = self.clone();
         if let Some(user) = user {
-            with_overrides.user(user.to_owned());
+            with_overrides.user(user);
         }
 
         if let Some(port) = port {
@@ -345,6 +355,28 @@ impl SessionBuilder {
         }
 
         (Cow::Owned(with_overrides), destination)
+    }
+
+    /// Create ssh master Command
+    fn init_command(&self) -> Command {
+        if let Some(pass) = &self.password {
+            let mut init = Command::new("sshpass");
+
+            init.stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .arg("-p")
+                .arg(pass)
+                .arg("ssh");
+            return init;
+        }
+
+        let mut init = Command::new("ssh");
+
+        init.stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null());
+        init
     }
 
     /// Create ssh master session and return [`TempDir`] which
@@ -368,16 +400,13 @@ impl SessionBuilder {
             .map_err(Error::Master)?;
 
         let log = dir.path().join("log");
+        let master = dir.path().join("master");
 
-        let mut init = process::Command::new("ssh");
-
-        init.stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .arg("-E")
+        let mut init = self.init_command();
+        init.arg("-E")
             .arg(&log)
             .arg("-S")
-            .arg(dir.path().join("master"))
+            .arg(&master)
             .arg("-M")
             .arg("-f")
             .arg("-N")

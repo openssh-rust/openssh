@@ -180,9 +180,10 @@ impl Session {
     /// The format of `destination` is the same as the `destination` argument to `ssh`. It may be
     /// specified as either `[user@]hostname` or a URI of the form `ssh://[user@]hostname[:port]`.
     ///
+    /// The function provide keypair-based authentication.
+    ///
     /// If connecting requires interactive authentication based on `STDIN` (such as reading a
-    /// password), the connection will fail. Consider setting up keypair-based authentication
-    /// instead.
+    /// password), consider use [`Session::connect_with_pass`] function instead.
     ///
     /// For more options, see [`SessionBuilder`].
     #[cfg(feature = "process-mux")]
@@ -190,6 +191,35 @@ impl Session {
     pub async fn connect<S: AsRef<str>>(destination: S, check: KnownHosts) -> Result<Self, Error> {
         SessionBuilder::default()
             .known_hosts_check(check)
+            .connect(destination)
+            .await
+    }
+
+    /// Connect to the host at the given `host` over SSH using process impl, which will
+    /// spawn a new ssh process for each `Child` created.
+    ///
+    /// The format of `destination` is the same as the `destination` argument to `ssh`. It may be
+    /// specified as either `[user@]hostname` or a URI of the form `ssh://[user@]hostname[:port]`.
+    ///
+    /// The function provide interactive authentication based on `STDIN` (such as reading a
+    /// password).
+    ///
+    /// Warning ⚠️: current use sshpass non-interactive ssh password auth.
+    /// See detail: <https://sourceforge.net/projects/sshpass/>
+    ///
+    /// The current implementation of sshpass is only temporary, and the functionality will be
+    /// optimized later. If using this feature, pay attention to security risks.
+    ///
+    /// For more options, see [`SessionBuilder`].
+    #[cfg(feature = "process-mux")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "process-mux")))]
+    pub async fn connect_with_pass<S: AsRef<str>>(
+        destination: S,
+        pass: impl AsRef<str>,
+    ) -> Result<Self, Error> {
+        SessionBuilder::default()
+            .password(pass)
+            .known_hosts_check(KnownHosts::Accept)
             .connect(destination)
             .await
     }
@@ -202,9 +232,10 @@ impl Session {
     /// The format of `destination` is the same as the `destination` argument to `ssh`. It may be
     /// specified as either `[user@]hostname` or a URI of the form `ssh://[user@]hostname[:port]`.
     ///
+    /// The function provide keypair-based authentication.
+    ///
     /// If connecting requires interactive authentication based on `STDIN` (such as reading a
-    /// password), the connection will fail. Consider setting up keypair-based authentication
-    /// instead.
+    /// password), consider use [`Session::connect_mux_with_pass`] function instead.
     ///
     /// For more options, see [`SessionBuilder`].
     #[cfg(feature = "native-mux")]
@@ -215,6 +246,37 @@ impl Session {
     ) -> Result<Self, Error> {
         SessionBuilder::default()
             .known_hosts_check(check)
+            .connect_mux(destination)
+            .await
+    }
+
+    /// Connect to the host at the given `host` over SSH using native mux impl, which
+    /// will create a new socket connection for each `Child` created.
+    ///
+    /// See the crate-level documentation for more details on the difference between native and process-based mux.
+    ///
+    /// The format of `destination` is the same as the `destination` argument to `ssh`. It may be
+    /// specified as either `[user@]hostname` or a URI of the form `ssh://[user@]hostname[:port]`.
+    ///
+    /// The function provide interactive authentication based on `STDIN` (such as reading a
+    /// password).
+    ///
+    /// Warning ⚠️: current use sshpass non-interactive ssh password auth.
+    /// See detail: <https://sourceforge.net/projects/sshpass/>
+    ///
+    /// The current implementation of sshpass is only temporary, and the functionality will be
+    /// optimized later. If using this feature, pay attention to security risks.
+    ///
+    /// For more options, see [`SessionBuilder`].
+    #[cfg(feature = "native-mux")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "native-mux")))]
+    pub async fn connect_mux_with_pass<S: AsRef<str>>(
+        destination: S,
+        pass: impl AsRef<str>,
+    ) -> Result<Self, Error> {
+        SessionBuilder::default()
+            .password(pass)
+            .known_hosts_check(KnownHosts::Accept)
             .connect_mux(destination)
             .await
     }
