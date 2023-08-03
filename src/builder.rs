@@ -358,7 +358,7 @@ impl SessionBuilder {
     }
 
     /// Create ssh master Command
-    fn init_command(&self) -> Command {
+    fn init_command(&self, log: &PathBuf, master: &PathBuf) -> Command {
         if let Some(pass) = &self.password {
             let mut init = Command::new("sshpass");
 
@@ -367,7 +367,20 @@ impl SessionBuilder {
                 .stderr(Stdio::null())
                 .arg("-p")
                 .arg(pass)
-                .arg("ssh");
+                .arg("ssh")
+                .arg("-E")
+                .arg(log)
+                .arg("-S")
+                .arg(master)
+                .arg("-M")
+                .arg("-f")
+                .arg("-N")
+                .arg("-o")
+                .arg("ControlPersist=yes")
+                .arg("-o")
+                .arg("BatchMode=no")
+                .arg("-o")
+                .arg(self.known_hosts_check.as_option());
             return init;
         }
 
@@ -375,7 +388,20 @@ impl SessionBuilder {
 
         init.stdin(Stdio::null())
             .stdout(Stdio::null())
-            .stderr(Stdio::null());
+            .stderr(Stdio::null())
+            .arg("-E")
+            .arg(log)
+            .arg("-S")
+            .arg(master)
+            .arg("-M")
+            .arg("-f")
+            .arg("-N")
+            .arg("-o")
+            .arg("ControlPersist=yes")
+            .arg("-o")
+            .arg("BatchMode=yes")
+            .arg("-o")
+            .arg(self.known_hosts_check.as_option());
         init
     }
 
@@ -402,20 +428,7 @@ impl SessionBuilder {
         let log = dir.path().join("log");
         let master = dir.path().join("master");
 
-        let mut init = self.init_command();
-        init.arg("-E")
-            .arg(&log)
-            .arg("-S")
-            .arg(&master)
-            .arg("-M")
-            .arg("-f")
-            .arg("-N")
-            .arg("-o")
-            .arg("ControlPersist=yes")
-            .arg("-o")
-            .arg("BatchMode=yes")
-            .arg("-o")
-            .arg(self.known_hosts_check.as_option());
+        let mut init = self.init_command(&log, &master);
 
         if let Some(ref timeout) = self.connect_timeout {
             init.arg("-o").arg(format!("ConnectTimeout={}", timeout));
