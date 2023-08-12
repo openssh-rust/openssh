@@ -15,6 +15,11 @@ on:
       - 'start_sshd.sh'
       - 'stop_sshd.sh'
 name: os check
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
 jobs:
   os-check:
     runs-on: ${{ matrix.os }}
@@ -24,13 +29,14 @@ jobs:
       matrix:
         os: [macos-latest]
     steps:
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
+      - name: Install toolchain
+        run: |
+          rustup toolchain install stable --no-self-update --profile minimal
       - uses: actions/checkout@v3
+
+      - name: Create Cargo.lock for caching
+        run: cargo update
+      - uses: Swatinem/rust-cache@v2
+
       - name: cargo test
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --all-features --all-targets
+        run: cargo test --all-features --all-targets

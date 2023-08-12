@@ -15,18 +15,29 @@ on:
       - 'start_sshd.sh'
       - 'stop_sshd.sh'
 name: cargo hack
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
+env:
+  # makes all the ignored tests not ignored
+  RUSTFLAGS: --cfg=ci
+
 jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
+      - name: Install toolchain
+        run: |
+          rustup toolchain install stable --no-self-update --profile minimal
       - uses: actions/checkout@v3
+
       - uses: taiki-e/install-action@cargo-hack
+      - name: Create Cargo.lock for caching
+        run: cargo update
+      - uses: Swatinem/rust-cache@v2
+
       - name: cargo hack
-        uses: actions-rs/cargo@v1
-        with:
-          command: hack
-          args: --feature-powerset check --all-targets
+        run: |
+          cargo hack --feature-powerset check --all-targets

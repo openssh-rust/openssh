@@ -15,6 +15,11 @@ on:
       - 'start_sshd.sh'
       - 'stop_sshd.sh'
 name: lint
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
 jobs:
   style:
     runs-on: ubuntu-latest
@@ -24,18 +29,18 @@ jobs:
       matrix:
         toolchain: [stable, beta]
     steps:
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: ${{ matrix.toolchain }}
-          components: rustfmt, clippy
-          override: true
+      - name: Install toolchain
+        run: |
+          rustup toolchain install ${{ matrix.toolchain }} --no-self-update --profile minimal --component rustfmt,clippy
+          rustup override set ${{ matrix.toolchain }}
+          rustup default ${{ matrix.toolchain }}
       - uses: actions/checkout@v3
-      - name: cargo fmt --check
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --check
+
+      - name: Create Cargo.lock for caching
+        run: cargo update
+      - uses: Swatinem/rust-cache@v2
+
+      - run: cargo fmt --check
       - name: cargo clippy
         uses: actions-rs/clippy-check@v1
         if: always()
@@ -43,17 +48,18 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
   doc:
     runs-on: ubuntu-latest
+    env:
+      RUSTDOCFLAGS: --cfg docsrs
     steps:
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: nightly
+      - name: Install toolchain
+        run: |
+          rustup toolchain install nightly --no-self-update --profile minimal
+          rustup override set nightly
+          rustup default nightly
       - uses: actions/checkout@v3
-      - name: cargo doc
-        uses: actions-rs/cargo@v1
-        with:
-          toolchain: nightly
-          command: doc
-          args: --no-deps --all-features
-        env:
-          RUSTDOCFLAGS: --cfg docsrs
+
+      - name: Create Cargo.lock for caching
+        run: cargo update
+      - uses: Swatinem/rust-cache@v2
+
+      - run: cargo +nightly doc --no-deps --all-features

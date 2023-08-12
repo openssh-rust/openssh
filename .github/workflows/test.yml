@@ -15,6 +15,15 @@ on:
       - 'start_sshd.sh'
       - 'stop_sshd.sh'
 name: cargo test
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
+env:
+  # makes all the ignored tests not ignored
+  RUSTFLAGS: --cfg=ci
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -23,12 +32,19 @@ jobs:
       matrix:
         toolchain: [stable, beta, nightly]
     steps:
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: ${{ matrix.toolchain }}
-          override: true
+      - name: Install toolchain
+        run: |
+          rustup toolchain install ${{ matrix.toolchain }} --no-self-update --profile minimal
+          rustup override set ${{ matrix.toolchain }}
+          rustup default ${{ matrix.toolchain }}
       - uses: actions/checkout@v3
+
+      - name: Create Cargo.lock for caching
+        run: cargo update
+      - uses: Swatinem/rust-cache@v2
+      - name: Compile tests
+        run: cargo test --all-features --workspace --no-run
+
       - run: |
           # Wait for startup of openssh-server
           timeout 15 ./wait_for_sshd_start_up.sh
@@ -42,14 +58,8 @@ jobs:
           echo "SSH_AGENT_PID=$SSH_AGENT_PID" >> $GITHUB_ENV
           cat .test-key | ssh-add -
         name: Set up ssh-agent
-      - name: cargo test
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --all-features
+      - run: cargo test --all-features
         env:
-          # makes all the ignored tests not ignored
-          RUSTFLAGS: --cfg=ci
           XDG_RUNTIME_DIR: /tmp
       - run: docker logs $(docker ps | grep openssh-server | awk '{print $1}')
         name: ssh container log
