@@ -15,19 +15,31 @@ on:
       - 'start_sshd.sh'
       - 'stop_sshd.sh'
 name: With dependencies at minimal versions
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
+env:
+  # makes all the ignored tests not ignored
+  RUSTFLAGS: --cfg=ci
+
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: nightly
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
+      - name: Install toolchain
+        run: |
+          rustup toolchain install stable --no-self-update --profile minimal
+          rustup toolchain install nightly --no-self-update --profile minimal
       - uses: actions/checkout@v3
+
+      - name: cargo update -Zminimal-versions
+        run: cargo +nightly -Zminimal-versions update
+      - uses: Swatinem/rust-cache@v2
+      - name: Compile tests
+        run: cargo test --all-features --workspace --no-run
+
       - run: |
           # Wait for startup of openssh-server
           timeout 15 ./wait_for_sshd_start_up.sh
@@ -41,20 +53,10 @@ jobs:
           echo "SSH_AGENT_PID=$SSH_AGENT_PID" >> $GITHUB_ENV
           cat .test-key | ssh-add -
         name: Set up ssh-agent
-      - name: cargo update -Zminimal-versions
-        uses: actions-rs/cargo@v1
-        with:
-          command: update
-          toolchain: nightly
-          args: -Zminimal-versions
       - name: cargo test
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --all-features
+        run: |
+          cargo test --all-features
         env:
-          # makes all the ignored tests not ignored
-          RUSTFLAGS: --cfg=ci
           XDG_RUNTIME_DIR: /tmp
     services:
       openssh:
