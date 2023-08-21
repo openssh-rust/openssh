@@ -157,7 +157,10 @@ impl SessionBuilder {
     /// Set the directory in which the temporary directory containing the control socket will
     /// be created.
     ///
-    /// If not set, `./` will be used (the current directory).
+    /// If not set, openssh will try to use [`dirs::state_dir`] and fallback to
+    /// `./` (the current directory) if it failed.
+    ///
+    /// [`dirs::state_dir`]: https://docs.rs/dirs/latest/dirs/fn.state_dir.html
     #[cfg(not(windows))]
     #[cfg_attr(docsrs, doc(cfg(not(windows))))]
     pub fn control_directory(&mut self, p: impl AsRef<Path>) -> &mut Self {
