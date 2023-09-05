@@ -31,7 +31,7 @@ jobs:
       - name: Install toolchain
         run: |
           rustup toolchain install stable --no-self-update --profile minimal
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - uses: taiki-e/install-action@cargo-hack
       - name: Create Cargo.lock for caching
