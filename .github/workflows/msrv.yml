@@ -30,7 +30,7 @@ jobs:
           rustup toolchain install nightly --no-self-update --profile minimal
           rustup override set 1.63
           rustup default 1.63
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: cargo update -Zminimal-versions
         run: cargo +nightly -Zminimal-versions update

@@ -34,7 +34,7 @@ jobs:
           rustup toolchain install ${{ matrix.toolchain }} --no-self-update --profile minimal --component rustfmt,clippy
           rustup override set ${{ matrix.toolchain }}
           rustup default ${{ matrix.toolchain }}
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Create Cargo.lock for caching
         run: cargo update
@@ -56,7 +56,7 @@ jobs:
           rustup toolchain install nightly --no-self-update --profile minimal
           rustup override set nightly
           rustup default nightly
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Create Cargo.lock for caching
         run: cargo update
