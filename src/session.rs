@@ -1,4 +1,7 @@
-use super::{Command, Error, ForwardType, KnownHosts, SessionBuilder, Socket};
+use super::{
+    Error, ForwardType, KnownHosts, SessionBuilder, Socket,
+    command::Command,
+};
 
 #[cfg(feature = "process-mux")]
 use super::process_impl;
@@ -119,8 +122,7 @@ impl Session {
     /// let tempdir = builder.launch_master(destination).await?;
     ///
     /// let session = Session::new_native_mux(tempdir);
-    ///
-    /// let mut child = session
+    ///    /// let mut child = session
     ///     .subsystem("sftp")
     ///     .stdin(Stdio::piped())
     ///     .stdout(Stdio::piped())
@@ -243,14 +245,14 @@ impl Session {
     /// The returned `Command` is a builder, with the following default configuration:
     ///
     /// * No arguments to the program
-    /// * Empty stdin and dsicard stdout/stderr for `spawn` or `status`, but create output pipes for
+    /// * Empty stdin and discard stdout/stderr for `spawn` or `status`, but create output pipes for
     ///   `output`
     ///
     /// Builder methods are provided to change these defaults and otherwise configure the process.
     ///
     /// If `program` is not an absolute path, the `PATH` will be searched in an OS-defined way on
     /// the host.
-    pub fn command<'a, S: Into<Cow<'a, str>>>(&self, program: S) -> Command<'_> {
+    pub fn command<'a, S: Into<Cow<'a, str>>>(&self, program: S) -> Command<&'_ Self> {
         self.raw_command(&*shell_escape::unix::escape(program.into()))
     }
 
@@ -270,11 +272,83 @@ impl Session {
     ///
     /// If `program` is not an absolute path, the `PATH` will be searched in an OS-defined way on
     /// the host.
-    pub fn raw_command<S: AsRef<OsStr>>(&self, program: S) -> Command<'_> {
+    pub fn raw_command<S: AsRef<OsStr>>(&self, program: S) -> Command<&'_ Self> {
         Command::new(
             self,
             delegate!(&self.0, imp, { imp.raw_command(program.as_ref()).into() }),
         )
+    }
+
+    /// Version of [`command`](Self::command) which stores an
+    /// `Arc<Session>` instead of a reference, making the resulting
+    /// [`Command`] independent from the source [`Session`] and
+    /// simplifying lifetime management and concurrent usage:
+    ///
+    /// ```rust,no_run
+    /// # use std::sync::Arc;
+    /// # use tokio::io::AsyncReadExt;
+    /// # use openssh::{Session, KnownHosts};
+    /// # #[cfg(feature = "native-mux")]
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), openssh::Error> {
+    ///
+    /// let session = Arc::new(Session::connect_mux("me@ssh.example.com", KnownHosts::Strict).await?);
+    ///
+    /// let log = session.arc_command("less").arg("+F").arg("./some-log-file").spawn().await?;
+    /// tokio::spawn(async move {
+    ///     // can move the child around
+    ///     let stdout = log.stdout().take()?;
+    ///     let buf = vec![0;100];
+    ///     while let Ok(n) = stdout.read(&mut buf).await? {
+    ///         if n == 0 {
+    ///             break;
+    ///         }
+    ///         println!("read {:?}", &buf[..n]);
+    ///     }
+    ///     Ok(())
+    /// })
+    /// # Ok(()) }
+    pub fn arc_command<'a, P: Into<Cow<'a, str>>>(
+        self: std::sync::Arc<Session>,
+        program: P,
+    ) -> Command<std::sync::Arc<Session>> {
+        Self::to_command(self, program)
+    }
+
+    /// Version of [`raw_command`](Self::raw_command) which stores an
+    /// `Arc<Session>`, similar to [`arc_command`](Self::arc_command).
+    pub fn arc_raw_command<P: AsRef<OsStr>>(
+        self: std::sync::Arc<Session>,
+        program: P,
+    ) -> Command<std::sync::Arc<Session>> {
+        Self::to_raw_command(self, program)
+    }
+
+    /// Version of [`command`](Self::command) which stores an
+    /// arbitrary shared-ownership smart pointer to a [`Session`],
+    /// more generic but less convenient than
+    /// [`arc_command`](Self::arc_command).
+    pub fn to_command<'a, S, P>(session: S, program: P) -> Command<S>
+    where
+        P: Into<Cow<'a, str>>,
+        S: AsRef<Session> + Clone,
+    {
+        Self::to_raw_command(session, &*shell_escape::unix::escape(program.into()))
+    }
+
+    /// Version of [`raw_command`](Self::raw_command) which stores an
+    /// arbitrary shared-ownership smart pointer to a [`Session`],
+    /// more generic but less convenient than
+    /// [`arc_raw_command`](Self::arc_raw_command).
+    pub fn to_raw_command<S, P>(session: S, program: P) -> Command<S>
+    where
+        P: AsRef<OsStr>,
+        S: AsRef<Session> + Clone,
+    {
+        let session_impl = delegate!(&session.as_ref().0, imp, {
+            imp.raw_command(program.as_ref()).into()
+        });
+        Command::new(session, session_impl)
     }
 
     /// Constructs a new [`Command`] for launching subsystem `program` on the remote
@@ -327,7 +401,7 @@ impl Session {
     ///
     /// # Ok(()) }
     /// ```
-    pub fn subsystem<S: AsRef<OsStr>>(&self, program: S) -> Command<'_> {
+    pub fn subsystem<S: AsRef<OsStr>>(&self, program: S) -> Command<&'_ Self> {
         Command::new(
             self,
             delegate!(&self.0, imp, { imp.subsystem(program.as_ref()).into() }),
@@ -373,7 +447,7 @@ impl Session {
     ///   [POSIX compliant]: https://pubs.opengroup.org/onlinepubs/9699919799/xrat/V4_xcu_chap02.html
     ///   [this article]: https://mywiki.wooledge.org/Arguments
     ///   [`shell-escape`]: https://crates.io/crates/shell-escape
-    pub fn shell<S: AsRef<str>>(&self, command: S) -> Command<'_> {
+    pub fn shell<S: AsRef<str>>(&self, command: S) -> Command<&'_ Self> {
         let mut cmd = self.command("sh");
         cmd.arg("-c").arg(command.as_ref());
         cmd

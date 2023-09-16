@@ -1,7 +1,7 @@
 use crate::escape::escape;
 
+use super::child::Child;
 use super::stdio::TryFromChildIo;
-use super::RemoteChild;
 use super::Stdio;
 use super::{Error, Session};
 
@@ -112,17 +112,17 @@ pub trait OverSsh {
     /// }
     ///
     /// ```
-    fn over_ssh<'session>(
+    fn over_ssh<S: AsRef<Session> + Clone>(
         &self,
-        session: &'session Session,
-    ) -> Result<crate::Command<'session>, crate::Error>;
+        session: S,
+    ) -> Result<Command<S>, crate::Error>;
 }
 
 impl OverSsh for std::process::Command {
-    fn over_ssh<'session>(
+    fn over_ssh<S: AsRef<Session> + Clone> (
         &self,
-        session: &'session Session,
-    ) -> Result<Command<'session>, crate::Error> {
+        session: S,
+    ) -> Result<Command<S>, crate::Error> {
         // I'd really like `!self.get_envs().is_empty()` here, but that's
         // behind a `exact_size_is_empty` feature flag.
         if self.get_envs().len() > 0 {
@@ -134,7 +134,7 @@ impl OverSsh for std::process::Command {
         }
 
         let program_escaped: Cow<'_, OsStr> = escape(self.get_program());
-        let mut command = session.raw_command(program_escaped);
+        let mut command = Session::to_raw_command(session, program_escaped);
 
         let args = self.get_args().map(escape);
         command.raw_args(args);
@@ -143,10 +143,10 @@ impl OverSsh for std::process::Command {
 }
 
 impl OverSsh for tokio::process::Command {
-    fn over_ssh<'session>(
+    fn over_ssh<S: AsRef<Session> + Clone> (
         &self,
-        session: &'session Session,
-    ) -> Result<Command<'session>, crate::Error> {
+        session: S,
+    ) -> Result<Command<S>, crate::Error> {
         self.as_std().over_ssh(session)
     }
 }
@@ -155,10 +155,10 @@ impl<S> OverSsh for &S
 where
     S: OverSsh,
 {
-    fn over_ssh<'session>(
+    fn over_ssh<U: AsRef<Session> + Clone>(
         &self,
-        session: &'session Session,
-    ) -> Result<Command<'session>, crate::Error> {
+        session: U,
+    ) -> Result<Command<U>, crate::Error> {
         <S as OverSsh>::over_ssh(self, session)
     }
 }
@@ -167,10 +167,10 @@ impl<S> OverSsh for &mut S
 where
     S: OverSsh,
 {
-    fn over_ssh<'session>(
+    fn over_ssh<U: AsRef<Session> + Clone>(
         &self,
-        session: &'session Session,
-    ) -> Result<Command<'session>, crate::Error> {
+        session: U,
+    ) -> Result<Command<U>, crate::Error> {
         <S as OverSsh>::over_ssh(self, session)
     }
 }
@@ -178,18 +178,19 @@ where
 /// A remote process builder, providing fine-grained control over how a new remote process should
 /// be spawned.
 ///
-/// A default configuration can be generated using [`Session::command(program)`](Session::command),
-/// where `program` gives a path to the program to be executed. Additional builder methods allow
-/// the configuration to be changed (for example, by adding arguments) prior to spawning.  The
-/// interface is almost identical to that of [`std::process::Command`].
+/// A default configuration can be generated using [`Session::command(program)`](Session::command)
+/// or [`Session::arc_command(program)`](Session::arc_command), where `program` gives a path to
+/// the program to be executed. Additional builder methods allow the configuration to be changed
+/// (for example, by adding arguments) prior to spawning. The interface is almost identical to
+/// that of [`std::process::Command`].
 ///
-/// `Command` can be reused to spawn multiple remote processes. The builder methods change the
-/// command without needing to immediately spawn the process. Similarly, you can call builder
+/// `OwnedCommand` can be reused to spawn multiple remote processes. The builder methods change
+/// the command without needing to immediately spawn the process. Similarly, you can call builder
 /// methods after spawning a process and then spawn a new process with the modified settings.
 ///
 /// # Environment variables and current working directory.
 ///
-/// You'll notice that unlike its `std` counterpart, `Command` does not have any methods for
+/// You'll notice that unlike its `std` counterpart, `OwnedCommand` does not have any methods for
 /// setting environment variables or the current working directory for the remote command. This is
 /// because the SSH protocol does not support this (at least not in its standard configuration).
 /// For more details on this, see the `ENVIRONMENT` section of [`ssh(1)`]. To work around this,
@@ -207,8 +208,8 @@ where
 ///   [`ssh(1)`]: https://linux.die.net/man/1/ssh
 ///   [`env(1)`]: https://linux.die.net/man/1/env
 #[derive(Debug)]
-pub struct Command<'s> {
-    session: &'s Session,
+pub struct Command<S> {
+    session: S,
     imp: CommandImp,
 
     stdin_set: bool,
@@ -216,8 +217,8 @@ pub struct Command<'s> {
     stderr_set: bool,
 }
 
-impl<'s> Command<'s> {
-    pub(crate) fn new(session: &'s super::Session, imp: CommandImp) -> Self {
+impl<S> Command<S> {
+    pub(crate) fn new(session: S, imp: CommandImp) -> Self {
         Self {
             session,
             imp,
@@ -231,7 +232,8 @@ impl<'s> Command<'s> {
     /// Adds an argument to pass to the remote program.
     ///
     /// Before it is passed to the remote host, `arg` is escaped so that special characters aren't
-    /// evaluated by the remote shell. If you do not want this behavior, use [`raw_arg`](Command::raw_arg).
+    /// evaluated by the remote shell. If you do not want this behavior, use
+    /// [`raw_arg`](Command::raw_arg).
     ///
     /// Only one argument can be passed per use. So instead of:
     ///
@@ -251,7 +253,7 @@ impl<'s> Command<'s> {
     /// ```
     ///
     /// To pass multiple arguments see [`args`](Command::args).
-    pub fn arg<S: AsRef<str>>(&mut self, arg: S) -> &mut Self {
+    pub fn arg<A: AsRef<str>>(&mut self, arg: A) -> &mut Self {
         self.raw_arg(&*shell_escape::unix::escape(Cow::Borrowed(arg.as_ref())))
     }
 
@@ -263,7 +265,7 @@ impl<'s> Command<'s> {
     /// remote shell.
     ///
     /// To pass multiple unescaped arguments see [`raw_args`](Command::raw_args).
-    pub fn raw_arg<S: AsRef<OsStr>>(&mut self, arg: S) -> &mut Self {
+    pub fn raw_arg<A: AsRef<OsStr>>(&mut self, arg: A) -> &mut Self {
         delegate!(&mut self.imp, imp, {
             imp.raw_arg(arg.as_ref());
         });
@@ -277,10 +279,10 @@ impl<'s> Command<'s> {
     /// use [`raw_args`](Command::raw_args).
     ///
     /// To pass a single argument see [`arg`](Command::arg).
-    pub fn args<I, S>(&mut self, args: I) -> &mut Self
+    pub fn args<I, A>(&mut self, args: I) -> &mut Self
     where
-        I: IntoIterator<Item = S>,
-        S: AsRef<str>,
+        I: IntoIterator<Item = A>,
+        A: AsRef<str>,
     {
         for arg in args {
             self.arg(arg);
@@ -296,10 +298,10 @@ impl<'s> Command<'s> {
     /// interpreted by the remote shell.
     ///
     /// To pass a single argument see [`raw_arg`](Command::raw_arg).
-    pub fn raw_args<I, S>(&mut self, args: I) -> &mut Self
+    pub fn raw_args<I, A>(&mut self, args: I) -> &mut Self
     where
-        I: IntoIterator<Item = S>,
-        S: AsRef<OsStr>,
+        I: IntoIterator<Item = A>,
+        A: AsRef<OsStr>,
     {
         for arg in args {
             self.raw_arg(arg);
@@ -351,10 +353,12 @@ impl<'s> Command<'s> {
         self.stderr_set = true;
         self
     }
+}
 
-    async fn spawn_impl(&mut self) -> Result<RemoteChild<'s>, Error> {
-        Ok(RemoteChild::new(
-            self.session,
+impl<S: Clone> Command<S> {
+    async fn spawn_impl(&mut self) -> Result<Child<S>, Error> {
+        Ok(Child::new(
+            self.session.clone(),
             delegate!(&mut self.imp, imp, {
                 let (imp, stdin, stdout, stderr) = imp.spawn().await?;
                 (
@@ -371,7 +375,7 @@ impl<'s> Command<'s> {
     /// instead.
     ///
     /// By default, stdin, stdout and stderr are inherited.
-    pub async fn spawn(&mut self) -> Result<RemoteChild<'s>, Error> {
+    pub async fn spawn(&mut self) -> Result<Child<S>, Error> {
         if !self.stdin_set {
             self.stdin(Stdio::inherit());
         }
