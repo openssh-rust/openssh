@@ -18,15 +18,17 @@
 //! Note that the maximum number of multiplexed remote commands is 10 by default. This value can be
 //! increased by changing the `MaxSessions` setting in [`sshd_config`].
 //!
-//! Much like with [`std::process::Command`], you have multiple options when it comes to launching
-//! a remote command. You can [spawn](Command::spawn) the remote command, which just gives you a
-//! handle to the running process, you can run the command and wait for its
-//! [output](Command::output), or you can run it and just extract its [exit
-//! status](Command::status). Unlike its `std` counterpart though, these methods on [`Command`] can
-//! fail even if the remote command executed successfully, since there is a fallible network
-//! separating you from it.
+//! Much like with [`std::process::Command`], you have multiple
+//! options when it comes to launching a remote command. You can
+//! [spawn](Command::spawn) the remote command, which just gives you a
+//! handle to the running process, you can run the command and wait
+//! for its [output](Command::output), or you can run it and just
+//! extract its [exit status](Command::status). Unlike its `std`
+//! counterpart though, these methods on [`OwningCommand`] can fail
+//! even if the remote command executed successfully, since there is a
+//! fallible network separating you from it.
 //!
-//! Also unlike its `std` counterpart, [`spawn`](Command::spawn) gives you a [`RemoteChild`] rather
+//! Also unlike its `std` counterpart, [`spawn`](OwningCommand::spawn) gives you a [`Child`] rather
 //! than a [`std::process::Child`]. Behind the scenes, a remote child is really just a process
 //! handle to the _local_ `ssh` instance corresponding to the spawned remote command. The behavior
 //! of the methods of [`RemoteChild`] therefore match the behavior of `ssh`, rather than that of
@@ -167,12 +169,16 @@ mod builder;
 pub use builder::{KnownHosts, SessionBuilder};
 
 mod command;
-pub use command::{Command, OverSsh};
+pub use command::{OverSsh, OwningCommand};
+/// Convenience [`OwningCommand`] alias when working with a session reference.
+pub type Command<'s> = OwningCommand<&'s Session>;
 
 mod escape;
 
 mod child;
-pub use child::RemoteChild;
+pub use child::Child;
+/// Convenience [`Child`] alias when working with a session reference.
+pub type RemoteChild<'a> = Child<&'a Session>;
 
 mod error;
 pub use error::Error;
