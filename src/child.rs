@@ -74,8 +74,8 @@ macro_rules! delegate {
 /// # }
 /// ```
 #[derive(Debug)]
-pub struct RemoteChild<'s> {
-    session: &'s Session,
+pub struct Child<T> {
+    session: T,
     imp: RemoteChildImp,
 
     stdin: Option<ChildStdin>,
@@ -83,9 +83,11 @@ pub struct RemoteChild<'s> {
     stderr: Option<ChildStderr>,
 }
 
-impl<'s> RemoteChild<'s> {
+pub type RemoteChild<'a> = Child<&'a Session>; 
+
+impl<T> Child<T> {
     pub(crate) fn new(
-        session: &'s Session,
+        session: T,
         (imp, stdin, stdout, stderr): (
             RemoteChildImp,
             Option<ChildStdin>,
@@ -100,11 +102,6 @@ impl<'s> RemoteChild<'s> {
             stderr,
             imp,
         }
-    }
-
-    /// Access the SSH session that this remote process was spawned from.
-    pub fn session(&self) -> &'s Session {
-        self.session
     }
 
     /// Disconnect from this given remote child process.
@@ -200,5 +197,17 @@ impl<'s> RemoteChild<'s> {
     /// Access the handle for reading from the remote child's standard error (stderr), if requested.
     pub fn stderr(&mut self) -> &mut Option<ChildStderr> {
         &mut self.stderr
+    }
+
+    /// Retrieve the SSH session that this remote process was spawned from
+    pub fn into_session(self) -> T {
+        self.session
+    }
+}
+
+impl<'a> Child<&'a Session>  {
+    /// Access the SSH session that this remote process was spawned from.
+    pub fn session(&self) -> &'a Session {
+        self.session
     }
 }

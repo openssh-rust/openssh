@@ -1,7 +1,7 @@
 use crate::escape::escape;
 
 use super::stdio::TryFromChildIo;
-use super::RemoteChild;
+use super::child::Child;
 use super::Stdio;
 use super::{Error, Session};
 
@@ -207,8 +207,8 @@ where
 ///   [`ssh(1)`]: https://linux.die.net/man/1/ssh
 ///   [`env(1)`]: https://linux.die.net/man/1/env
 #[derive(Debug)]
-pub struct Command<'s> {
-    session: &'s Session,
+pub struct OwnedCommand<S> {
+    session: S,
     imp: CommandImp,
 
     stdin_set: bool,
@@ -216,8 +216,10 @@ pub struct Command<'s> {
     stderr_set: bool,
 }
 
-impl<'s> Command<'s> {
-    pub(crate) fn new(session: &'s super::Session, imp: CommandImp) -> Self {
+pub type Command<'s> = OwnedCommand<&'s Session>;
+
+impl <S> OwnedCommand<S> {
+    pub(crate) fn new(session: S, imp: CommandImp) -> Self {
         Self {
             session,
             imp,
@@ -251,7 +253,7 @@ impl<'s> Command<'s> {
     /// ```
     ///
     /// To pass multiple arguments see [`args`](Command::args).
-    pub fn arg<S: AsRef<str>>(&mut self, arg: S) -> &mut Self {
+    pub fn arg<A: AsRef<str>>(&mut self, arg: A) -> &mut Self {
         self.raw_arg(&*shell_escape::unix::escape(Cow::Borrowed(arg.as_ref())))
     }
 
@@ -263,7 +265,7 @@ impl<'s> Command<'s> {
     /// remote shell.
     ///
     /// To pass multiple unescaped arguments see [`raw_args`](Command::raw_args).
-    pub fn raw_arg<S: AsRef<OsStr>>(&mut self, arg: S) -> &mut Self {
+    pub fn raw_arg<A: AsRef<OsStr>>(&mut self, arg: A) -> &mut Self {
         delegate!(&mut self.imp, imp, {
             imp.raw_arg(arg.as_ref());
         });
@@ -277,10 +279,10 @@ impl<'s> Command<'s> {
     /// use [`raw_args`](Command::raw_args).
     ///
     /// To pass a single argument see [`arg`](Command::arg).
-    pub fn args<I, S>(&mut self, args: I) -> &mut Self
+    pub fn args<I, A>(&mut self, args: I) -> &mut Self
     where
-        I: IntoIterator<Item = S>,
-        S: AsRef<str>,
+        I: IntoIterator<Item = A>,
+        A: AsRef<str>,
     {
         for arg in args {
             self.arg(arg);
@@ -296,10 +298,10 @@ impl<'s> Command<'s> {
     /// interpreted by the remote shell.
     ///
     /// To pass a single argument see [`raw_arg`](Command::raw_arg).
-    pub fn raw_args<I, S>(&mut self, args: I) -> &mut Self
+    pub fn raw_args<I, A>(&mut self, args: I) -> &mut Self
     where
-        I: IntoIterator<Item = S>,
-        S: AsRef<OsStr>,
+        I: IntoIterator<Item = A>,
+        A: AsRef<OsStr>,
     {
         for arg in args {
             self.raw_arg(arg);
@@ -351,10 +353,12 @@ impl<'s> Command<'s> {
         self.stderr_set = true;
         self
     }
+}
 
-    async fn spawn_impl(&mut self) -> Result<RemoteChild<'s>, Error> {
-        Ok(RemoteChild::new(
-            self.session,
+impl <S: Clone> OwnedCommand<S> {
+    async fn spawn_impl(&mut self) -> Result<Child<S>, Error> {
+        Ok(Child::new(
+            self.session.clone(),
             delegate!(&mut self.imp, imp, {
                 let (imp, stdin, stdout, stderr) = imp.spawn().await?;
                 (
@@ -371,7 +375,7 @@ impl<'s> Command<'s> {
     /// instead.
     ///
     /// By default, stdin, stdout and stderr are inherited.
-    pub async fn spawn(&mut self) -> Result<RemoteChild<'s>, Error> {
+    pub async fn spawn(&mut self) -> Result<Child<S>, Error> {
         if !self.stdin_set {
             self.stdin(Stdio::inherit());
         }
@@ -410,3 +414,4 @@ impl<'s> Command<'s> {
         self.spawn().await?.wait().await
     }
 }
+
