@@ -74,8 +74,8 @@ macro_rules! delegate {
 /// # }
 /// ```
 #[derive(Debug)]
-pub struct Child<T> {
-    session: T,
+pub struct Child<S> {
+    session: S,
     imp: RemoteChildImp,
 
     stdin: Option<ChildStdin>,
@@ -85,9 +85,9 @@ pub struct Child<T> {
 
 pub type RemoteChild<'a> = Child<&'a Session>;
 
-impl<T> Child<T> {
+impl<S> Child<S> {
     pub(crate) fn new(
-        session: T,
+        session: S,
         (imp, stdin, stdout, stderr): (
             RemoteChildImp,
             Option<ChildStdin>,
@@ -200,9 +200,9 @@ impl<T> Child<T> {
     }
 }
 
-impl <T: Clone> Child<T>  {
+impl <S: Clone> Child<S>  {
     /// Access the SSH session that this remote process was spawned from.
-    pub fn session(&self) -> T {
+    pub fn session(&self) -> S {
         self.session.clone()
     }
 }
