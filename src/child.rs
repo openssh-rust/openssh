@@ -198,16 +198,11 @@ impl<T> Child<T> {
     pub fn stderr(&mut self) -> &mut Option<ChildStderr> {
         &mut self.stderr
     }
-
-    /// Retrieve the SSH session that this remote process was spawned from
-    pub fn into_session(self) -> T {
-        self.session
-    }
 }
 
-impl<'a> Child<&'a Session>  {
+impl <T: Clone> Child<T>  {
     /// Access the SSH session that this remote process was spawned from.
-    pub fn session(&self) -> &'a Session {
-        self.session
+    pub fn session(&self) -> T {
+        self.session.clone()
     }
 }
