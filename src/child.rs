@@ -83,7 +83,7 @@ pub struct Child<T> {
     stderr: Option<ChildStderr>,
 }
 
-pub type RemoteChild<'a> = Child<&'a Session>; 
+pub type RemoteChild<'a> = Child<&'a Session>;
 
 impl<T> Child<T> {
     pub(crate) fn new(
