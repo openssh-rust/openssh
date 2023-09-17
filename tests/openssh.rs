@@ -1061,11 +1061,11 @@ async fn test_read_large_file_bug() {
 
 #[tokio::test]
 #[cfg_attr(not(ci), ignore)]
-async fn rc_client() {
+async fn arc_client() {
     for session in connects().await {
         let session = std::sync::Arc::new(session);
         let mut child = session.clone()
-            .shared_command("cat")
+            .shared_thread_safe_command("cat")
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .spawn()

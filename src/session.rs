@@ -277,11 +277,11 @@ impl Session {
         )
     }
 
-    pub fn shared_command<'a, S: Into<Cow<'a, str>>>(self: std::sync::Arc<Self>, program: S) -> OwnedCommand<std::sync::Arc<Self>> {
-        self.shared_raw_command(&*shell_escape::unix::escape(program.into()))
+    pub fn shared_thread_safe_command<'a, S: Into<Cow<'a, str>>>(self: std::sync::Arc<Self>, program: S) -> OwnedCommand<std::sync::Arc<Self>> {
+        self.shared_thread_safe_raw_command(&*shell_escape::unix::escape(program.into()))
     }
 
-    pub fn shared_raw_command<S: AsRef<OsStr>>(self: std::sync::Arc<Self>, program: S) -> OwnedCommand<std::sync::Arc<Self>> {
+    pub fn shared_thread_safe_raw_command<S: AsRef<OsStr>>(self: std::sync::Arc<Self>, program: S) -> OwnedCommand<std::sync::Arc<Self>> {
         let session_impl = delegate!(&self.0, imp, { imp.raw_command(program.as_ref()).into() });
         OwnedCommand::new(self, session_impl)
     }
