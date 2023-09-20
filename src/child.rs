@@ -200,7 +200,7 @@ impl<S> Child<S> {
     }
 }
 
-impl <S: Clone> Child<S>  {
+impl<S: Clone> Child<S> {
     /// Access the SSH session that this remote process was spawned from.
     pub fn session(&self) -> S {
         self.session.clone()

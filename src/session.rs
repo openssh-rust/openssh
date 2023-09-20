@@ -1,4 +1,6 @@
-use super::{Command, command::OwnedCommand, Error, ForwardType, KnownHosts, SessionBuilder, Socket};
+use super::{
+    command::OwnedCommand, Command, Error, ForwardType, KnownHosts, SessionBuilder, Socket,
+};
 
 #[cfg(feature = "process-mux")]
 use super::process_impl;
@@ -277,11 +279,17 @@ impl Session {
         )
     }
 
-    pub fn shared_thread_safe_command<'a, S: Into<Cow<'a, str>>>(self: std::sync::Arc<Self>, program: S) -> OwnedCommand<std::sync::Arc<Self>> {
-        self.shared_thread_safe_raw_command(&*shell_escape::unix::escape(program.into()))
+    pub fn arc_command<'a, P: Into<Cow<'a, str>>>(
+        self: std::sync::Arc<Self>,
+        program: P,
+    ) -> OwnedCommand<std::sync::Arc<Self>> {
+        self.arc_raw_command(&*shell_escape::unix::escape(program.into()))
     }
 
-    pub fn shared_thread_safe_raw_command<S: AsRef<OsStr>>(self: std::sync::Arc<Self>, program: S) -> OwnedCommand<std::sync::Arc<Self>> {
+    pub fn arc_raw_command<P: AsRef<OsStr>>(
+        self: std::sync::Arc<Self>,
+        program: P,
+    ) -> OwnedCommand<std::sync::Arc<Self>> {
         let session_impl = delegate!(&self.0, imp, { imp.raw_command(program.as_ref()).into() });
         OwnedCommand::new(self, session_impl)
     }

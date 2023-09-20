@@ -1,7 +1,7 @@
 use crate::escape::escape;
 
-use super::stdio::TryFromChildIo;
 use super::child::Child;
+use super::stdio::TryFromChildIo;
 use super::Stdio;
 use super::{Error, Session};
 
@@ -218,7 +218,7 @@ pub struct OwnedCommand<S> {
 
 pub type Command<'s> = OwnedCommand<&'s Session>;
 
-impl <S> OwnedCommand<S> {
+impl<S> OwnedCommand<S> {
     pub(crate) fn new(session: S, imp: CommandImp) -> Self {
         Self {
             session,
@@ -355,7 +355,7 @@ impl <S> OwnedCommand<S> {
     }
 }
 
-impl <S: Clone> OwnedCommand<S> {
+impl<S: Clone> OwnedCommand<S> {
     async fn spawn_impl(&mut self) -> Result<Child<S>, Error> {
         Ok(Child::new(
             self.session.clone(),
@@ -414,4 +414,3 @@ impl <S: Clone> OwnedCommand<S> {
         self.spawn().await?.wait().await
     }
 }
-
