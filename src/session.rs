@@ -283,15 +283,14 @@ impl Session {
         self: std::sync::Arc<Self>,
         program: P,
     ) -> OwnedCommand<std::sync::Arc<Self>> {
-        self.arc_raw_command(&*shell_escape::unix::escape(program.into()))
+        Self::to_command(self, program)
     }
 
     pub fn arc_raw_command<P: AsRef<OsStr>>(
         self: std::sync::Arc<Self>,
         program: P,
     ) -> OwnedCommand<std::sync::Arc<Self>> {
-        let session_impl = delegate!(&self.0, imp, { imp.raw_command(program.as_ref()).into() });
-        OwnedCommand::new(self, session_impl)
+        Self::to_command_raw(self, program)
     }
 
     pub fn to_command<'a, S, P>(session: S, program: P) -> OwnedCommand<S>
