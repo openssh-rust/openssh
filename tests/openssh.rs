@@ -1058,14 +1058,14 @@ async fn test_read_large_file_bug() {
     }
 }
 
-
 #[tokio::test]
 #[cfg_attr(not(ci), ignore)]
 async fn arc_client() {
     for session in connects().await {
         let session = std::sync::Arc::new(session);
-        let mut child = session.clone()
-            .shared_thread_safe_command("cat")
+        let mut child = session
+            .clone()
+            .arc_command("cat")
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .spawn()
@@ -1091,6 +1091,39 @@ async fn arc_client() {
 
         // ... successfully
         assert!(status.success());
+    }
+}
 
+#[tokio::test]
+#[cfg_attr(not(ci), ignore)]
+async fn generic_client() {
+    for session in connects().await {
+        let session = std::rc::Rc::new(session);
+        let mut child = Session::to_command(session.clone(), "cat")
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .spawn()
+            .await
+            .unwrap();
+
+        drop(session);
+
+        // write something to standard in and send EOF
+        let mut stdin = child.stdin().take().unwrap();
+        stdin.write_all(b"hello world").await.unwrap();
+        drop(stdin);
+
+        // cat should print it back on stdout
+        let mut stdout = child.stdout().take().unwrap();
+        let mut out = String::new();
+        stdout.read_to_string(&mut out).await.unwrap();
+        assert_eq!(out, "hello world");
+        drop(stdout);
+
+        // cat should now have terminated
+        let status = child.wait().await.unwrap();
+
+        // ... successfully
+        assert!(status.success());
     }
 }

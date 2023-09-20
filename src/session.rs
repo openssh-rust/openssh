@@ -294,6 +294,24 @@ impl Session {
         OwnedCommand::new(self, session_impl)
     }
 
+    pub fn to_command<'a, S, P>(session: S, program: P) -> OwnedCommand<S>
+    where
+        P: Into<Cow<'a, str>>,
+        S: AsRef<Session> + Clone,
+    {
+        Self::to_command_raw(session, &*shell_escape::unix::escape(program.into()))
+    }
+    pub fn to_command_raw<S, P>(session: S, program: P) -> OwnedCommand<S>
+    where
+        P: AsRef<OsStr>,
+        S: AsRef<Session> + Clone,
+    {
+        let session_impl = delegate!(&session.as_ref().0, imp, {
+            imp.raw_command(program.as_ref()).into()
+        });
+        OwnedCommand::new(session, session_impl)
+    }
+
     /// Constructs a new [`Command`] for launching subsystem `program` on the remote
     /// host.
     ///
