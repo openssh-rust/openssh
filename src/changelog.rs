@@ -5,7 +5,20 @@ use crate::*;
 ///
 /// ## Added
 ///  - Add new fn `SessionBuilder::ssh_auth_sock`
+///  - Add new fns [`Session::arc_command`], [`Session::arc_raw_command`],
+///    [`Session::to_command`], and [`Session::to_raw_command`] to support
+///    session-owning commands
+///  - Add generic [`crate::OwningCommand`], to support session-owning
+///    commands.
+///  - Add [`crate::child::Child`] as a generic version of [`RemoteChild`]
+///    to support session-owning commands
 /// ## Changed
+///  - Change [`RemoteChild`] to be an alias to [`crate::child::Child`]
+///    owning a session references.
+///  - Change [`Command`] to be an alias to [`OwningCommand`] owning a
+///    session reference.
+///  - Change [`OverSsh::over_ssh`] to be generic and support owned
+///    sessions.
 /// ## Removed
 #[doc(hidden)]
 pub mod unreleased {}

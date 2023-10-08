@@ -1,4 +1,4 @@
-use super::{ChildStderr, ChildStdin, ChildStdout, Error, Session};
+use super::{ChildStderr, ChildStdin, ChildStdout, Error};
 
 use std::io;
 use std::process::{ExitStatus, Output};
@@ -42,27 +42,30 @@ macro_rules! delegate {
 
 /// Representation of a running or exited remote child process.
 ///
-/// This structure is used to represent and manage remote child processes. A remote child process
-/// is created via the [`Command`](crate::Command) struct through [`Session::command`], which
-/// configures the spawning process and can itself be constructed using a builder-style interface.
+/// This structure is used to represent and manage remote child
+/// processes. A remote child process is created via the
+/// [`OwningCommand`](crate::OwningCommand) struct through
+/// [`Session::command`](crate::Session::command) or one of its
+/// variants, which configures the spawning process and can itself be
+/// constructed using a builder-style interface.
 ///
-/// Calling [`wait`](RemoteChild::wait) (or other functions that wrap around it) will make the
+/// Calling [`wait`](Child::wait) (or other functions that wrap around it) will make the
 /// parent process wait until the child has actually exited before continuing.
 ///
-/// Unlike [`std::process::Child`], `RemoteChild` *does* implement [`Drop`], and will terminate the
+/// Unlike [`std::process::Child`], `Child` *does* implement [`Drop`], and will terminate the
 /// local `ssh` process corresponding to the remote process when it goes out of scope. Note that
 /// this does _not_ terminate the remote process. If you want to do that, you will need to kill it
 /// yourself by executing a remote command like `pkill` to kill it on the remote side.
 ///
-/// As a result, `RemoteChild` cannot expose `stdin`, `stdout`, and `stderr` as fields for
+/// As a result, `Child` cannot expose `stdin`, `stdout`, and `stderr` as fields for
 /// split-borrows like [`std::process::Child`] does. Instead, it exposes
-/// [`stdin`](RemoteChild::stdin), [`stdout`](RemoteChild::stdout),
-/// and [`stderr`](RemoteChild::stderr) as methods. Callers can call `.take()` to get the same
+/// [`stdin`](Child::stdin), [`stdout`](Child::stdout),
+/// and [`stderr`](Child::stderr) as methods. Callers can call `.take()` to get the same
 /// effect as a split borrow and use multiple streams concurrently. Note that for the streams to be
 /// available,`Stdio::piped()` should be passed to the corresponding method on
-/// [`Command`](crate::Command).
+/// [`OwningCommand`](crate::OwningCommand).
 ///
-/// NOTE that once `RemoteChild` is dropped, any data written to `stdin` will not be sent to the
+/// NOTE that once `Child` is dropped, any data written to `stdin` will not be sent to the
 /// remote process and `stdout` and `stderr` will yield EOF immediately.
 ///
 /// ```rust,no_run
@@ -74,8 +77,8 @@ macro_rules! delegate {
 /// # }
 /// ```
 #[derive(Debug)]
-pub struct RemoteChild<'s> {
-    session: &'s Session,
+pub struct Child<S> {
+    session: S,
     imp: RemoteChildImp,
 
     stdin: Option<ChildStdin>,
@@ -83,9 +86,9 @@ pub struct RemoteChild<'s> {
     stderr: Option<ChildStderr>,
 }
 
-impl<'s> RemoteChild<'s> {
+impl<S> Child<S> {
     pub(crate) fn new(
-        session: &'s Session,
+        session: S,
         (imp, stdin, stdout, stderr): (
             RemoteChildImp,
             Option<ChildStdin>,
@@ -100,11 +103,6 @@ impl<'s> RemoteChild<'s> {
             stderr,
             imp,
         }
-    }
-
-    /// Access the SSH session that this remote process was spawned from.
-    pub fn session(&self) -> &'s Session {
-        self.session
     }
 
     /// Disconnect from this given remote child process.
@@ -200,5 +198,12 @@ impl<'s> RemoteChild<'s> {
     /// Access the handle for reading from the remote child's standard error (stderr), if requested.
     pub fn stderr(&mut self) -> &mut Option<ChildStderr> {
         &mut self.stderr
+    }
+}
+
+impl<S: Clone> Child<S> {
+    /// Access the SSH session that this remote process was spawned from.
+    pub fn session(&self) -> S {
+        self.session.clone()
     }
 }
