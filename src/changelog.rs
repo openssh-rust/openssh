@@ -2,9 +2,10 @@
 use crate::*;
 
 /// TODO: RENAME THIS INTO THE NEXT VERSION BEFORE RELEASE
-///
+#[doc(hidden)]
+pub mod unreleased {}
+
 /// ## Added
-///  - Add new fn `SessionBuilder::ssh_auth_sock`
 ///  - Add new fns [`Session::arc_command`], [`Session::arc_raw_command`],
 ///    [`Session::to_command`], and [`Session::to_raw_command`] to support
 ///    session-owning commands
@@ -21,7 +22,28 @@ use crate::*;
 ///    sessions.
 /// ## Removed
 #[doc(hidden)]
-pub mod unreleased {}
+pub mod v0_10_1 {}
+
+/// ## Added
+///  - [`Session::new_process_mux`]
+///  - [`Session::new_native_mux`]
+///  - [`SessionBuilder::get_user`]
+///  - [`SessionBuilder::get_port`]
+///  - [`SessionBuilder::resolve`]
+///  - [`SessionBuilder::launch_master`]
+///  - [`SessionBuilder::clean_history_control_directory`]
+///  - [`OverSsh`] for converting [`std::process::Command`],
+///    [`tokio::process::Command`] or other custom types to
+///    [`Command`].
+/// ## Changed
+///  - [`Socket::TcpSocket`] now contains `host: Cow<'_, str>` and `port: u16`
+///    instead of an already resolved `SocketAddr`.
+///    Since the socket could be opened on remote host, which might has
+///    different dns configuration, it's better to delay resolution and perform
+///    it on remote instead.
+///  - [`Socket::new`] now takes `host: Cow<'_, str>` and `port: u16` for the
+///    same reason as above.
+pub mod v0_10_0 {}
 
 /// ## Added
 ///  - Add new fn `SessionBuilder::ssh_auth_sock`
