@@ -319,7 +319,7 @@ impl SessionBuilder {
         let mut port = None;
         if destination.starts_with("ssh://") {
             destination = &destination[6..];
-            if let Some(at) = destination.find('@') {
+            if let Some(at) = destination.rfind('@') {
                 // specified a username -- extract it:
                 user = Some(&destination[..at]);
                 destination = &destination[(at + 1)..];
