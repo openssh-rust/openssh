@@ -5,6 +5,10 @@ use crate::*;
 #[doc(hidden)]
 pub mod unreleased {}
 
+/// ## Changed
+///  - Use `str::rfind` to locate the `@` in connection string in case the username contains `@`
+pub mod v0_10_2 {}
+
 /// ## Added
 ///  - Add new fns [`Session::arc_command`], [`Session::arc_raw_command`],
 ///    [`Session::to_command`], and [`Session::to_raw_command`] to support
