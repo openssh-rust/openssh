@@ -2,6 +2,8 @@
 use crate::*;
 
 /// TODO: RENAME THIS INTO THE NEXT VERSION BEFORE RELEASE
+/// ## Changed
+/// - Removed dependency on MPL licensed dirs-sys in favor of local implementation
 #[doc(hidden)]
 pub mod unreleased {}
 
