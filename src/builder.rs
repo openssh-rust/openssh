@@ -8,10 +8,24 @@ use std::process::Stdio;
 use std::str;
 use std::{fs, io};
 
-use dirs::state_dir;
 use once_cell::sync::OnceCell;
 use tempfile::{Builder, TempDir};
 use tokio::process;
+
+fn state_dir() -> Option<PathBuf> {
+    fn get_absolute_path(path: OsString) -> Option<PathBuf> {
+        let path = PathBuf::from(path);
+        path.is_absolute().then_some(path)
+    }
+
+    if let Some(xdg) = std::env::var_os("XDG_STATE_HOME") {
+        get_absolute_path(xdg)
+    } else if let Some(home) = std::env::var_os("HOME") {
+        Some(get_absolute_path(home)?.join(".local/state"))
+    } else {
+        None
+    }
+}
 
 /// The returned `&'static Path` can be coreced to any lifetime.
 fn get_default_control_dir<'a>() -> Result<&'a Path, Error> {
@@ -157,10 +171,9 @@ impl SessionBuilder {
     /// Set the directory in which the temporary directory containing the control socket will
     /// be created.
     ///
-    /// If not set, openssh will try to use [`dirs::state_dir`] and fallback to
+    /// If not set, openssh will try to use `$XDG_STATE_HOME`, `$HOME/.local/state` and fallback to
     /// `./` (the current directory) if it failed.
     ///
-    /// [`dirs::state_dir`]: https://docs.rs/dirs/latest/dirs/fn.state_dir.html
     #[cfg(not(windows))]
     #[cfg_attr(docsrs, doc(cfg(not(windows))))]
     pub fn control_directory(&mut self, p: impl AsRef<Path>) -> &mut Self {
