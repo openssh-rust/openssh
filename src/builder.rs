@@ -85,6 +85,7 @@ pub struct SessionBuilder {
     server_alive_interval: Option<u64>,
     known_hosts_check: KnownHosts,
     control_dir: Option<PathBuf>,
+    control_persist: Option<String>,
     clean_history_control_dir: bool,
     config_file: Option<PathBuf>,
     compression: Option<bool>,
@@ -103,6 +104,7 @@ impl Default for SessionBuilder {
             server_alive_interval: None,
             known_hosts_check: KnownHosts::Add,
             control_dir: None,
+            control_persist: None,
             clean_history_control_dir: false,
             config_file: None,
             compression: None,
@@ -199,6 +201,15 @@ impl SessionBuilder {
     #[cfg_attr(docsrs, doc(cfg(not(windows))))]
     pub fn clean_history_control_directory(&mut self, clean: bool) -> &mut Self {
         self.clean_history_control_dir = clean;
+        self
+    }
+
+    /// Set the ControlPersist option (`ssh -o ControlPersist=<value>`).
+    ///
+    /// If not set, openssh will use "ControlPersist=yes".
+    ///
+    pub fn control_persist(&mut self, value: String) -> &mut Self {
+        self.control_persist = Some(value);
         self
     }
 
@@ -405,7 +416,10 @@ impl SessionBuilder {
             .arg("-f")
             .arg("-N")
             .arg("-o")
-            .arg("ControlPersist=yes")
+            .arg(format!(
+                "ControlPersist={}",
+                self.control_persist.as_deref().unwrap_or("yes")
+            ))
             .arg("-o")
             .arg("BatchMode=yes")
             .arg("-o")
