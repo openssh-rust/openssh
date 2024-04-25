@@ -3,6 +3,7 @@ use super::{Error, Session};
 use std::borrow::Cow;
 use std::ffi::OsString;
 use std::iter::IntoIterator;
+use std::ops::Deref;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::str;
@@ -417,7 +418,7 @@ impl SessionBuilder {
             .arg("-f")
             .arg("-N")
             .arg("-o")
-            .arg(self.control_persist.as_option())
+            .arg(self.control_persist.as_option().deref())
             .arg("-o")
             .arg("BatchMode=yes")
             .arg("-o")
@@ -510,11 +511,11 @@ pub enum ControlPersist {
 }
 
 impl ControlPersist {
-    fn as_option(&self) -> String {
-        match *self {
-            ControlPersist::Forever => "ControlPersist=yes".to_string(),
-            ControlPersist::ClosedAfterInitialConnection => "ControlPersist=no".to_string(),
-            ControlPersist::IdleFor(d) => format!("ControlPersist={}s", d.as_secs()),
+    fn as_option(&self) -> Cow<'_, str> {
+        match self {
+            ControlPersist::Forever => Cow::Borrowed("ControlPersist=yes"),
+            ControlPersist::ClosedAfterInitialConnection => Cow::Borrowed("ControlPersist=no"),
+            ControlPersist::IdleFor(d) => Cow::Owned(format!("ControlPersist={}s", d.as_secs())),
         }
     }
 }
