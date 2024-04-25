@@ -85,7 +85,7 @@ pub struct SessionBuilder {
     server_alive_interval: Option<u64>,
     known_hosts_check: KnownHosts,
     control_dir: Option<PathBuf>,
-    control_persist: Option<String>,
+    control_persist: ControlPersist,
     clean_history_control_dir: bool,
     config_file: Option<PathBuf>,
     compression: Option<bool>,
@@ -104,7 +104,7 @@ impl Default for SessionBuilder {
             server_alive_interval: None,
             known_hosts_check: KnownHosts::Add,
             control_dir: None,
-            control_persist: None,
+            control_persist: ControlPersist::Forever,
             clean_history_control_dir: false,
             config_file: None,
             compression: None,
@@ -204,12 +204,13 @@ impl SessionBuilder {
         self
     }
 
-    /// Set the ControlPersist option (`ssh -o ControlPersist=<value>`).
+    /// Set the ControlPersist option to configure how long the controlling
+    /// ssh session should stay alive.
     ///
-    /// If not set, openssh will use "ControlPersist=yes".
+    /// Defaults to `ControlPersist::Forever`.
     ///
-    pub fn control_persist(&mut self, value: String) -> &mut Self {
-        self.control_persist = Some(value);
+    pub fn control_persist(&mut self, value: ControlPersist) -> &mut Self {
+        self.control_persist = value;
         self
     }
 
@@ -416,10 +417,7 @@ impl SessionBuilder {
             .arg("-f")
             .arg("-N")
             .arg("-o")
-            .arg(format!(
-                "ControlPersist={}",
-                self.control_persist.as_deref().unwrap_or("yes")
-            ))
+            .arg(self.control_persist.as_option())
             .arg("-o")
             .arg("BatchMode=yes")
             .arg("-o")
@@ -493,6 +491,29 @@ impl SessionBuilder {
             Err(Error::interpret_ssh_error(&output))
         } else {
             Ok(dir)
+        }
+    }
+}
+
+/// Specifies how long the controlling ssh process should stay alive.
+#[derive(Clone, Debug, Default)]
+pub enum ControlPersist {
+    /// Will stay alive indefinitely.
+    #[default]
+    Forever,
+    /// Will be closed after the initial connection is closed
+    ClosedAfterInitialConnection,
+    /// If the ssh control server has been idle for specified duration, it will
+    /// exit.
+    IdleFor(std::time::Duration),
+}
+
+impl ControlPersist {
+    fn as_option(&self) -> String {
+        match *self {
+            ControlPersist::Forever => "ControlPersist=yes".to_string(),
+            ControlPersist::ClosedAfterInitialConnection => "ControlPersist=no".to_string(),
+            ControlPersist::IdleFor(d) => format!("ControlPersist={}s", d.as_secs()),
         }
     }
 }
