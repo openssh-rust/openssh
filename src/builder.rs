@@ -208,8 +208,8 @@ impl SessionBuilder {
     ///
     /// If not set, openssh will use "ControlPersist=yes".
     ///
-    pub fn control_persist(&mut self, value: String) -> &mut Self {
-        self.control_persist = Some(value);
+    pub fn control_persist(&mut self, value: &str) -> &mut Self {
+        self.control_persist = Some(value.to_string());
         self
     }
 
