@@ -497,6 +497,7 @@ impl SessionBuilder {
 
 /// Specifies how long the controlling ssh process should stay alive.
 #[derive(Clone, Debug, Default)]
+#[non_exhaustive]
 pub enum ControlPersist {
     /// Will stay alive indefinitely.
     #[default]
