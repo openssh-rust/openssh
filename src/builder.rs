@@ -507,6 +507,9 @@ pub enum ControlPersist {
     ClosedAfterInitialConnection,
     /// If the ssh control server has been idle for specified duration, it will
     /// exit.
+    ///
+    /// If a duration shorter than 1 second is passed, it will be rounded up
+    /// to 1 second.
     IdleFor(std::time::Duration),
 }
 
@@ -515,7 +518,9 @@ impl ControlPersist {
         match self {
             ControlPersist::Forever => Cow::Borrowed("ControlPersist=yes"),
             ControlPersist::ClosedAfterInitialConnection => Cow::Borrowed("ControlPersist=no"),
-            ControlPersist::IdleFor(d) => Cow::Owned(format!("ControlPersist={}s", d.as_secs())),
+            ControlPersist::IdleFor(d) => {
+                Cow::Owned(format!("ControlPersist={}s", std::cmp::max(1, d.as_secs())))
+            }
         }
     }
 }
