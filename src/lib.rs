@@ -166,7 +166,7 @@ mod session;
 pub use session::Session;
 
 mod builder;
-pub use builder::{KnownHosts, SessionBuilder};
+pub use builder::{ControlPersist, KnownHosts, SessionBuilder};
 
 mod command;
 pub use command::{OverSsh, OwningCommand};
