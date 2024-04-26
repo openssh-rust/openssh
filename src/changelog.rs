@@ -2,11 +2,13 @@
 use crate::*;
 
 /// TODO: RENAME THIS INTO THE NEXT VERSION BEFORE RELEASE
+#[doc(hidden)]
+pub mod unreleased {}
+
 /// ## Changed
 /// - Added new fn [`Session::control_persist`] to set the `ControlPersist` option of
 ///   the master ssh connection.
-#[doc(hidden)]
-pub mod unreleased {}
+pub mod v0_10_4 {}
 
 /// ## Changed
 /// - Removed dependency on MPL licensed dirs-sys in favor of local implementation
