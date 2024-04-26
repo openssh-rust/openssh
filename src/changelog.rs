@@ -2,6 +2,9 @@
 use crate::*;
 
 /// TODO: RENAME THIS INTO THE NEXT VERSION BEFORE RELEASE
+/// ## Changed
+/// - Added new fn [`Session::control_persist`] to set the `ControlPersist` option of
+///   the master ssh connection.
 #[doc(hidden)]
 pub mod unreleased {}
 
