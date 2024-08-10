@@ -6,10 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.10.6](https://github.com/openssh-rust/openssh/compare/v0.10.5...v0.10.6) - 2024-08-10
+## [0.11.0](https://github.com/openssh-rust/openssh/compare/v0.10.5...v0.10.6) - 2024-08-10
 
-### Other
-- Remove dep tokio-pipe ([#155](https://github.com/openssh-rust/openssh/pull/155)) ([#156](https://github.com/openssh-rust/openssh/pull/156))
+- Remove dep tokio-pipe (#156)
+- Remove deprecated functions (#156)
+- Replace `From<tokio::proces::Child*>`
+with `TryFrom<tokio::proces::Child*>`, since the converison is falliable (#156)
+- Remove `IntoRawFd` for `Child*` since the conversion is falliable (#156)
 
 ## [0.10.5](https://github.com/openssh-rust/openssh/compare/v0.10.4...v0.10.5) - 2024-08-10
 
