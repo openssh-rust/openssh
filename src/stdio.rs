@@ -176,7 +176,7 @@ macro_rules! impl_from_impl_child_io {
             type Error = Error;
 
             fn try_from(arg: tokio::process::$type) -> Result<Self, Self::Error> {
-                let fd = arg.as_fd().try_clone_to_owned().map_err(Error::ChildIo)?;
+                let fd = arg.into_owned_fd().map_err(Error::ChildIo)?;
 
                 <$inner>::from_owned_fd(fd)
                     .map(Self)
