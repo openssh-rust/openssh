@@ -64,21 +64,6 @@ impl Stdio {
         Self(StdioImpl::Fd(OwnedFd::from_raw_fd(fd), true))
     }
 }
-/// **Deprecated, use [`Stdio::from_raw_fd_owned`] instead.**
-///
-/// FromRawFd takes ownership of the fd passed in
-/// and closes the fd on drop.
-///
-/// NOTE that the fd must be in blocking mode, otherwise
-/// ssh might not flush all output since it considers
-/// (`EAGAIN`/`EWOULDBLOCK`) as an error
-#[allow(useless_deprecated)]
-#[deprecated(since = "0.9.8", note = "Use Stdio::from_raw_fd_owned instead")]
-impl FromRawFd for Stdio {
-    unsafe fn from_raw_fd(fd: RawFd) -> Self {
-        Self(StdioImpl::Fd(OwnedFd::from_raw_fd(fd), false))
-    }
-}
 impl From<Stdio> for process::Stdio {
     fn from(stdio: Stdio) -> Self {
         match stdio.0 {
