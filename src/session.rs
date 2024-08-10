@@ -95,6 +95,7 @@ impl Session {
     /// # Ok(()) }
     /// ```
     #[cfg(feature = "process-mux")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "process-mux")))]
     pub fn new_process_mux(tempdir: TempDir) -> Self {
         Self(SessionImp::ProcessImpl(process_impl::Session::new(tempdir)))
     }
@@ -139,6 +140,7 @@ impl Session {
     /// # Ok(()) }
     /// ```
     #[cfg(feature = "native-mux")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "native-mux")))]
     pub fn new_native_mux(tempdir: TempDir) -> Self {
         Self(SessionImp::NativeMuxImpl(native_mux_impl::Session::new(
             tempdir,
