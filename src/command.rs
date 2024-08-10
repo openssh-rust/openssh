@@ -69,7 +69,7 @@ pub trait OverSsh {
     /// ###  Examples
     ///
     /// 1. Consider the implementation of `OverSsh` for `std::process::Command`. Let's build a
-    /// `ls -l -a -h` command and execute it over an SSH session.
+    ///    `ls -l -a -h` command and execute it over an SSH session.
     ///
     /// ```no_run
     /// # #[tokio::main(flavor = "current_thread")]
@@ -93,7 +93,7 @@ pub trait OverSsh {
     ///
     /// ```
     /// 2. Building a command with environment variables or a current working directory set will
-    /// results in an error.
+    ///    results in an error.
     ///
     /// ```no_run
     /// # #[tokio::main(flavor = "current_thread")]
