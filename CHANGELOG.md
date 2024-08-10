@@ -6,7 +6,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.11.6](https://github.com/openssh-rust/openssh/compare/v0.10.5...v0.10.6) - 2024-08-10
+## [0.11.0](https://github.com/openssh-rust/openssh/compare/v0.10.5...v0.10.6) - 2024-08-10
 
 - Remove dep tokio-pipe (#156)
 - Remove deprecated functions (#156)
