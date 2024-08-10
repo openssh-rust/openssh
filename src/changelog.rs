@@ -11,7 +11,7 @@ pub mod unreleased {}
 /// - Replace `From<tokio::proces::Child*>`
 ///   with `TryFrom<tokio::proces::Child*>`, since the converison is falliable (#156)
 /// - Remove `IntoRawFd` for `Child*` since the conversion is falliable (#156)
-pub mod v0_11_0{}
+pub mod v0_11_0 {}
 
 /// ## Changed
 ///  - Add missing feature doc for `Session::new*`
