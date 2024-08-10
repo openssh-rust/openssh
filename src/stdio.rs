@@ -21,7 +21,7 @@ pub(crate) enum StdioImpl {
     /// Read/Write to a newly created pipe
     Pipe,
     /// Read/Write to custom fd
-    Fd(OwnedFd, bool),
+    Fd(OwnedFd),
     /// Inherit stdin/stdout/stderr
     Inherit,
 }
@@ -61,9 +61,10 @@ impl Stdio {
     ///
     /// * `fd` - must be a valid fd and must give its ownership to `Stdio`.
     pub unsafe fn from_raw_fd_owned(fd: RawFd) -> Self {
-        Self(StdioImpl::Fd(OwnedFd::from_raw_fd(fd), true))
+        Self(StdioImpl::Fd(OwnedFd::from_raw_fd(fd)))
     }
 }
+
 impl From<Stdio> for process::Stdio {
     fn from(stdio: Stdio) -> Self {
         match stdio.0 {
@@ -74,16 +75,14 @@ impl From<Stdio> for process::Stdio {
             // safety: StdioImpl(fd) is only constructed from known-valid and
             // owned file descriptors by virtue of the safety requirement
             // for invoking from_raw_fd.
-            StdioImpl::Fd(fd, _) => unsafe {
-                process::Stdio::from_raw_fd(IntoRawFd::into_raw_fd(fd))
-            },
+            StdioImpl::Fd(fd) => unsafe { process::Stdio::from_raw_fd(IntoRawFd::into_raw_fd(fd)) },
         }
     }
 }
 
 impl From<OwnedFd> for Stdio {
     fn from(fd: OwnedFd) -> Self {
-        Self(StdioImpl::Fd(fd, true))
+        Self(StdioImpl::Fd(fd))
     }
 }
 
@@ -91,7 +90,7 @@ macro_rules! impl_from_for_stdio {
     ($type:ty) => {
         impl From<$type> for Stdio {
             fn from(arg: $type) -> Self {
-                Self(StdioImpl::Fd(arg.into(), true))
+                Self(StdioImpl::Fd(arg.into()))
             }
         }
     };
@@ -104,7 +103,6 @@ macro_rules! impl_try_from_for_stdio {
             fn try_from(arg: $type) -> Result<Self, Self::Error> {
                 Ok(Self(StdioImpl::Fd(
                     arg.into_owned_fd().map_err(Error::ChildIo)?,
-                    true,
                 )))
             }
         }

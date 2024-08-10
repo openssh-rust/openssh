@@ -96,11 +96,9 @@ impl Stdio {
                 let (read, write) = create_pipe()?;
                 Ok((read.try_into()?, Some(write)))
             }
-            StdioImpl::Fd(fd, owned) => {
+            StdioImpl::Fd(fd) => {
                 let raw_fd = fd.as_raw_fd();
-                if *owned {
-                    set_blocking(raw_fd)?;
-                }
+                set_blocking(raw_fd)?;
                 Ok((Fd::Borrowed(raw_fd), None))
             }
         }
@@ -117,11 +115,9 @@ impl Stdio {
                 let (read, write) = create_pipe()?;
                 Ok((write.try_into()?, Some(read)))
             }
-            StdioImpl::Fd(fd, owned) => {
+            StdioImpl::Fd(fd) => {
                 let raw_fd = fd.as_raw_fd();
-                if *owned {
-                    set_blocking(raw_fd)?;
-                }
+                set_blocking(raw_fd)?;
                 Ok((Fd::Borrowed(raw_fd), None))
             }
         }
