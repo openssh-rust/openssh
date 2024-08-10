@@ -3,15 +3,12 @@ use crate::{stdio::StdioImpl, Error, Stdio};
 use std::{
     fs::{File, OpenOptions},
     io,
-    os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, OwnedFd, RawFd},
+    os::unix::io::{AsRawFd, OwnedFd, RawFd},
 };
 
 use libc::{c_int, fcntl, F_GETFL, F_SETFL, O_NONBLOCK};
 use once_cell::sync::OnceCell;
-use tokio::{
-    io::{AsyncRead, AsyncWrite, ReadBuf},
-    net::unix::pipe::{pipe, Receiver as PipeReader, Sender as PipeWriter},
-};
+use tokio::net::unix::pipe::{pipe, Receiver as PipeReader, Sender as PipeWriter};
 
 fn create_pipe() -> Result<(PipeReader, PipeWriter), Error> {
     pipe().map_err(Error::ChildIo).map(|(w, r)| (r, w))
@@ -65,15 +62,6 @@ impl Fd {
             Borrowed(rawfd) => Ok(*rawfd),
             Null => get_null_fd(),
         }
-    }
-
-    /// # Safety
-    ///
-    /// `T::into_raw_fd` must return a valid fd and transfers
-    /// the ownershipt of it.
-    unsafe fn new_owned<T: IntoRawFd>(fd: T) -> Result<Self, Error> {
-        let raw_fd = fd.into_raw_fd();
-        Ok(Fd::Owned(OwnedFd::from_raw_fd(raw_fd)))
     }
 }
 
