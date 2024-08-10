@@ -5,7 +5,7 @@ use super::native_mux_impl;
 
 use std::fs::File;
 use std::io;
-use std::os::unix::io::{AsFd, AsRawFd, BorrowedFd, FromRawFd, IntoRawFd, OwnedFd, RawFd};
+use std::os::unix::io::{AsFd, AsRawFd, BorrowedFd, FromRawFd, OwnedFd, RawFd};
 use std::pin::Pin;
 use std::process;
 use std::task::{Context, Poll};
@@ -71,11 +71,7 @@ impl From<Stdio> for process::Stdio {
             StdioImpl::Null => process::Stdio::null(),
             StdioImpl::Pipe => process::Stdio::piped(),
             StdioImpl::Inherit => process::Stdio::inherit(),
-
-            // safety: StdioImpl(fd) is only constructed from known-valid and
-            // owned file descriptors by virtue of the safety requirement
-            // for invoking from_raw_fd.
-            StdioImpl::Fd(fd) => unsafe { process::Stdio::from_raw_fd(IntoRawFd::into_raw_fd(fd)) },
+            StdioImpl::Fd(fd) => process::Stdio::from(fd),
         }
     }
 }
