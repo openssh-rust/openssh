@@ -1,6 +1,6 @@
 [package]
 name = "openssh"
-version = "0.10.6"
+version = "0.11.0"
 authors = ["Jon Gjengset <jon@thesquareplanet.com>"]
 edition = "2021"
 rust-version = "1.63.0"
