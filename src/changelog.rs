@@ -5,6 +5,18 @@ use crate::*;
 #[doc(hidden)]
 pub mod unreleased {}
 
+/// # Changed
+/// - Remove dep tokio-pipe (#156)
+/// - Remove deprecated functions (#156)
+/// - Replace `From<tokio::proces::Child*>`
+///   with `TryFrom<tokio::proces::Child*>`, since the converison is falliable (#156)
+/// - Remove `IntoRawFd` for `Child*` since the conversion is falliable (#156)
+pub mod v0_11_0{}
+
+/// ## Changed
+///  - Add missing feature doc for `Session::new*`
+pub mod v0_10_5 {}
+
 /// ## Changed
 /// - Added new fn [`Session::control_persist`] to set the `ControlPersist` option of
 ///   the master ssh connection.
