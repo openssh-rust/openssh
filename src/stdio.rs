@@ -5,11 +5,14 @@ use super::native_mux_impl;
 
 use std::fs::File;
 use std::io;
-use std::os::unix::io::{AsRawFd, BorrowedFd, FromRawFd, IntoRawFd, OwnedFd, RawFd};
+use std::os::unix::io::{AsFd, AsRawFd, FromRawFd, IntoRawFd, OwnedFd, RawFd};
 use std::pin::Pin;
 use std::process;
 use std::task::{Context, Poll};
-use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
+use tokio::{
+    io::{AsyncRead, AsyncWrite, ReadBuf},
+    net::unix::pipe::{Receiver as PipeReader, Sender as PipeWriter},
+};
 
 #[derive(Debug)]
 pub(crate) enum StdioImpl {
@@ -103,42 +106,33 @@ macro_rules! impl_from_for_stdio {
     ($type:ty) => {
         impl From<$type> for Stdio {
             fn from(arg: $type) -> Self {
-                let fd = arg.into_raw_fd();
-                // safety: $type must have a valid into_raw_fd implementation
-                // and must not be RawFd.
-                Self(StdioImpl::Fd(unsafe { OwnedFd::from_raw_fd(fd) }, true))
-            }
-        }
-    };
-    (deprecated $type:ty) => {
-        #[allow(useless_deprecated)]
-        #[deprecated(
-            since = "0.9.8",
-            note = "Use From<OwnedFd> for Stdio or Stdio::from_raw_fd_owned instead"
-        )]
-        /// **Deprecated, use `From<OwnedFd> for Stdio` or
-        /// [`Stdio::from_raw_fd_owned`] instead.**
-        impl From<$type> for Stdio {
-            fn from(arg: $type) -> Self {
-                let fd = arg.into_raw_fd();
-                // safety: $type must have a valid into_raw_fd implementation
-                // and must not be RawFd.
-                Self(StdioImpl::Fd(unsafe { OwnedFd::from_raw_fd(fd) }, true))
+                Self(StdioImpl::Fd(arg.into(), true))
             }
         }
     };
 }
 
-impl_from_for_stdio!(deprecated tokio_pipe::PipeWrite);
-impl_from_for_stdio!(deprecated tokio_pipe::PipeRead);
+macro_rules! impl_try_from_for_stdio {
+    ($type:ty) => {
+        impl TryFrom<$type> for Stdio {
+            type Error = Error;
+            fn try_from(arg: $type) -> Result<Self, Self::Error> {
+                Ok(Self(StdioImpl::Fd(
+                    arg.into_owned_fd().map_err(Error::ChildIo)?,
+                    true,
+                )))
+            }
+        }
+    };
+}
 
 impl_from_for_stdio!(process::ChildStdin);
 impl_from_for_stdio!(process::ChildStdout);
 impl_from_for_stdio!(process::ChildStderr);
 
-impl_from_for_stdio!(ChildStdin);
-impl_from_for_stdio!(ChildStdout);
-impl_from_for_stdio!(ChildStderr);
+impl_try_from_for_stdio!(ChildStdin);
+impl_try_from_for_stdio!(ChildStdout);
+impl_try_from_for_stdio!(ChildStderr);
 
 impl_from_for_stdio!(File);
 
@@ -148,8 +142,7 @@ macro_rules! impl_try_from_tokio_process_child_for_stdio {
             type Error = Error;
 
             fn try_from(arg: tokio::process::$type) -> Result<Self, Self::Error> {
-                let wrapper: $type = TryFromChildIo::try_from(arg)?;
-                Ok(wrapper.0.into())
+                arg.into_owned_fd().map_err(Error::ChildIo).map(Into::into)
             }
         }
     };
@@ -161,15 +154,15 @@ impl_try_from_tokio_process_child_for_stdio!(ChildStderr);
 
 /// Input for the remote child.
 #[derive(Debug)]
-pub struct ChildStdin(tokio_pipe::PipeWrite);
+pub struct ChildStdin(PipeWriter);
 
 /// Stdout for the remote child.
 #[derive(Debug)]
-pub struct ChildStdout(tokio_pipe::PipeRead);
+pub struct ChildStdout(PipeReader);
 
 /// Stderr for the remote child.
 #[derive(Debug)]
-pub struct ChildStderr(tokio_pipe::PipeRead);
+pub struct ChildStderr(PipeReader);
 
 pub(crate) trait TryFromChildIo<T>: Sized {
     type Error;
@@ -183,17 +176,9 @@ macro_rules! impl_from_impl_child_io {
             type Error = Error;
 
             fn try_from(arg: tokio::process::$type) -> Result<Self, Self::Error> {
-                let fd = arg.as_raw_fd();
+                let fd = arg.as_fd().try_clone_to_owned().map_err(Error::ChildIo)?;
 
-                // safety: arg.as_raw_fd() is guaranteed to return a valid fd.
-                let fd = unsafe { BorrowedFd::borrow_raw(fd) };
-
-                let fd = fd
-                    .try_clone_to_owned()
-                    .map_err(Error::ChildIo)?
-                    .into_raw_fd();
-
-                <$inner>::from_raw_fd_checked(fd)
+                <$inner>::from_owned_fd(fd)
                     .map(Self)
                     .map_err(Error::ChildIo)
             }
@@ -212,9 +197,9 @@ macro_rules! impl_from_impl_child_io {
     };
 }
 
-impl_from_impl_child_io!(process, ChildStdin, tokio_pipe::PipeWrite);
-impl_from_impl_child_io!(process, ChildStdout, tokio_pipe::PipeRead);
-impl_from_impl_child_io!(process, ChildStderr, tokio_pipe::PipeRead);
+impl_from_impl_child_io!(process, ChildStdin, PipeWriter);
+impl_from_impl_child_io!(process, ChildStdout, PipeReader);
+impl_from_impl_child_io!(process, ChildStderr, PipeReader);
 
 impl_from_impl_child_io!(native_mux, ChildStdin);
 impl_from_impl_child_io!(native_mux, ChildStdout);
@@ -229,17 +214,18 @@ macro_rules! impl_child_stdio {
         }
     };
 
-    (IntoRawFd, $type:ty) => {
-        impl IntoRawFd for $type {
-            fn into_raw_fd(self) -> RawFd {
-                self.0.into_raw_fd()
+    (into_owned_fd, $type:ty) => {
+        impl $type {
+            /// Convert into an owned fd, it'd be deregisted from tokio and in blocking mode.
+            pub fn into_owned_fd(self) -> io::Result<OwnedFd> {
+                self.0.into_blocking_fd()
             }
         }
     };
 
     (AsyncRead, $type:ty) => {
         impl_child_stdio!(AsRawFd, $type);
-        impl_child_stdio!(IntoRawFd, $type);
+        impl_child_stdio!(into_owned_fd, $type);
 
         impl AsyncRead for $type {
             fn poll_read(
@@ -254,7 +240,7 @@ macro_rules! impl_child_stdio {
 
     (AsyncWrite, $type: ty) => {
         impl_child_stdio!(AsRawFd, $type);
-        impl_child_stdio!(IntoRawFd, $type);
+        impl_child_stdio!(into_owned_fd, $type);
 
         impl AsyncWrite for $type {
             fn poll_write(
