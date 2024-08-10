@@ -5,7 +5,7 @@ use super::native_mux_impl;
 
 use std::fs::File;
 use std::io;
-use std::os::unix::io::{AsFd, AsRawFd, FromRawFd, IntoRawFd, OwnedFd, RawFd};
+use std::os::unix::io::{AsFd, BorrowedFd, AsRawFd, FromRawFd, IntoRawFd, OwnedFd, RawFd};
 use std::pin::Pin;
 use std::process;
 use std::task::{Context, Poll};
@@ -214,6 +214,14 @@ macro_rules! impl_child_stdio {
         }
     };
 
+    (AsFd, $type:ty) => {
+        impl AsFd for $type {
+            fn as_fd(&self) -> BorrowedFd<'_> {
+                self.0.as_fd()
+            }
+        }
+    };
+
     (into_owned_fd, $type:ty) => {
         impl $type {
             /// Convert into an owned fd, it'd be deregisted from tokio and in blocking mode.
@@ -225,6 +233,7 @@ macro_rules! impl_child_stdio {
 
     (AsyncRead, $type:ty) => {
         impl_child_stdio!(AsRawFd, $type);
+        impl_child_stdio!(AsFd, $type);
         impl_child_stdio!(into_owned_fd, $type);
 
         impl AsyncRead for $type {
@@ -240,6 +249,7 @@ macro_rules! impl_child_stdio {
 
     (AsyncWrite, $type: ty) => {
         impl_child_stdio!(AsRawFd, $type);
+        impl_child_stdio!(AsFd, $type);
         impl_child_stdio!(into_owned_fd, $type);
 
         impl AsyncWrite for $type {
