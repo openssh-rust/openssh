@@ -6,6 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.1](https://github.com/openssh-rust/openssh/compare/v0.11.0...v0.11.1) - 2024-09-08
+
+### Other
+
+- Add optional tracing support to Session drop impl ([#164](https://github.com/openssh-rust/openssh/pull/164))
+- Update openssh-sftp-client requirement from 0.14.0 to 0.15.0 ([#159](https://github.com/openssh-rust/openssh/pull/159))
+
 ## [0.11.0](https://github.com/openssh-rust/openssh/compare/v0.10.5...v0.10.6) - 2024-08-10
 
 - Remove dep tokio-pipe (#156)
