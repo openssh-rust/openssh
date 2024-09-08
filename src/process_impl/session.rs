@@ -226,10 +226,14 @@ impl Drop for Session {
             None => return,
         };
 
-        let _ = self
+        let _res = self
             .new_std_cmd(&["-O", "exit"])
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .status();
+        #[cfg(feature = "tracing")]
+        if let Err(err) = _res {
+            tracing::error!("Closing ssh session failed: {}", err);
+        }
     }
 }

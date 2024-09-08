@@ -105,6 +105,10 @@ impl Drop for Session {
             None => return,
         };
 
-        let _ = shutdown_mux_master(&self.ctl);
+        let _res = shutdown_mux_master(&self.ctl);
+        #[cfg(feature = "tracing")]
+        if let Err(err) = _res {
+            tracing::error!("Closing ssh session failed: {}", err);
+        }
     }
 }
