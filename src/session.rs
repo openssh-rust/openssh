@@ -492,8 +492,6 @@ impl Session {
     /// The same set of arguments should be passed as when the port forwarding was requested.
     ///
     /// Currently, cancelling port forwarding is only supported for the process mux impl.
-    #[cfg(not(feature = "native-mux"))]
-    #[cfg_attr(docsrs, doc(cfg(feature = "process-mux")))]
     pub async fn cancel_port_forward(
         &self,
         forward_type: impl Into<ForwardType>,
