@@ -916,11 +916,11 @@ async fn local_socket_forward() {
                 .cancel_port_forward(ForwardType::Local, &*unix_socket, (loopback(), port))
                 .await
                 .unwrap();
-        }
 
-        eprintln!("Trying to connect again");
-        let e = UnixStream::connect(&unix_socket).await.unwrap_err();
-        assert_eq!(e.kind(), io::ErrorKind::ConnectionRefused);
+            eprintln!("Trying to connect again");
+            let e = UnixStream::connect(&unix_socket).await.unwrap_err();
+            assert_eq!(e.kind(), io::ErrorKind::ConnectionRefused);
+        }
 
         eprintln!("Waiting for session to end");
         let output = child.wait_with_output().await.unwrap();
