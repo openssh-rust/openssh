@@ -852,6 +852,7 @@ async fn remote_socket_forward() {
         assert_eq!(DATA, &buffer);
 
         drop(output);
+        drop(output_listener);
 
         eprintln!("Canceling port forward");
         session
@@ -860,10 +861,8 @@ async fn remote_socket_forward() {
             .unwrap();
 
         eprintln!("Trying to listen again");
-        let e = output_listener.accept().await.unwrap_err();
+        let e = UnixListener::bind(&unix_socket).unwrap_err();
         assert_eq!(e.kind(), io::ErrorKind::ConnectionRefused);
-
-        drop(output_listener);
 
         eprintln!("Waiting for session to end");
         let output = child.wait_with_output().await.unwrap();
