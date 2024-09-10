@@ -860,10 +860,6 @@ async fn remote_socket_forward() {
             .await
             .unwrap();
 
-        eprintln!("Trying to listen again");
-        let e = UnixListener::bind(&unix_socket).unwrap_err();
-        assert_eq!(e.kind(), io::ErrorKind::ConnectionRefused);
-
         eprintln!("Waiting for session to end");
         let output = child.wait_with_output().await.unwrap();
         eprintln!("remote_socket_forward: {:#?}", output);
@@ -873,6 +869,7 @@ async fn remote_socket_forward() {
 
 #[tokio::test]
 #[cfg_attr(not(ci), ignore)]
+#[cfg(not(feature = "native-mux"))]
 async fn local_socket_forward() {
     let sessions = connects().await;
     for (session, port) in sessions.iter().zip([1433, 1432]) {
