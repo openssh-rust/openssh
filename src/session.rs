@@ -490,6 +490,23 @@ impl Session {
         })
     }
 
+    /// Request to cancel a local/remote port forwarding.
+    pub async fn cancel_port_forward(
+        &self,
+        forward_type: impl Into<ForwardType>,
+        listen_socket: impl Into<Socket<'_>>,
+        connect_socket: impl Into<Socket<'_>>,
+    ) -> Result<(), Error> {
+        delegate!(&self.0, imp, {
+            imp.cancel_port_forward(
+                forward_type.into(),
+                listen_socket.into(),
+                connect_socket.into(),
+            )
+            .await
+        })
+    }
+
     /// Terminate the remote connection.
     ///
     /// This destructor terminates the ssh multiplex server

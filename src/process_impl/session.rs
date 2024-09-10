@@ -139,6 +139,43 @@ impl Session {
         }
     }
 
+    pub(crate) async fn cancel_port_forward(
+        &self,
+        forward_type: ForwardType,
+        listen_socket: Socket<'_>,
+        connect_socket: Socket<'_>,
+    ) -> Result<(), Error> {
+        let flag = match forward_type {
+            ForwardType::Local => OsStr::new("-L"),
+            ForwardType::Remote => OsStr::new("-R"),
+        };
+
+        let mut forwarding = listen_socket.as_os_str().into_owned();
+        forwarding.push(":");
+        forwarding.push(connect_socket.as_os_str());
+
+        let port_forwarding = self
+            .new_cmd(&[OsStr::new("-O"), OsStr::new("cancel"), flag, &*forwarding])
+            .output()
+            .await
+            .map_err(Error::Ssh)?;
+
+        if port_forwarding.status.success() {
+            Ok(())
+        } else {
+            let exit_err = String::from_utf8_lossy(&port_forwarding.stderr);
+            let err = exit_err.trim();
+
+            if err.is_empty() {
+                if let Some(master_error) = self.discover_master_error() {
+                    return Err(master_error);
+                }
+            }
+
+            Err(Error::Ssh(io::Error::new(io::ErrorKind::Other, err)))
+        }
+    }
+
     async fn close_impl(&self) -> Result<(), Error> {
         let exit = self
             .new_cmd(&["-O", "exit"])
