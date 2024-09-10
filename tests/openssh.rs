@@ -858,7 +858,8 @@ async fn remote_socket_forward() {
             .unwrap();
 
         eprintln!("Trying to connect again");
-        assert_eq!(output.read(&mut buffer).await.unwrap(), 0);
+        let e = output.try_read(&mut buffer).unwrap_err();
+        assert_eq!(e.kind(), io::ErrorKind::WouldBlock);
 
         drop(output);
         drop(output_listener);
