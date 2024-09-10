@@ -829,7 +829,7 @@ async fn remote_socket_forward() {
 
         eprintln!("Creating remote process");
         let cmd = format!(
-            "echo -e '0\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n' | nc localhost {} >/dev/stderr",
+            "echo -e '0\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10' | nc localhost {} >/dev/stderr",
             port
         );
         let child = session
@@ -850,6 +850,16 @@ async fn remote_socket_forward() {
         output.read_exact(&mut buffer).await.unwrap();
 
         assert_eq!(DATA, &buffer);
+
+        eprintln!("Canceling port forward");
+        session
+            .close_port_forward(ForwardType::Remote, (loopback(), *port), &*unix_socket)
+            .await
+            .unwrap();
+
+        eprintln!("Trying to connect again");
+        let e = output.try_read(&mut buffer).unwrap_err();
+        assert_eq!(e.kind(), io::ErrorKind::WouldBlock);
 
         drop(output);
         drop(output_listener);
@@ -901,6 +911,16 @@ async fn local_socket_forward() {
         assert_eq!(DATA, buffer);
 
         drop(output);
+
+        eprintln!("Closing port forward");
+        session
+            .close_port_forward(ForwardType::Local, &*unix_socket, (loopback(), port))
+            .await
+            .unwrap();
+
+        eprintln!("Trying to connect again");
+        let e = UnixStream::connect(&unix_socket).await.unwrap_err();
+        assert_eq!(e.kind(), io::ErrorKind::ConnectionRefused);
 
         eprintln!("Waiting for session to end");
         let output = child.wait_with_output().await.unwrap();

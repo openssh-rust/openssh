@@ -67,6 +67,24 @@ impl Session {
         Ok(())
     }
 
+    pub(crate) async fn close_port_forward(
+        &self,
+        forward_type: crate::ForwardType,
+        listen_socket: crate::Socket<'_>,
+        connect_socket: crate::Socket<'_>,
+    ) -> Result<(), Error> {
+        Connection::connect(&self.ctl)
+            .await?
+            .close_port_forward(
+                forward_type.into(),
+                &listen_socket.into(),
+                &connect_socket.into(),
+            )
+            .await?;
+
+        Ok(())
+    }
+
     async fn close_impl(&self) -> Result<(), Error> {
         Connection::connect(&self.ctl)
             .await?

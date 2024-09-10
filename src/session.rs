@@ -471,9 +471,6 @@ impl Session {
     ///
     /// Otherwise, `listen_socket` on the remote machine will be forwarded to `connect_socket`
     /// on the local machine.
-    ///
-    /// Currently, there is no way of stopping a port forwarding due to the fact that
-    /// openssh multiplex server/master does not support this.
     pub async fn request_port_forward(
         &self,
         forward_type: impl Into<ForwardType>,
@@ -482,6 +479,25 @@ impl Session {
     ) -> Result<(), Error> {
         delegate!(&self.0, imp, {
             imp.request_port_forward(
+                forward_type.into(),
+                listen_socket.into(),
+                connect_socket.into(),
+            )
+            .await
+        })
+    }
+
+    /// Close a previously established local/remote port forwarding.
+    ///
+    /// The same set of arguments should be passed as when the port forwarding was requested.
+    pub async fn close_port_forward(
+        &self,
+        forward_type: impl Into<ForwardType>,
+        listen_socket: impl Into<Socket<'_>>,
+        connect_socket: impl Into<Socket<'_>>,
+    ) -> Result<(), Error> {
+        delegate!(&self.0, imp, {
+            imp.close_port_forward(
                 forward_type.into(),
                 listen_socket.into(),
                 connect_socket.into(),
