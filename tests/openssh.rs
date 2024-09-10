@@ -829,7 +829,7 @@ async fn remote_socket_forward() {
 
         eprintln!("Creating remote process");
         let cmd = format!(
-            "echo -e '0\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n' | nc localhost {} >/dev/stderr",
+            "echo -e '0\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10' | nc localhost {} >/dev/stderr",
             port
         );
         let child = session
@@ -858,9 +858,7 @@ async fn remote_socket_forward() {
             .unwrap();
 
         eprintln!("Trying to connect again");
-        let n = output.read(&mut buffer).await.unwrap();
-        eprintln!("Buffer: {:?}", &buffer[..n]);
-        assert_eq!(n, 0);
+        assert_eq!(output.read(&mut buffer).await.unwrap(), 0);
 
         drop(output);
         drop(output_listener);
