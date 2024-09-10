@@ -858,8 +858,9 @@ async fn remote_socket_forward() {
             .unwrap();
 
         eprintln!("Trying to connect again");
-        let e = UnixStream::connect(&unix_socket).await.unwrap_err();
-        assert_eq!(e.kind(), io::ErrorKind::ConnectionRefused);
+        let n = output.read(&mut buffer).await.unwrap();
+        eprintln!("Buffer: {:?}", &buffer[..n]);
+        assert_eq!(n, 0);
 
         drop(output);
         drop(output_listener);
