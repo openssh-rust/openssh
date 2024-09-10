@@ -487,19 +487,17 @@ impl Session {
         })
     }
 
-    /// Cancel a previously established local/remote port forwarding.
+    /// Close a previously established local/remote port forwarding.
     ///
     /// The same set of arguments should be passed as when the port forwarding was requested.
-    ///
-    /// Currently, cancelling port forwarding is only supported for the process mux impl.
-    pub async fn cancel_port_forward(
+    pub async fn close_port_forward(
         &self,
         forward_type: impl Into<ForwardType>,
         listen_socket: impl Into<Socket<'_>>,
         connect_socket: impl Into<Socket<'_>>,
     ) -> Result<(), Error> {
         delegate!(&self.0, imp, {
-            imp.cancel_port_forward(
+            imp.close_port_forward(
                 forward_type.into(),
                 listen_socket.into(),
                 connect_socket.into(),

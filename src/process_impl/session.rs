@@ -139,7 +139,7 @@ impl Session {
         }
     }
 
-    pub(crate) async fn cancel_port_forward(
+    pub(crate) async fn close_port_forward(
         &self,
         forward_type: ForwardType,
         listen_socket: Socket<'_>,

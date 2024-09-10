@@ -67,13 +67,17 @@ impl Session {
         Ok(())
     }
 
-    pub(crate) async fn cancel_port_forward(
+    pub(crate) async fn close_port_forward(
         &self,
         forward_type: crate::ForwardType,
         listen_socket: crate::Socket<'_>,
         connect_socket: crate::Socket<'_>,
     ) -> Result<(), Error> {
-        unimplemented!("Port forwarding cancellation is not implemented yet")
+        Connection::connect(&self.ctl).await?.close_port_forward(
+            forward_type.into(),
+            &listen_socket.into(),
+            &connect_socket.into(),
+        )
     }
 
     async fn close_impl(&self) -> Result<(), Error> {

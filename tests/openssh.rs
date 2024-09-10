@@ -851,16 +851,17 @@ async fn remote_socket_forward() {
 
         assert_eq!(DATA, &buffer);
 
+        eprintln!("Canceling port forward");
+        session
+            .close_port_forward(ForwardType::Remote, (loopback(), *port), &*unix_socket)
+            .await
+            .unwrap();
+
+        eprintln!("Trying to connect again");
+        assert_eq!(output.read(&mut buffer).await.unwrap(), 0);
+
         drop(output);
         drop(output_listener);
-
-        if !cfg!(feature = "native-mux") {
-            eprintln!("Canceling port forward");
-            session
-                .cancel_port_forward(ForwardType::Remote, (loopback(), *port), &*unix_socket)
-                .await
-                .unwrap();
-        }
 
         eprintln!("Waiting for session to end");
         let output = child.wait_with_output().await.unwrap();
@@ -910,17 +911,15 @@ async fn local_socket_forward() {
 
         drop(output);
 
-        if !cfg!(feature = "native-mux") {
-            eprintln!("Canceling port forward");
-            session
-                .cancel_port_forward(ForwardType::Local, &*unix_socket, (loopback(), port))
-                .await
-                .unwrap();
+        eprintln!("Closing port forward");
+        session
+            .close_port_forward(ForwardType::Local, &*unix_socket, (loopback(), port))
+            .await
+            .unwrap();
 
-            eprintln!("Trying to connect again");
-            let e = UnixStream::connect(&unix_socket).await.unwrap_err();
-            assert_eq!(e.kind(), io::ErrorKind::ConnectionRefused);
-        }
+        eprintln!("Trying to connect again");
+        let e = UnixStream::connect(&unix_socket).await.unwrap_err();
+        assert_eq!(e.kind(), io::ErrorKind::ConnectionRefused);
 
         eprintln!("Waiting for session to end");
         let output = child.wait_with_output().await.unwrap();
