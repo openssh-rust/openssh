@@ -67,15 +67,6 @@ impl Session {
         Ok(())
     }
 
-    pub(crate) async fn cancel_port_forward(
-        &self,
-        forward_type: crate::ForwardType,
-        listen_socket: crate::Socket<'_>,
-        connect_socket: crate::Socket<'_>,
-    ) -> Result<(), Error> {
-        unimplemented!()
-    }
-
     async fn close_impl(&self) -> Result<(), Error> {
         Connection::connect(&self.ctl)
             .await?
