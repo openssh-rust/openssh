@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.3](https://github.com/openssh-rust/openssh/compare/v0.11.2...v0.11.3) - 2024-11-06
+
+### Other
+
+- Update thiserror requirement from 1.0.30 to 2.0.0 ([#167](https://github.com/openssh-rust/openssh/pull/167))
+
 ## [0.11.2](https://github.com/openssh-rust/openssh/compare/v0.11.1...v0.11.2) - 2024-09-10
 
 ### Other
