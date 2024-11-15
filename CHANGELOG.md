@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.4](https://github.com/openssh-rust/openssh/compare/v0.11.3...v0.11.4) - 2024-11-15
+
+### Other
+
+- Bump codecov/codecov-action from 4 to 5 ([#169](https://github.com/openssh-rust/openssh/pull/169))
+
 ## [0.11.3](https://github.com/openssh-rust/openssh/compare/v0.11.2...v0.11.3) - 2024-11-06
 
 ### Other
