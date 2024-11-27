@@ -140,6 +140,8 @@ impl<S> Child<S> {
     /// output into this `Result<Output>` it is necessary to create new pipes between parent and
     /// child. Use `stdout(Stdio::piped())` or `stderr(Stdio::piped())`, respectively.
     pub async fn wait_with_output(mut self) -> Result<Output, Error> {
+        self.stdin().take();
+
         let child_stdout = self.stdout.take();
         let stdout_read = async move {
             let mut stdout = Vec::new();
