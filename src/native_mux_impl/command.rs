@@ -73,6 +73,9 @@ impl Command {
 
         let cmd = NonZeroByteSlice::new(&self.cmd).ok_or(Error::InvalidCommand)?;
 
+        #[cfg(feature = "tracing")]
+        tracing::debug!(cmd = String::from_utf8_lossy(cmd.into_inner()).as_ref());
+
         let session = Session::builder()
             .cmd(Cow::Borrowed(cmd))
             .subsystem(self.subsystem)

@@ -50,6 +50,9 @@ impl Command {
         ),
         Error,
     > {
+        #[cfg(feature = "tracing")]
+        tracing::debug!(cmd = ?self.builder.as_std());
+
         let mut channel = self.builder.spawn().map_err(Error::Ssh)?;
 
         let child_stdin = channel.stdin.take();
