@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.5](https://github.com/openssh-rust/openssh/compare/v0.11.4...v0.11.5) - 2025-01-09
+
+### Added
+
+- Log SSH commands (#175)
+
 ## [0.11.4](https://github.com/openssh-rust/openssh/compare/v0.11.3...v0.11.4) - 2024-11-27
 
 ### Fixed
