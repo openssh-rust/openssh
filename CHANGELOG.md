@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.6](https://github.com/openssh-rust/openssh/compare/v0.11.5...v0.11.6) - 2025-12-03
+
+### Fixed
+
+- encoding of IPv6 addresses in `impl From<SocketAddr> for Socket` ([#179](https://github.com/openssh-rust/openssh/pull/179))
+
 ## [0.11.5](https://github.com/openssh-rust/openssh/compare/v0.11.4...v0.11.5) - 2025-01-09
 
 ### Added
