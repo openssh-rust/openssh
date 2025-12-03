@@ -6,7 +6,7 @@ use std::ffi::OsStr;
 
 use std::borrow::Cow;
 use std::fmt;
-use std::net::{self, SocketAddr};
+use std::net::{self, IpAddr, SocketAddr};
 use std::path::{Path, PathBuf};
 
 /// Type of forwarding
@@ -53,8 +53,12 @@ pub enum Socket<'a> {
 
 impl From<SocketAddr> for Socket<'static> {
     fn from(addr: SocketAddr) -> Self {
+        let host = match addr.ip() {
+            IpAddr::V4(v4) => v4.to_string(),
+            IpAddr::V6(v6) => format!("[{v6}]"),
+        };
         Socket::TcpSocket {
-            host: addr.ip().to_string().into(),
+            host: host.into(),
             port: addr.port(),
         }
     }
