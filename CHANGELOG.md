@@ -6,6 +6,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.7](https://github.com/openssh-rust/openssh/compare/v0.11.6...v0.11.7) - 2026-06-08
+
+### Other
+
+- Bump codecov/codecov-action from 6 to 7 ([#187](https://github.com/openssh-rust/openssh/pull/187))
+- Bump codecov/codecov-action from 5 to 6 ([#184](https://github.com/openssh-rust/openssh/pull/184))
+- Bump actions/checkout from 4 to 6 ([#185](https://github.com/openssh-rust/openssh/pull/185))
+
 ## [0.11.6](https://github.com/openssh-rust/openssh/compare/v0.11.5...v0.11.6) - 2025-12-03
 
 ### Fixed
